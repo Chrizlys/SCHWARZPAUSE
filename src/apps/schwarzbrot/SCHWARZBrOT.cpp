@@ -49,7 +49,7 @@ static const long long kNeededBytes = 3500LL * 1024 * 1024;
 // NOT the "/blob/" web-viewer URL, so wget fetches the model and not an HTML
 // page.
 static const char* kModelUrl =
-	"https://huggingface.co/Chrizly/Qwen3.5-4B-Q4_K_M.gguf/resolve/main/"
+	"https://huggingface.co/Chrizlys/Qwen3.5-4B-Q4_K_M.gguf/resolve/main/"
 	"Qwen3.5-4B-Q4_K_M.gguf?download=true";
 
 
