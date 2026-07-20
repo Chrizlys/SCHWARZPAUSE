@@ -140,17 +140,44 @@ static std::string findOpenscad() {
   for (const char* p : cands) if (p && fileExists(p)) return p;
   return "";
 }
-// Re-open just the browser UI against a bridge that is already running. Used when
-// the user closed the window and clicked the icon again: OpenSCAD is usually still
-// open, and it is spawned directly (not through the launch roster), so launching it
-// again would stack a second window on the same live file.
-static void openUiOnly() {
+// Re-open the UI against a bridge that is already running (the user closed the
+// window and clicked the icon again).
+//
+// The two programs behave differently, so they need different handling:
+//   * this bridge is a SERVER -- closing the browser leaves it running;
+//   * OpenSCAD is a normal GUI app -- closing its window really does quit it.
+// So the browser is always re-opened, while OpenSCAD is only started again if the
+// user actually closed it. It is spawned directly rather than through the launch
+// roster, so starting it blindly would stack a second window on the same live file.
+static bool openscadRunning() {
+#ifdef _WIN32
+  return false;
+#else
+  // The [o] keeps grep from matching its own command line.
+  return std::system("ps 2>/dev/null | grep -q '[o]penscad'") == 0;
+#endif
+}
+
+static void openOpenscad() {
+  std::string osc = findOpenscad();
+  if (osc.empty())
+    return;
+#ifdef _WIN32
+  std::system(("start \"\" \"" + osc + "\" \"" + MODEL + "\"").c_str());
+#else
+  std::system(("\"" + osc + "\" \"" + MODEL + "\" &").c_str());
+#endif
+}
+
+static void reopen() {
   std::string url = "http://localhost:" + std::to_string(PORT);
 #ifdef _WIN32
   std::system(("start \"\" \"" + url + "\"").c_str());
 #else
   std::system(("open \"" + url + "\" &").c_str());
 #endif
+  if (!openscadRunning())
+    openOpenscad();
 }
 
 static void launch() {
@@ -210,7 +237,7 @@ int main(int argc, char** argv) {
     // except typing the localhost URL by hand. So just re-open the UI (and OpenSCAD)
     // against the server that is already up.
     std::printf("  Port %d busy — bridge already running; re-opening the UI.\n", PORT);
-    if (!std::getenv("SCHWARZSEHER_NO_OPEN")) openUiOnly();
+    if (!std::getenv("SCHWARZSEHER_NO_OPEN")) reopen();
     return 0;
   }
   listen(s, 16);
