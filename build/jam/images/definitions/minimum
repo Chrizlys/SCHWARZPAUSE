@@ -440,8 +440,25 @@ for repository in $(HAIKU_REPOSITORIES) {
 	if $(HAIKU_UPDATE_ALL_PACKAGES) {
 		HAIKU_INCLUDE_IN_IMAGE on $(config) $(cache) = 1 ;
 	}
-	AddFilesToHaikuImage system settings package-repositories
-		: $(config) : $(repository:G=) ;
-	AddFilesToHaikuImage system cache package-repositories
-		: $(cache) : $(repository:G=) ;
+	# SCHWARZPAUSE: with SCHWARZPAUSE_FREEZE_OS_CORE=1 the "Haiku" repository
+	# config is NOT shipped. pkgman then has no source for the haiku package, so
+	# it cannot replace our branded one -- the branding-revert problem becomes
+	# structurally impossible. HaikuPorts is still shipped, so applications keep
+	# updating normally. Set the variable to 0 once we serve our own OS packages.
+	local shipRepositoryConfig = 1 ;
+	if $(SCHWARZPAUSE_FREEZE_OS_CORE) = 1 {
+		if $(repository:G=) = Haiku {
+			shipRepositoryConfig = ;
+		}
+	}
+
+	if $(shipRepositoryConfig) {
+		AddFilesToHaikuImage system settings package-repositories
+			: $(config) : $(repository:G=) ;
+		AddFilesToHaikuImage system cache package-repositories
+			: $(cache) : $(repository:G=) ;
+	} else {
+		Echo "SCHWARZPAUSE: OS core frozen -- not shipping the"
+			$(repository:G=) "repository config (apps still update)." ;
+	}
 }

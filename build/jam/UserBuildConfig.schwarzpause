@@ -24,6 +24,19 @@ HAIKU_ANYBOOT_LABEL = "Schwarzpause OS" ;
 #      boot: too big for a VM CD, and from disk/USB the loader reports "no boot
 #      volume" (consistent with the 4 GiB / 32-bit boundary). Experiments only.
 # ============================================================================
+# Freeze the OS core: do not ship the "Haiku" package repository config, so a
+# pkgman update cannot replace our branded haiku package with the stock one
+# (which used to wipe the branding and both apps). HaikuPorts IS still shipped,
+# so applications keep updating from Haiku's servers exactly as normal.
+#
+# Audited 2026-07-20: all 149 HaikuPorts packages in the image require at most
+# haiku>=r1~beta5_hrev57937_111; we ship hrev59395, ~1458 revisions ahead, so
+# nothing is unsatisfiable. HaikuPorts targets Haiku RELEASES, so the next time
+# this matters is beta6.
+#
+# Set to 0 once SCHWARZPAUSE serves its own OS packages from its own repository.
+SCHWARZPAUSE_FREEZE_OS_CORE ?= 1 ;
+
 SCHWARZBROT_BAKE_MODEL ?= 0 ;
 
 if $(SCHWARZBROT_BAKE_MODEL) = 1 {
