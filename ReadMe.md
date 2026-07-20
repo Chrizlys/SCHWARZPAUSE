@@ -27,6 +27,36 @@ Status
 Work in progress. The system boots and runs from USB, and both applications work.
 Interfaces and defaults are still changing.
 
+Updates
+-------
+
+**Applications update normally.** SCHWARZPAUSE ships Haiku's HaikuPorts repository, so
+anything you install from HaikuDepot — web browsers, LibreOffice, OpenSCAD and the rest —
+keeps receiving updates straight from the Haiku project. Nothing is held back.
+
+**The operating system core does not update itself.** SCHWARZPAUSE deliberately does not
+ship the Haiku package repository. The reason is straightforward: part of the SCHWARZPAUSE
+identity is compiled into the core system, so installing Haiku's own `haiku` package would
+replace it with stock Haiku — the desktop, the boot screen and the About window would all
+revert to Haiku's.
+
+What this means in practice:
+
+* You keep receiving security updates for your applications, which is where most everyday
+  risk actually lives — above all the web browser.
+* You do **not** automatically receive fixes to the OS core itself. To move to a newer
+  core, install a newer SCHWARZPAUSE release.
+
+If you would rather follow Haiku's own updates and accept losing the SCHWARZPAUSE
+appearance, you can add the repository back yourself at any time:
+
+    pkgman add-repo https://eu.hpkg.haiku-os.org/haiku/master/x86_64/current
+    pkgman update
+
+This is a one-person project. If it ever stops being maintained, moving to
+[Haiku](https://www.haiku-os.org) is the sensible choice — SCHWARZPAUSE is a derivative of
+it, so you lose nothing but the styling.
+
 Building
 --------
 
