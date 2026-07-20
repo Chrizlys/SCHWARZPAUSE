@@ -1,11 +1,13 @@
 name			schwarzpause_branding
 version			%HAIKU_VERSION%
 architecture	%HAIKU_PACKAGING_ARCH%
-summary			"Schwarzpause OS branding"
-description		"Public-facing Schwarzpause OS visual identity assets: logo, light wallpaper, icon style references, clean SVG icon sources, and generated HVIF icons."
+summary			"SCHWARZPAUSE branding and applications"
+description		"The public-facing SCHWARZPAUSE identity and its own applications: logo, wallpapers, icon style references, SVG icon sources and generated HVIF icons, plus the SCHWARZBrOT offline AI assistant (engine, libraries and web UI) and the SCHWARZSEHER OpenSCAD front end.
 
-packager		"The Schwarzpause build system"
-vendor			"Haiku Project"
+These ship from this package rather than the haiku package on purpose, so that updating Haiku cannot remove them."
+
+packager		"The SCHWARZPAUSE build system"
+vendor			"SCHWARZPAUSE"
 
 copyrights		"2026 Schwarzpause"
 licenses		MIT
