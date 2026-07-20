@@ -20,4 +20,16 @@ resource app_version {
 	long_info  = "SCHWARZSEHER - visual authoring layer for OpenSCAD (Schwarzpause OS)"
 };
 
-resource app_flags B_SINGLE_LAUNCH;
+/* B_MULTIPLE_LAUNCH, deliberately.
+ *
+ * With B_SINGLE_LAUNCH the system does not start a second process while the
+ * bridge is still running -- it only sends a message to the running instance.
+ * This is a plain server, not a BApplication, so that message goes nowhere and
+ * clicking the icon appears to do NOTHING once the user has closed the browser
+ * window. The only way back was killing the process by hand.
+ *
+ * Allowing a second process is what makes "click the icon again" work: it finds
+ * the port already bound, re-opens the UI (and OpenSCAD) against the running
+ * bridge, and exits immediately. See the bind() failure path in main().
+ */
+resource app_flags B_MULTIPLE_LAUNCH;

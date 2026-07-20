@@ -140,6 +140,19 @@ static std::string findOpenscad() {
   for (const char* p : cands) if (p && fileExists(p)) return p;
   return "";
 }
+// Re-open just the browser UI against a bridge that is already running. Used when
+// the user closed the window and clicked the icon again: OpenSCAD is usually still
+// open, and it is spawned directly (not through the launch roster), so launching it
+// again would stack a second window on the same live file.
+static void openUiOnly() {
+  std::string url = "http://localhost:" + std::to_string(PORT);
+#ifdef _WIN32
+  std::system(("start \"\" \"" + url + "\"").c_str());
+#else
+  std::system(("open \"" + url + "\" &").c_str());
+#endif
+}
+
 static void launch() {
   std::string url = "http://localhost:" + std::to_string(PORT), osc = findOpenscad();
 #ifdef _WIN32
@@ -197,7 +210,7 @@ int main(int argc, char** argv) {
     // except typing the localhost URL by hand. So just re-open the UI (and OpenSCAD)
     // against the server that is already up.
     std::printf("  Port %d busy — bridge already running; re-opening the UI.\n", PORT);
-    if (!std::getenv("SCHWARZSEHER_NO_OPEN")) launch();
+    if (!std::getenv("SCHWARZSEHER_NO_OPEN")) openUiOnly();
     return 0;
   }
   listen(s, 16);

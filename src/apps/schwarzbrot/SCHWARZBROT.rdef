@@ -21,4 +21,15 @@ resource app_version {
 	long_info  = "SCHWARZBrOT - offline AI chat for Schwarzpause OS"
 };
 
-resource app_flags B_SINGLE_LAUNCH;
+/* B_MULTIPLE_LAUNCH, deliberately.
+ *
+ * With B_SINGLE_LAUNCH the system does not start a second process while the
+ * engine is still running -- it only sends a message to the running instance,
+ * and this launcher is not a BApplication, so nothing happens at all. That made
+ * the "already running" dialog ([Open chat] / [Remove model]) unreachable and
+ * left the user with no way back once the browser window was closed.
+ *
+ * A second process is harmless: it detects the running server, offers those
+ * choices, and exits without starting a second engine. See HandleRunning().
+ */
+resource app_flags B_MULTIPLE_LAUNCH;
