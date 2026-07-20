@@ -1,61 +1,75 @@
-Haiku
+SCHWARZPAUSE
 =======================
-**[Homepage](https://www.haiku-os.org/)
-| [Mailing Lists](https://www.haiku-os.org/community/ml)
-| [IRC Channels](https://www.haiku-os.org/community/irc)
-| [Issue Tracker](https://dev.haiku-os.org/)
-| [API docs](https://api.haiku-os.org)**
+**The OS for engineers.**
 
-Haiku is an open-source operating system that specifically targets personal
-computing. Inspired by the BeOS, Haiku is fast, simple to use, easy to learn
-and yet very powerful.
+SCHWARZPAUSE is a free, open-source desktop operating system — a derivative of the
+[Haiku](https://www.haiku-os.org) operating system, made for engineers, makers, and
+anyone who wants a computer that stays fast and private.
 
-Goals
+It runs straight from a USB stick, without touching the system already on your machine.
+
+Applications
 ------------
- * Sensible defaults with minimal configuration required.
- * Clean, clear, concise code.
- * Unified desktop environment.
 
-Trying Haiku
----------------
-Haiku provides pre-built [nightly images](http://download.haiku-os.org/) and
-[release images](https://www.haiku-os.org/get-haiku). Haiku is compatible
-with a large variety of hardware, but in case you don't want to "take the
-plunge" and install Haiku on bare metal, you can install it on a virtual
-machine (VM) instead. If you've never used a VM before, you can follow one of
-the ["Emulating Haiku"](https://www.haiku-os.org/guides/virtualizing/) guides.
+SCHWARZPAUSE ships with two applications of its own:
 
-Compiling Haiku
----------------
-See `ReadMe.Compiling`.
+* **SCHWARZBrOT** — a fully offline AI assistant, running locally on your machine
+  (llama.cpp with a Qwen3.5-4B model). No account, no cloud, no telemetry: nothing you
+  type ever leaves the computer. The AI model is a separate, optional download.
 
-Contributing
--------------------
-Haiku is a meritocratic open source project with a large variety of tasks. Even
-if you can't write code, *you can still help*! Haiku needs designers,
-(technical) writers, translators, testers... [Get involved](https://www.haiku-os.org/community/getting-involved/)
-and help out!
+* **SCHWARZSEHER** — a visual front end for [OpenSCAD](https://openscad.org). You sketch
+  and type dimensions, it generates clean `.scad` code, and OpenSCAD renders it. OpenSCAD
+  stays the source of truth and is installed separately.
 
-### Contributing code
-If you're submitting a patch to us, please make sure you're following the
-[patch submitting guidelines](https://dev.haiku-os.org/wiki/CodingGuidelines/SubmittingPatches).
+Status
+------
 
-If you're having trouble finding something in the source tree, you can use
-one of our web-based source code browsers:
+Work in progress. The system boots and runs from USB, and both applications work.
+Interfaces and defaults are still changing.
 
- * https://grok.nikisoft.one/opengrok/ (OpenGrok, provided by Niklas Poslovski)
- * https://git.haiku-os.org/ (git, provided by Haiku, Inc.)
+Building
+--------
 
-### Contributing documentation
-The main piece of documentation that still needs work are the API docs (found
-in the tree at `docs/user`). Just find an undocumented class, write
-documentation for it, and [submit a patch](https://dev.haiku-os.org/wiki/CodingGuidelines/SubmittingPatches).
+SCHWARZPAUSE builds like Haiku, from Linux (or WSL on Windows). Clone this repository
+and Haiku's `buildtools` next to each other:
 
-### Contributing translations
-See [wiki:i18n](https://dev.haiku-os.org/wiki/i18n).
+    git clone https://github.com/Chrizlys/SCHWARZPAUSE.git
+    git clone https://review.haiku-os.org/buildtools.git
 
-### Contributing software ports
-See [HaikuPorts](https://github.com/haikuports/haikuports/).
+Activate the SCHWARZPAUSE build configuration, then configure and build:
 
-### Contributing to our infrastructure
-See [Infrastructure](https://github.com/haiku/infrastructure/).
+    cd SCHWARZPAUSE
+    cp build/jam/UserBuildConfig.schwarzpause build/jam/UserBuildConfig
+    ./configure --build-cross-tools x86_64 ../buildtools
+    mkdir -p generated.x86_64 && cd generated.x86_64
+    jam -q -j$(nproc) @nightly-anyboot
+
+The result is a bootable anyboot image. Write it to a USB stick in raw/DD mode and boot
+from it. For general Haiku build requirements see `ReadMe.Compiling.md`.
+
+Note for Windows users: build from a Linux filesystem, not directly from a Windows path,
+and keep line endings as LF — CRLF breaks the build.
+
+License and attribution
+-----------------------
+
+SCHWARZPAUSE is a derivative of **Haiku**, which is distributed under the **MIT license**.
+The license text is in `License.md`, and Haiku's original project README is preserved as
+`ReadMe.Haiku.md`. Copyright notices in the source belong to their respective authors.
+
+> Haiku® and the HAIKU logo® are registered trademarks of Haiku, Inc.
+> SCHWARZPAUSE is **not affiliated with, endorsed by, or sponsored by Haiku, Inc.**
+
+Third-party components:
+
+* [Haiku](https://www.haiku-os.org) — MIT license
+* [llama.cpp](https://github.com/ggml-org/llama.cpp) — MIT license
+* Qwen3.5-4B — Apache 2.0, © Alibaba Cloud / Qwen Team; GGUF quantization by bartowski
+* [OpenSCAD](https://openscad.org) — GPL. SCHWARZSEHER communicates with OpenSCAD as a
+  separate program and does not link against it.
+
+Thanks
+------
+
+To the **Haiku** project — the independent, open-source operating system SCHWARZPAUSE is
+built on, written by volunteers over more than two decades. Thank you for your great work.
