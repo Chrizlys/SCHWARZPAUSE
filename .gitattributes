@@ -1,0 +1,3 @@
+# SCHWARZPAUSE builds on Haiku/WSL, where CRLF breaks the build.
+# Never convert line endings, for anyone, on any platform.
+* -text
