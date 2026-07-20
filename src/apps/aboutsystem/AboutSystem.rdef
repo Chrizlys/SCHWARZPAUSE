@@ -12,22 +12,22 @@ resource app_version {
 
 	internal = 0,
 
-	short_info = "AboutHaiku",
-	long_info = "AboutHaiku ©2005-2009 Haiku, Inc."
+	short_info = "About Schwarzpause OS",
+	long_info = "About Schwarzpause OS"
 };
 
 resource app_flags B_SINGLE_LAUNCH;
 
 #ifdef HAIKU_DISTRO_COMPATIBILITY_OFFICIAL
 #ifdef HAIKU_OFFICIAL_RELEASE
-resource(1, "logo.png") #'PNG ' import "../../../data/artwork/HAIKU logo - black on transparent - tiny.png";
-resource(2, "logo_dark.png") #'PNG ' import "../../../data/artwork/HAIKU logo - white on transparent - tiny.png";
+resource(1, "logo.png") #'PNG ' import "../../../data/artwork/SCHWARZPAUSE_LOGO.png";
+resource(2, "logo_dark.png") #'PNG ' import "../../../data/artwork/SCHWARZPAUSE_LOGO.png";
 #else
-resource(1, "logo.png") #'PNG ' import "../../../data/artwork/HAIKU logo - black on transparent - tiny - versioned.png";
-resource(2, "logo_dark.png") #'PNG ' import "../../../data/artwork/HAIKU logo - white on transparent - tiny - versioned.png";
+resource(1, "logo.png") #'PNG ' import "../../../data/artwork/SCHWARZPAUSE_LOGO.png";
+resource(2, "logo_dark.png") #'PNG ' import "../../../data/artwork/SCHWARZPAUSE_LOGO.png";
 #endif
 #else
-resource(1, "walter_logo.png") #'PNG ' import "../../../data/artwork/Walter logo.png";
+resource(1, "walter_logo.png") #'PNG ' import "../../../data/artwork/SCHWARZPAUSE_LOGO.png";
 #endif
 
 resource vector_icon {

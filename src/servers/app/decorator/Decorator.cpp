@@ -636,6 +636,10 @@ Decorator::RegionAt(BPoint where, int32& tabIndex) const
 			tabIndex = i;
 			return REGION_ZOOM_BUTTON;
 		}
+		if (tab->minimizeRect.Contains(where)) {
+			tabIndex = i;
+			return REGION_MINIMIZE_BUTTON;
+		}
 		if (tab->tabRect.Contains(where)) {
 			tabIndex = i;
 			return REGION_TAB;

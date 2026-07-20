@@ -8,6 +8,7 @@ local packages = [ FFilterByBuildFeatures
 	HaikuSource
 	MakefileEngine
 	NetFS
+	SchwarzpauseBranding
 	UserlandFS
 	]
 	;

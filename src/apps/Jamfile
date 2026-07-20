@@ -46,6 +46,8 @@ HaikuSubInclude processcontroller ;
 HaikuSubInclude pulse ;
 HaikuSubInclude remotedesktop ;
 HaikuSubInclude resedit ;
+HaikuSubInclude schwarzbrot ;
+HaikuSubInclude schwarzseher ;
 HaikuSubInclude screenshot ;
 HaikuSubInclude serialconnect ;
 HaikuSubInclude showimage ;

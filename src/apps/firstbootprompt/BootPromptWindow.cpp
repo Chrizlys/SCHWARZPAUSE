@@ -361,41 +361,39 @@ BootPromptWindow::_InitCatalog(bool saveSettings)
 void
 BootPromptWindow::_UpdateStrings()
 {
-	BString titleTextHaiku = B_TRANSLATE("Welcome to Haiku!");
+	BString titleTextHaiku = B_TRANSLATE("Welcome to Schwarzpause OS!");
 	BString mainTextHaiku = B_TRANSLATE_COMMENT(
-		"Thank you for trying out Haiku! We hope you'll like it!\n\n"
+		"Thank you for trying out Schwarzpause OS! We hope you'll like it!\n\n"
 		"Please select your preferred language and keymap. Both settings can "
-		"also be changed later when running Haiku.\n\n"
+		"also be changed later when running Schwarzpause OS.\n\n"
 
-		"Do you wish to install Haiku now, or try it out first?",
+		"Do you wish to install Schwarzpause OS now, or try it out first?",
 
 		"For other languages, a note could be added: \""
-		"Note: Localization of Haiku applications and other components is "
+		"Note: Localization of applications and other components is "
 		"an on-going effort. You will frequently encounter untranslated "
-		"strings, but if you like, you can join in the work at "
-		"<www.haiku-os.org>.\"");
-	BString desktopTextHaiku = B_TRANSLATE("Try Haiku");
-	BString installTextHaiku = B_TRANSLATE("Install Haiku");
+		"strings.\"");
+	BString desktopTextHaiku = B_TRANSLATE("Try Schwarzpause OS");
+	BString installTextHaiku = B_TRANSLATE("Install Schwarzpause OS");
 
-	BString titleTextDebranded = B_TRANSLATE("Welcome!");
+	BString titleTextDebranded = B_TRANSLATE("Welcome to Schwarzpause OS!");
 	BString mainTextDebranded = B_TRANSLATE_COMMENT(
-			"Thank you for trying out our operating system! We hope you'll "
+			"Thank you for trying out Schwarzpause OS! We hope you'll "
 			"like it!\n\n"
 			"Please select your preferred language and keymap. Both settings "
 			"can also be changed later.\n\n"
 
-			"Do you wish to install the operating system now, or try it out "
+			"Do you wish to install Schwarzpause OS now, or try it out "
 			"first?",
 
 			"This notice appears when the build of Haiku that's currently "
 			"being used is unofficial, as in, not distributed by Haiku itself."
 			"For other languages, a note could be added: \""
-			"Note: Localization of Haiku applications and other components is "
+			"Note: Localization of applications and other components is "
 			"an on-going effort. You will frequently encounter untranslated "
-			"strings, but if you like, you can join in the work at "
-			"<www.haiku-os.org>.\"");
-	BString desktopTextDebranded = B_TRANSLATE("Try it out");
-	BString installTextDebranded = B_TRANSLATE("Install");
+			"strings.\"");
+	BString desktopTextDebranded = B_TRANSLATE("Try Schwarzpause OS");
+	BString installTextDebranded = B_TRANSLATE("Install Schwarzpause OS");
 
 #ifdef HAIKU_DISTRO_COMPATIBILITY_OFFICIAL
 	SetTitle(titleTextHaiku);

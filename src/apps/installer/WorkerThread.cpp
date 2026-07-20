@@ -586,11 +586,10 @@ WorkerThread::_PerformInstall(partition_id sourcePartitionID,
 
 	if (entries != 0) {
 		BAlert* alert = new BAlert("", B_TRANSLATE("The target volume is not "
-			"empty. If it already contains a Haiku installation, it will be "
+			"empty. If it already contains a Schwarzpause OS installation, it will be "
 			"overwritten. This will remove all installed software.\n\n"
 			"If you want to upgrade your system without removing installed "
-			"software, see the Haiku User Guide's topic on the application "
-			"\"SoftwareUpdater\" for update instructions.\n\n"
+			"software, use SoftwareUpdater for update instructions.\n\n"
 			"Are you sure you want to continue the installation?"),
 			B_TRANSLATE("Install anyway"), B_TRANSLATE("Cancel"), 0,
 			B_WIDTH_AS_USUAL, B_STOP_ALERT);

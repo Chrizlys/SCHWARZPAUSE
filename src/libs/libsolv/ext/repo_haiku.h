@@ -8,7 +8,7 @@
 #ifndef REPO_HAIKU_H
 #define REPO_HAIKU_H
 
-#include "repo.h"
+#include "../solv/repo.h"
 
 #ifdef __cplusplus
 extern "C" {

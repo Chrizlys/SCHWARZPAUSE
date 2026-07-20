@@ -30,6 +30,133 @@
 #include "CursorData.cpp"
 
 
+namespace {
+
+struct PencilPoint {
+	float x;
+	float y;
+};
+
+
+bool
+PointInPolygon(float x, float y, const PencilPoint* points, size_t count)
+{
+	bool inside = false;
+	for (size_t i = 0, previous = count - 1; i < count; previous = i++) {
+		const PencilPoint& current = points[i];
+		const PencilPoint& last = points[previous];
+		if ((current.y > y) != (last.y > y)
+			&& x < (last.x - current.x) * (y - current.y)
+				/ (last.y - current.y) + current.x) {
+			inside = !inside;
+		}
+	}
+	return inside;
+}
+
+
+BBitmap
+RenderSchwarzpausePencilCursor(uint32 size)
+{
+	const uint32 flags = B_BITMAP_NO_SERVER_LINK;
+	BBitmap bitmap(BRect(0, 0, size - 1, size - 1), flags, B_RGBA32);
+	memset(bitmap.Bits(), 0, bitmap.BitsLength());
+
+	// Coordinates are authored on the native 22-pixel cursor canvas and are
+	// sampled at the user's current cursor scale below.
+	const PencilPoint outline[] = {
+		{1.0f, 1.0f}, {7.0f, 2.6f}, {12.8f, 6.0f}, {21.0f, 14.5f},
+		{15.0f, 21.0f}, {6.0f, 12.6f}, {2.5f, 7.0f}
+	};
+	const PencilPoint body[] = {
+		{11.7f, 6.6f}, {20.2f, 14.8f}, {14.8f, 20.2f}, {6.7f, 12.1f},
+		{8.5f, 11.9f}, {8.7f, 10.4f}, {10.4f, 10.2f}, {10.6f, 8.6f},
+		{12.0f, 8.4f}
+	};
+	const PencilPoint wood[] = {
+		{2.1f, 2.0f}, {6.7f, 3.2f}, {11.6f, 6.7f}, {11.8f, 8.1f},
+		{10.2f, 8.4f}, {10.1f, 10.0f}, {8.4f, 10.2f}, {8.2f, 11.7f},
+		{6.5f, 11.8f}, {3.2f, 6.7f}
+	};
+	const PencilPoint graphite[] = {
+		{1.1f, 1.1f}, {5.2f, 2.5f}, {2.5f, 5.2f}
+	};
+
+	const int32 samplesPerAxis = 4;
+	const int32 sampleCount = samplesPerAxis * samplesPerAxis;
+	const float coordinateScale = 22.0f / size;
+	uint8* bits = (uint8*)bitmap.Bits();
+
+	for (uint32 y = 0; y < size; y++) {
+		uint8* pixel = bits + y * bitmap.BytesPerRow();
+		for (uint32 x = 0; x < size; x++, pixel += 4) {
+			int32 red = 0;
+			int32 green = 0;
+			int32 blue = 0;
+			int32 alpha = 0;
+
+			for (int32 sampleY = 0; sampleY < samplesPerAxis; sampleY++) {
+				for (int32 sampleX = 0; sampleX < samplesPerAxis; sampleX++) {
+					const float samplePointX = (x
+						+ (sampleX + 0.5f) / samplesPerAxis) * coordinateScale;
+					const float samplePointY = (y
+						+ (sampleY + 0.5f) / samplesPerAxis) * coordinateScale;
+
+					uint8 sampleRed = 0;
+					uint8 sampleGreen = 0;
+					uint8 sampleBlue = 0;
+					uint8 sampleAlpha = 0;
+					if (PointInPolygon(samplePointX, samplePointY, outline,
+							B_COUNT_OF(outline))) {
+						sampleRed = 20;
+						sampleGreen = 22;
+						sampleBlue = 23;
+						sampleAlpha = 255;
+					}
+					if (PointInPolygon(samplePointX, samplePointY, body,
+							B_COUNT_OF(body))) {
+						sampleRed = 246;
+						sampleGreen = 193;
+						sampleBlue = 31;
+						sampleAlpha = 255;
+					}
+					if (PointInPolygon(samplePointX, samplePointY, wood,
+							B_COUNT_OF(wood))) {
+						sampleRed = 246;
+						sampleGreen = 246;
+						sampleBlue = 242;
+						sampleAlpha = 255;
+					}
+					if (PointInPolygon(samplePointX, samplePointY, graphite,
+							B_COUNT_OF(graphite))) {
+						sampleRed = 4;
+						sampleGreen = 5;
+						sampleBlue = 6;
+						sampleAlpha = 255;
+					}
+
+					red += sampleRed;
+					green += sampleGreen;
+					blue += sampleBlue;
+					alpha += sampleAlpha;
+				}
+			}
+
+			// B_RGBA32 is stored BGRA; averaging opaque/transparent samples also
+			// leaves antialiased edge pixels correctly premultiplied.
+			pixel[0] = blue / sampleCount;
+			pixel[1] = green / sampleCount;
+			pixel[2] = red / sampleCount;
+			pixel[3] = alpha / sampleCount;
+		}
+	}
+
+	return bitmap;
+}
+
+} // namespace
+
+
 CursorManager::CursorManager()
 	:
 	BLocker("CursorManager")
@@ -477,7 +604,11 @@ CursorManager::_InitCursor(ServerCursor*& cursorMember, BCursorID id,
 	float shadow = 3 / 10.0;
 	BPoint scaledHotspot((int32)(hotSpot.x * scale), (int32)(hotSpot.y * scale));
 
-	if (vector != NULL) {
+	if (id == B_CURSOR_ID_SYSTEM_DEFAULT) {
+		BBitmap bitmap = RenderSchwarzpausePencilCursor(cursorSize);
+		cursorMember = new ServerCursor((uint8*)bitmap.Bits(), cursorSize,
+			cursorSize, bitmap.ColorSpace());
+	} else if (vector != NULL) {
 		BBitmap bitmap = _RenderVectorCursor(cursorSize, vector, vectorSize, shadow);
 		cursorMember = new ServerCursor((uint8*)bitmap.Bits(), cursorSize,
 			cursorSize, bitmap.ColorSpace());

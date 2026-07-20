@@ -37,12 +37,18 @@ All rights reserved.
 #include "BarMenuBar.h"
 
 #include <algorithm>
+#include <new>
+#include <string.h>
 
 #include <Bitmap.h>
 #include <ControlLook.h>
 #include <Debug.h>
+#include <Font.h>
 #include <IconUtils.h>
 #include <NodeInfo.h>
+#include <TranslatorFormats.h>
+#include <TranslationUtils.h>
+#include <View.h>
 
 #include "icons.h"
 
@@ -59,6 +65,141 @@ All rights reserved.
 const float kSepItemWidth = 5.0f;
 
 const float kTeamIconBitmapHeight = 19.f;
+
+
+static BBitmap*
+CreateFallbackSchwarzpauseMenuIcon(float width, float height)
+{
+	BRect bounds(0, 0, width - 1, height - 1);
+	BBitmap* icon = new(std::nothrow) BBitmap(bounds, B_RGBA32, true);
+	if (icon == NULL || icon->InitCheck() != B_OK) {
+		delete icon;
+		return NULL;
+	}
+
+	if (icon->Bits() != NULL && icon->BitsLength() > 0)
+		memset(icon->Bits(), 0, icon->BitsLength());
+
+	if (!icon->Lock()) {
+		delete icon;
+		return NULL;
+	}
+
+	BView* canvas = new(std::nothrow) BView(bounds, "schwarzpause menu icon",
+		B_FOLLOW_NONE, B_WILL_DRAW);
+	if (canvas == NULL) {
+		icon->Unlock();
+		delete icon;
+		return NULL;
+	}
+	icon->AddChild(canvas);
+
+	canvas->SetDrawingMode(B_OP_COPY);
+	canvas->SetHighColor(0, 0, 0, 0);
+	canvas->FillRect(bounds);
+
+	canvas->SetDrawingMode(B_OP_ALPHA);
+	canvas->SetBlendingMode(B_PIXEL_ALPHA, B_ALPHA_COMPOSITE);
+
+	BRect iconArea = bounds.InsetByCopy(5, 3);
+	float unit = std::max(1.0f, iconArea.Height() / 25.0f);
+	float potLeft = iconArea.left + 6 * unit;
+	float potTop = iconArea.top + 15 * unit;
+	BPoint pot[] = {
+		BPoint(potLeft, potTop),
+		BPoint(potLeft + 12 * unit, potTop - 4 * unit),
+		BPoint(potLeft + 19 * unit, potTop + 5 * unit),
+		BPoint(potLeft + 14 * unit, potTop + 15 * unit),
+		BPoint(potLeft + 3 * unit, potTop + 15 * unit),
+		BPoint(potLeft - 4 * unit, potTop + 6 * unit)
+	};
+	canvas->SetHighColor(2, 3, 5, 245);
+	canvas->FillPolygon(pot, 6);
+	canvas->SetHighColor(255, 255, 255, 58);
+	canvas->StrokeLine(BPoint(potLeft + 3 * unit, potTop + 12 * unit),
+		BPoint(potLeft + 14 * unit, potTop + 12 * unit));
+
+	BPoint shaftStart(potLeft + 13 * unit, potTop + 1 * unit);
+	BPoint shaftEnd(iconArea.right - 3 * unit, iconArea.top + 4 * unit);
+	canvas->SetPenSize(3.0f * unit);
+	canvas->SetHighColor(248, 249, 250, 255);
+	canvas->StrokeLine(shaftStart, shaftEnd);
+	canvas->SetPenSize(1.5f * unit);
+	canvas->SetHighColor(230, 233, 238, 245);
+	canvas->StrokeLine(BPoint(shaftStart.x + 11 * unit, shaftStart.y - 3 * unit),
+		BPoint(shaftStart.x + 21 * unit, shaftStart.y - 10 * unit));
+	canvas->StrokeLine(BPoint(shaftStart.x + 18 * unit, shaftStart.y - 5 * unit),
+		BPoint(shaftStart.x + 30 * unit, shaftStart.y - 12 * unit));
+	canvas->StrokeLine(BPoint(shaftStart.x + 25 * unit, shaftStart.y - 7 * unit),
+		BPoint(shaftEnd.x, shaftEnd.y - 1 * unit));
+	canvas->StrokeLine(BPoint(shaftStart.x + 16 * unit, shaftStart.y - 4 * unit),
+		BPoint(shaftStart.x + 23 * unit, shaftStart.y + 1 * unit));
+	canvas->StrokeLine(BPoint(shaftStart.x + 24 * unit, shaftStart.y - 6 * unit),
+		BPoint(shaftStart.x + 33 * unit, shaftStart.y - 1 * unit));
+
+	canvas->Sync();
+	icon->RemoveChild(canvas);
+	icon->Unlock();
+	delete canvas;
+
+	return icon;
+}
+
+
+static BBitmap*
+CreateSchwarzpauseMenuIcon(float width, float height)
+{
+	BBitmap* logo = BTranslationUtils::GetBitmap(B_PNG_FORMAT,
+		"schwarzpause_start_mark.png");
+	if (logo == NULL)
+		return CreateFallbackSchwarzpauseMenuIcon(width, height);
+
+	BRect bounds(0, 0, width - 1, height - 1);
+	BBitmap* icon = new(std::nothrow) BBitmap(bounds, B_RGBA32, true);
+	if (icon == NULL || icon->InitCheck() != B_OK) {
+		delete logo;
+		delete icon;
+		return CreateFallbackSchwarzpauseMenuIcon(width, height);
+	}
+
+	if (icon->Bits() != NULL && icon->BitsLength() > 0)
+		memset(icon->Bits(), 0, icon->BitsLength());
+
+	if (!icon->Lock()) {
+		delete logo;
+		delete icon;
+		return CreateFallbackSchwarzpauseMenuIcon(width, height);
+	}
+
+	BView* canvas = new(std::nothrow) BView(bounds,
+		"schwarzpause menu logo", B_FOLLOW_NONE, B_WILL_DRAW);
+	if (canvas == NULL) {
+		icon->Unlock();
+		delete logo;
+		delete icon;
+		return CreateFallbackSchwarzpauseMenuIcon(width, height);
+	}
+	icon->AddChild(canvas);
+
+	canvas->SetDrawingMode(B_OP_COPY);
+	canvas->SetHighColor(0, 0, 0, 0);
+	canvas->FillRect(bounds);
+
+	canvas->SetDrawingMode(B_OP_ALPHA);
+	canvas->SetBlendingMode(B_PIXEL_ALPHA, B_ALPHA_COMPOSITE);
+
+	BRect source(logo->Bounds());
+	BRect target(bounds);
+	canvas->DrawBitmapAsync(logo, source, target);
+
+	canvas->Sync();
+	icon->RemoveChild(canvas);
+	icon->Unlock();
+	delete canvas;
+	delete logo;
+
+	return icon;
+}
 
 
 //	#pragma mark - TSeparatorItem
@@ -117,22 +258,9 @@ TBarMenuBar::TBarMenuBar(BRect frame, const char* name, TBarView* barView)
 	TDeskbarMenu* beMenu = new TDeskbarMenu(barView);
 	TBarWindow::SetDeskbarMenu(beMenu);
 
-	BBitmap* icon = NULL;
-	size_t dataSize;
-	const void* data = AppResSet()->FindResource(B_VECTOR_ICON_TYPE,
-		R_LeafLogoBitmap, &dataSize);
-	if (data != NULL) {
-		// seems valid, scale bitmap according to be_bold_font size
-		float width = std::max(63.f, ceilf(63 * be_bold_font->Size() / 12.f));
-		float height = std::max(22.f, ceilf(22 * be_bold_font->Size() / 12.f));
-		icon = new BBitmap(BRect(0, 0, width - 1, height - 1), B_RGBA32);
-		if (icon->InitCheck() != B_OK
-			|| BIconUtils::GetVectorIcon((const uint8*)data, dataSize, icon)
-					!= B_OK) {
-			delete icon;
-			icon = NULL;
-		}
-	}
+	float width = std::max(63.f, ceilf(63 * be_bold_font->Size() / 12.f));
+	float height = std::max(22.f, ceilf(22 * be_bold_font->Size() / 12.f));
+	BBitmap* icon = CreateSchwarzpauseMenuIcon(width * 2.0f, height * 2.0f);
 
 	fDeskbarMenuItem = new TBarMenuTitle(0.0f, 0.0f, icon, beMenu, fBarView);
 	AddItem(fDeskbarMenuItem);
@@ -333,30 +461,61 @@ TBarMenuBar::InitTrackingHook(bool (*hookFunction)(BMenu*, void*),
 const BBitmap*
 TBarMenuBar::FetchTeamIcon()
 {
-	const BBitmap* teamIcon = NULL;
+	// The team-menu icon is the Schwarzpause folders/files "organizer" glyph,
+	// shipped as a white PNG (schwarzpause_team.png in icons.rdef) so it reads on
+	// the dark Deskbar. Decode it and scale to the team-icon height, preserving
+	// aspect ratio (the same PNG path the Start mark uses).
+	float iconHeight = std::max(kTeamIconBitmapHeight,
+		ceilf(kTeamIconBitmapHeight * be_bold_font->Size() / 12.f));
+	// Supersample: render at 3x the display height, scaling by HEIGHT so a wide
+	// icon keeps full width resolution. BarMenuTitle then bilinear-scales it down
+	// to the (wider-than-tall) Deskbar slot crisply.
+	float renderHeight = 3.0f * iconHeight;
 
-	if (fTeamIconData == NULL || fTeamIconSize == 0) {
-		// we haven't fetched vector icon data yet, fetch it
-		fTeamIconData = (const uint8*)AppResSet()->FindResource(
-			B_VECTOR_ICON_TYPE, R_TeamIcon, &fTeamIconSize);
+	BBitmap* source = BTranslationUtils::GetBitmap(B_PNG_FORMAT,
+		"schwarzpause_team.png");
+	if (source == NULL)
+		return NULL;
+
+	float srcWidth = source->Bounds().Width() + 1;
+	float srcHeight = source->Bounds().Height() + 1;
+	float scale = renderHeight / srcHeight;
+	float width = std::max(1.0f, floorf(srcWidth * scale));
+	float height = std::max(1.0f, floorf(srcHeight * scale));
+
+	BBitmap* icon = new(std::nothrow) BBitmap(BRect(0, 0, width - 1, height - 1),
+		B_RGBA32, true);
+	if (icon == NULL || icon->InitCheck() != B_OK) {
+		delete source;
+		delete icon;
+		return NULL;
 	}
+	if (icon->Bits() != NULL && icon->BitsLength() > 0)
+		memset(icon->Bits(), 0, icon->BitsLength());
 
-	if (fTeamIconData != NULL && fTeamIconSize > 0) {
-		// seems valid, scale bitmap according to be_bold_font size
-		float iconHeight = std::max(kTeamIconBitmapHeight,
-			ceilf(kTeamIconBitmapHeight * be_bold_font->Size() / 12.f));
-		BRect iconRect = BRect(0, 0, iconHeight, iconHeight);
-		iconRect.InsetBy(-1, -1);
-			// grow icon by 1px so that it renders nicely at 12pt font size
-		BBitmap* icon = new(std::nothrow) BBitmap(iconRect, B_RGBA32);
-		if (icon != NULL && icon->InitCheck() == B_OK
-			&& BIconUtils::GetVectorIcon(fTeamIconData, fTeamIconSize, icon)
-				== B_OK) {
-			// rasterize vector icon into a bitmap at the scaled size
-			teamIcon = icon;
-		} else if (icon != NULL)
-			delete icon;
+	if (!icon->Lock()) {
+		delete source;
+		delete icon;
+		return NULL;
 	}
+	BView* canvas = new(std::nothrow) BView(icon->Bounds(),
+		"schwarzpause team icon", B_FOLLOW_NONE, B_WILL_DRAW);
+	if (canvas == NULL) {
+		icon->Unlock();
+		delete source;
+		delete icon;
+		return NULL;
+	}
+	icon->AddChild(canvas);
+	canvas->SetDrawingMode(B_OP_ALPHA);
+	canvas->SetBlendingMode(B_PIXEL_ALPHA, B_ALPHA_COMPOSITE);
+	canvas->DrawBitmap(source, source->Bounds(), icon->Bounds(),
+		B_FILTER_BITMAP_BILINEAR);
+	canvas->Sync();
+	icon->RemoveChild(canvas);
+	icon->Unlock();
+	delete canvas;
+	delete source;
 
-	return teamIcon;
+	return icon;
 }

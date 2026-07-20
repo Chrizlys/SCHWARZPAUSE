@@ -31,6 +31,10 @@
 #endif
 
 
+static const uint8 kSchwarzpauseSplashBackground = 0x1d;
+static const uint32 kSchwarzpauseSplashBackground32 = 0x1d1d1d1d;
+
+
 static status_t
 uncompress(const uint8 compressed[], unsigned int compressedSize,
 	uint8* uncompressed, unsigned int uncompressedSize)
@@ -122,16 +126,16 @@ video_display_splash(addr_t frameBuffer)
 	if (size >= 64) {
 		// Align writes
 		for (addr_t align = (8 - (frameBuffer & 7)) & 7; pos < align; pos++)
-			*(char*)(frameBuffer + pos) = 0;
+			*(char*)(frameBuffer + pos) = kSchwarzpauseSplashBackground;
 		// Write eight bytes, many many times, but not too many
 		for (addr_t alignSize = size - 8; pos < alignSize; pos +=8) {
-			*(uint32*)(frameBuffer + pos) = 0;
-			*(uint32*)(frameBuffer + pos + 4) = 0;
+			*(uint32*)(frameBuffer + pos) = kSchwarzpauseSplashBackground32;
+			*(uint32*)(frameBuffer + pos + 4) = kSchwarzpauseSplashBackground32;
 		}
 	}
 	// Write a few bytes more
 	for (; pos < size; pos++)
-		*(char*)(frameBuffer + pos) = 0;
+		*(char*)(frameBuffer + pos) = kSchwarzpauseSplashBackground;
 
 	uint8* uncompressedLogo = NULL;
 	unsigned int uncompressedSize = kSplashLogoWidth * kSplashLogoHeight;

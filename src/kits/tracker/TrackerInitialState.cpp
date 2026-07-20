@@ -58,6 +58,7 @@ All rights reserved.
 #include "BackgroundImage.h"
 #include "Bitmaps.h"
 #include "ContainerWindow.h"
+#include "DeskWindow.h"
 #include "MimeTypes.h"
 #include "FSUtils.h"
 #include "QueryContainerWindow.h"
@@ -202,6 +203,48 @@ InstallTemporaryBackgroundImages(BNode* node, BMessage* message)
 		delete[] buffer;
 	} catch (...) {
 		;
+	}
+}
+
+
+static bool
+HasSelectedBackgroundImage(BNode* node)
+{
+	attr_info info;
+	if (node->GetAttrInfo(kBackgroundImageInfo, &info) != B_OK
+		|| info.size <= 0) {
+		return false;
+	}
+
+	try {
+		ThrowIfNotSize(info.size);
+		char* buffer = new char[(size_t)info.size];
+		ssize_t error = node->ReadAttr(kBackgroundImageInfo, info.type, 0,
+			buffer, (size_t)info.size);
+
+		bool hasImage = false;
+		if (error == info.size) {
+			BMessage message;
+			if (message.Unflatten(buffer) == B_OK) {
+				for (int32 index = 0; ; index++) {
+					const char* path;
+					if (message.FindString(kBackgroundImageInfoPath, index,
+							&path) != B_OK) {
+						break;
+					}
+
+					if (path != NULL && path[0] != '\0') {
+						hasImage = true;
+						break;
+					}
+				}
+			}
+		}
+
+		delete[] buffer;
+		return hasImage;
+	} catch (...) {
+		return false;
 	}
 }
 
@@ -738,7 +781,7 @@ TTracker::InstallDefaultTemplates()
 void
 TTracker::InstallTemporaryBackgroundImages()
 {
-	// make the large Haiku Logo the default background
+	// make the Schwarzpause wallpaper the default background
 
 	BPath path;
 	status_t status = find_directory(B_SYSTEM_DATA_DIRECTORY, &path);
@@ -756,23 +799,28 @@ TTracker::InstallTemporaryBackgroundImages()
 	}
 	path.Append("artwork");
 
-	BString defaultBackgroundImage("/HAIKU logo - white on blue - big.png");
+	BString defaultBackgroundImage("/SCHWARZPAUSE_default.png");
 
 	BDirectory dir;
 	if (FSGetBootDeskDir(&dir) == B_OK) {
-		// install a default background if there is no background defined yet
-		attr_info info;
-		if (dir.GetAttrInfo(kBackgroundImageInfo, &info) != B_OK) {
-			BScreen screen(B_MAIN_SCREEN_ID);
-			BPoint logoPos;
-			logoPos.x
-				= floorf((screen.Frame().Width() - 605) * (sqrtf(5) - 1) / 2);
-			logoPos.y = floorf((screen.Frame().Height() - 190) * 0.9);
+		// Install a default background if there is no real image selected yet.
+		if (!HasSelectedBackgroundImage(&dir)) {
 			BMessage message;
 			AddTemporaryBackgroundImages(&message,
 				(BString(path.Path()) << defaultBackgroundImage).String(),
-				BackgroundImage::kAtOffset, logoPos, 0xffffffff, false);
+				BackgroundImage::kScaledToFit, BPoint(0, 0), 0xffffffff,
+				false);
 			::InstallTemporaryBackgroundImages(&dir, &message);
+
+			// The desktop window was already created (and drew with no
+			// background) before this runs, so refresh it now. Otherwise the
+			// default wallpaper only appears after opening the Backgrounds
+			// preferences and clicking Apply.
+			BDeskWindow* deskWindow = GetDeskWindow();
+			if (deskWindow != NULL && deskWindow->Lock()) {
+				deskWindow->UpdateDesktopBackgroundImages();
+				deskWindow->Unlock();
+			}
 		}
 	}
 }

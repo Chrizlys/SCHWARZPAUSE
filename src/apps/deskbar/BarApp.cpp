@@ -36,7 +36,12 @@ All rights reserved.
 
 #include "BarApp.h"
 
+#include <algorithm>
+#include <new>
+
 #include <locale.h>
+#include <math.h>
+#include <string.h>
 #include <strings.h>
 
 #include <AppFileInfo.h>
@@ -56,6 +61,7 @@ All rights reserved.
 #include <Mime.h>
 #include <Path.h>
 #include <Roster.h>
+#include <View.h>
 
 #include <DeskbarPrivate.h>
 #include <RosterPrivate.h>
@@ -77,6 +83,72 @@ BLocker TBarApp::sSubscriberLock;
 BList TBarApp::sBarTeamInfoList;
 BList TBarApp::sWindowIconCache;
 BList TBarApp::sSubscribers;
+
+
+static status_t
+DrawSchwarzpauseTrackerTeamIcon(BBitmap* icon)
+{
+	if (icon == NULL || icon->InitCheck() != B_OK)
+		return B_BAD_VALUE;
+
+	if (icon->Bits() != NULL && icon->BitsLength() > 0)
+		memset(icon->Bits(), 0, icon->BitsLength());
+
+	if (!icon->Lock())
+		return B_ERROR;
+
+	BRect bounds(icon->Bounds());
+	BView* canvas = new(std::nothrow) BView(bounds, "schwarzpause tracker team icon",
+		B_FOLLOW_NONE, B_WILL_DRAW);
+	if (canvas == NULL) {
+		icon->Unlock();
+		return B_NO_MEMORY;
+	}
+
+	icon->AddChild(canvas);
+	canvas->SetDrawingMode(B_OP_COPY);
+	canvas->SetHighColor(0, 0, 0, 0);
+	canvas->FillRect(bounds);
+	canvas->SetDrawingMode(B_OP_ALPHA);
+	canvas->SetBlendingMode(B_PIXEL_ALPHA, B_ALPHA_COMPOSITE);
+
+	const float size = std::min(bounds.Width() + 1, bounds.Height() + 1);
+	const float s = size / 24.0f;
+	const float left = bounds.left + (bounds.Width() + 1 - 24.0f * s) / 2.0f;
+	const float top = bounds.top + (bounds.Height() + 1 - 24.0f * s) / 2.0f;
+
+	BRect back(left + 9.0f * s, top + 2.5f * s,
+		left + 19.5f * s, top + 15.0f * s);
+	BRect middle(left + 4.5f * s, top + 5.5f * s,
+		left + 16.0f * s, top + 18.5f * s);
+	BRect front(left + 8.0f * s, top + 9.0f * s,
+		left + 21.0f * s, top + 21.0f * s);
+
+	canvas->SetPenSize(std::max(1.0f, 1.35f * s));
+	canvas->SetHighColor(168, 172, 180, 255);
+	canvas->StrokeRect(back);
+	canvas->StrokeLine(BPoint(back.left + 2.0f * s, back.top + 3.2f * s),
+		BPoint(back.right - 2.0f * s, back.top + 3.2f * s));
+
+	canvas->SetPenSize(std::max(1.0f, 1.45f * s));
+	canvas->SetHighColor(218, 222, 228, 255);
+	canvas->StrokeRect(middle);
+	canvas->StrokeLine(BPoint(middle.left + 2.0f * s, middle.top + 3.3f * s),
+		BPoint(middle.right - 2.0f * s, middle.top + 3.3f * s));
+
+	canvas->SetPenSize(std::max(1.0f, 1.8f * s));
+	canvas->SetHighColor(248, 249, 250, 255);
+	canvas->StrokeRect(front);
+	canvas->StrokeLine(BPoint(front.left + 2.2f * s, front.top + 3.5f * s),
+		BPoint(front.right - 2.2f * s, front.top + 3.5f * s));
+
+	canvas->Sync();
+	icon->RemoveChild(canvas);
+	icon->Unlock();
+	delete canvas;
+
+	return B_OK;
+}
 
 
 const uint32 kShowDeskbarMenu		= 'BeMn';
@@ -264,9 +336,9 @@ TBarApp::InitSettings()
 
 	// defaults
 	desk_settings settings;
-	settings.vertical = fDefaultSettings.vertical = true;
-	settings.left = fDefaultSettings.left = false;
-	settings.top = fDefaultSettings.top = true;
+	settings.vertical = fDefaultSettings.vertical = false;
+	settings.left = fDefaultSettings.left = true;
+	settings.top = fDefaultSettings.top = false;
 	settings.state = fDefaultSettings.state = kExpandoState;
 	settings.width = fDefaultSettings.width = gMinimumWindowWidth;
 	settings.switcherLoc = fDefaultSettings.switcherLoc = BPoint(5000, 5000);
@@ -1060,7 +1132,22 @@ TBarApp::_CacheTeamIcon(BarTeamInfo* barInfo, int32 size)
 
 	int32 composed = be_control_look->ComposeIconSize(size).IntegerWidth() + 1;
 	BRect iconRect = BRect(0, 0, composed - 1, composed - 1);
-	BBitmap* icon = new BBitmap(iconRect, B_RGBA32);
+	bool useSchwarzpauseTrackerIcon = strcasecmp(barInfo->sig,
+		kTrackerSignature) == 0;
+	BBitmap* icon = new BBitmap(iconRect, B_RGBA32,
+		useSchwarzpauseTrackerIcon);
+
+	if (useSchwarzpauseTrackerIcon
+		&& DrawSchwarzpauseTrackerTeamIcon(icon) == B_OK) {
+		barInfo->iconCache[index] = barInfo->icon = icon;
+
+		return B_OK;
+	}
+
+	if (useSchwarzpauseTrackerIcon) {
+		delete icon;
+		icon = new BBitmap(iconRect, B_RGBA32);
+	}
 
 	// icon wasn't in cache, get it from be_roster and cache it
 	app_info appInfo;

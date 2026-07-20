@@ -30,7 +30,7 @@ ShuttingDownWindow::ShuttingDownWindow(BWindow* parent)
 	textView->MakeSelectable(false);
 	BString text(B_TRANSLATE("%appname% is stopping or completing "
 		"running operations before quitting."));
-	text.ReplaceFirst("%appname%", B_TRANSLATE_SYSTEM_NAME("HaikuDepot"));
+	text.ReplaceFirst("%appname%", B_TRANSLATE_SYSTEM_NAME("Software Depot"));
 	textView->SetText(text);
 
 	BLayoutBuilder::Group<>(this, B_VERTICAL, 0)

@@ -23,6 +23,7 @@ if $(HAIKU_IS_BOOTSTRAP) != 1 && $(HAIKU_BUILD_TYPE) != minimum {
 		haiku_extras
 		makefile_engine
 		netfs
+		schwarzpause_branding
 		userland_fs
 		] ;
 	if $(HAIKU_INCLUDE_SOURCES) = 1 {

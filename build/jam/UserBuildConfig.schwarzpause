@@ -1,0 +1,45 @@
+# Schwarzpause OS build overlay.
+# Copy this file to build/jam/UserBuildConfig before running configure/jam.
+
+HAIKU_DISTRO_COMPATIBILITY = "default" ;
+
+HAIKU_IMAGE_NAME = schwarzpause.image ;
+HAIKU_IMAGE_LABEL = "Schwarzpause OS" ;
+
+HAIKU_CD_NAME = schwarzpause-cd.iso ;
+HAIKU_CD_LABEL = "Schwarzpause OS" ;
+
+HAIKU_ANYBOOT_NAME = schwarzpause-anyboot.iso ;
+HAIKU_ANYBOOT_LABEL = "Schwarzpause OS" ;
+
+# ============================================================================
+#  SCHWARZBrOT model switch
+# ----------------------------------------------------------------------------
+#  0 = DEFAULT, and what we ship. The SCHWARZBrOT app, engine and UI are baked
+#      in, but the 2.87 GB Qwen model is not, so the image stays ~0.8 GB and
+#      boots everywhere (proven both as a VM CD and from USB on real hardware).
+#      The user adds the model themselves -- on a second USB stick, or copied to
+#      disk -- and SCHWARZBrOT finds it at launch.
+#  1 = bake the model in as well. This produces a ~4 GB image that does NOT
+#      boot: too big for a VM CD, and from disk/USB the loader reports "no boot
+#      volume" (consistent with the 4 GiB / 32-bit boundary). Experiments only.
+# ============================================================================
+SCHWARZBROT_BAKE_MODEL ?= 0 ;
+
+if $(SCHWARZBROT_BAKE_MODEL) = 1 {
+	HAIKU_IMAGE_SIZE = 4096 ;
+} else {
+	# ~0.66 GB base system + ~50 MB of engine/libraries/UI, plus headroom.
+	HAIKU_IMAGE_SIZE = 800 ;
+}
+
+HAIKU_IMAGE_HOST_NAME = schwarzpause ;
+
+rule UserBuildConfigRulePreImage
+{
+	AddPackageFilesToHaikuImage system packages :
+		schwarzpause_branding.hpkg
+		:
+		nameFromMetaInfo
+		;
+}

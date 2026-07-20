@@ -72,5 +72,13 @@ enum {
 	R_ResBackNav = 1042,
 	R_ResForwNav = 1043,
 	R_ResUpNav = 1044,
-	R_ShareIcon = 1051
+	R_ShareIcon = 1051,
+
+	R_SchwarzpauseHomePng = 9001,
+	R_SchwarzpauseDisksPng = 9002,
+	R_SchwarzpauseTrashPng = 9003,
+	R_SchwarzpauseFilePng = 9004,
+	R_SchwarzpauseMailPng = 9005,
+	R_SchwarzpauseSchwarzseherPng = 9006,
+	R_SchwarzpauseSchwarzbrotPng = 9007
 };

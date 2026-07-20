@@ -1546,12 +1546,12 @@ AboutView::_CreateCreditsView()
 		fCreditsView, B_WILL_DRAW | B_FRAME_EVENTS, false, true,
 		B_PLAIN_BORDER);
 
-	// Haiku copyright
+	// Schwarzpause product identity and upstream legal notice
 	BFont font(be_bold_font);
 	font.SetSize(font.Size() + 4);
 
 	fCreditsView->SetFontAndColor(&font, B_FONT_ALL, &fHaikuGreenColor);
-	fCreditsView->Insert("Haiku\n");
+	fCreditsView->Insert("Schwarzpause OS\n");
 
 	time_t time = ::time(NULL);
 	struct tm* tm = localtime(&time);
@@ -1567,7 +1567,8 @@ AboutView::_CreateCreditsView()
 	fCreditsView->Insert(text.String());
 
 	fCreditsView->SetFontAndColor(be_plain_font, B_FONT_ALL, &fTextColor);
-	fCreditsView->Insert(B_TRANSLATE("The copyright to the Haiku code is "
+	fCreditsView->Insert(B_TRANSLATE("Schwarzpause OS is derived from Haiku. "
+		"The copyright to the Haiku code is "
 		"property of Haiku, Inc. or of the respective authors where expressly "
 		"noted in the source. Haiku" B_UTF8_REGISTERED
 		" and the HAIKU logo" B_UTF8_REGISTERED
@@ -1575,7 +1576,7 @@ AboutView::_CreateCreditsView()
 		"\n\n"));
 
 	fCreditsView->SetFontAndColor(be_plain_font, B_FONT_ALL, &fLinkColor);
-	fCreditsView->InsertHyperText(B_TRANSLATE("Visit the Haiku website"),
+	fCreditsView->InsertHyperText(B_TRANSLATE("Visit the Haiku project website"),
 		new URLAction("https://www.haiku-os.org"));
 	fCreditsView->Insert("\n");
 	fCreditsView->InsertHyperText(B_TRANSLATE("Make a donation"),

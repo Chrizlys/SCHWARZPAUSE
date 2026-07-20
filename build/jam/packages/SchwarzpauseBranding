@@ -1,0 +1,151 @@
+local brandingPackage = schwarzpause_branding.hpkg ;
+HaikuPackage $(brandingPackage) ;
+
+
+## Schwarzpause public-facing visual identity
+
+local schwarzpauseArtwork =
+	SCHWARZPAUSE_LOGO.png
+	# Wallpaper library (appears in the Backgrounds preflet); SCHWARZPAUSE_default
+	# is also the baked default background (see TrackerInitialState.cpp).
+	SCHWARZPAUSE_default.png
+	SCHWARZPAUSE_bright.png
+	SCHWARZPAUSE_dark.png
+	SCHWARZPAUSE_eng.png
+	SCHWARZPAUSE_matrix.png
+	APOL.png
+	CHAM_bright.png
+	CHAM_dark.png
+	CHESS_1.jpg
+	CHESS_2.jpg
+	DRAW.png
+	DRAW2.png
+	ENG.png
+	ENG_wide.png
+	FUTURE.png
+	GALAXY.png
+	LEO.png
+	LOC_bright.png
+	LOC_dark.png
+	MATRIX.png
+	SIMPLE_bright.png
+	SIMPLE_dark.png
+	STUDY.png
+	;
+SEARCH on $(schwarzpauseArtwork) = [ FDirName $(HAIKU_TOP) data artwork ] ;
+AddFilesToPackage data artwork : $(schwarzpauseArtwork) ;
+
+local schwarzpauseStyleReference =
+	SCHWARZPAUSE_ICON_STYLE_REFERENCE.png
+	SCHWARZPAUSE_ICON_STYLE_REFERENCE_2.png
+	;
+SEARCH on $(schwarzpauseStyleReference)
+	= [ FDirName $(HAIKU_TOP) data artwork schwarzpause style ] ;
+AddFilesToPackage data artwork schwarzpause style
+	: $(schwarzpauseStyleReference) ;
+
+local schwarzpauseSvgIconSources =
+	DISKS.svg
+	FILE.svg
+	HOME.svg
+	MAIL.svg
+	TRASH.svg
+	;
+SEARCH on $(schwarzpauseSvgIconSources)
+	= [ FDirName $(HAIKU_TOP) data artwork schwarzpause icons svg ] ;
+AddFilesToPackage data artwork schwarzpause icons svg
+	: $(schwarzpauseSvgIconSources) ;
+
+local schwarzpauseHvifIconSources =
+	DISKS.hvif
+	FILE.hvif
+	HOME.hvif
+	MAIL.hvif
+	TRASH.hvif
+	;
+SEARCH on $(schwarzpauseHvifIconSources)
+	= [ FDirName $(HAIKU_TOP) data artwork schwarzpause icons hvif ] ;
+AddFilesToPackage data artwork schwarzpause icons hvif
+	: $(schwarzpauseHvifIconSources) ;
+
+local schwarzpausePngIconSources =
+	DISKS.png
+	FILE.png
+	HOME.png
+	MAIL.png
+	SCHWARZBROT.png
+	SCHWARZSEHER.png
+	TRASH.png
+	;
+SEARCH on $(schwarzpausePngIconSources)
+	= [ FDirName $(HAIKU_TOP) data artwork schwarzpause icons png ] ;
+AddFilesToPackage data artwork schwarzpause icons png
+	: $(schwarzpausePngIconSources) ;
+
+local schwarzpauseIconDocs =
+	SCHWARZPAUSE_ICON_SOURCES.md
+	;
+SEARCH on $(schwarzpauseIconDocs)
+	= [ FDirName $(HAIKU_TOP) data artwork schwarzpause icons ] ;
+AddFilesToPackage data artwork schwarzpause icons
+	: $(schwarzpauseIconDocs) ;
+
+
+## SCHWARZBrOT -- bundled offline AI chat. Prebuilt + self-contained (no pkgman
+## at runtime): the AVX2 llama-server engine, its runtime libraries, the Qwen
+## model and the branded web UI are shipped read-only under
+## /boot/system/data/schwarzbrot/. NOTE: the payload lives under data/, NOT
+## apps/SCHWARZBrOT/, on purpose -- the launcher (a SYSTEM_APP) already installs
+## a FILE at /boot/system/apps/SCHWARZBrOT, so a directory of the same name
+## would collide across packages in packagefs. The launcher (src/apps/schwarzbrot)
+## copies the engine to a writable dir + chmod +x on first run, then serves the
+## UI and opens it in WebPositive. Model is huge (~2.9 GB) -> keep out of git.
+
+# SCHWARZBrOT ships in two pieces:
+#  - the engine, its libraries and the web UI (~50 MB) are ALWAYS baked in, so
+#    the app is complete and the image still boots everywhere;
+#  - the 2.87 GB Qwen model is NOT baked by default. It is an optional, offline
+#    extra the user supplies (a second USB stick, or copied onto the disk) and
+#    the launcher finds it at startup. Baking it yields a ~4 GB image that does
+#    not boot at all -- see SCHWARZBROT_BAKE_MODEL in UserBuildConfig.schwarzpause.
+
+local schwarzbrotEngine =
+	llama-server
+	;
+SEARCH on $(schwarzbrotEngine)
+	= [ FDirName $(HAIKU_TOP) data schwarzbrot ] ;
+AddFilesToPackage data schwarzbrot : $(schwarzbrotEngine) ;
+
+local schwarzbrotLibs =
+	libgomp.so.1
+	libssl.so.3
+	libcrypto.so.3
+	libstdc++.so.6
+	libgcc_s.so.1
+	;
+SEARCH on $(schwarzbrotLibs)
+	= [ FDirName $(HAIKU_TOP) data schwarzbrot lib ] ;
+AddFilesToPackage data schwarzbrot lib : $(schwarzbrotLibs) ;
+
+local schwarzbrotUi =
+	index.html
+	;
+SEARCH on $(schwarzbrotUi)
+	= [ FDirName $(HAIKU_TOP) data schwarzbrot ui ] ;
+AddFilesToPackage data schwarzbrot ui : $(schwarzbrotUi) ;
+
+if $(SCHWARZBROT_BAKE_MODEL) = 1 {
+	Echo "SCHWARZBrOT: also baking the 2.87 GB model -- the resulting ~4 GB image is NOT known to boot." ;
+
+	local schwarzbrotModel =
+		Qwen3.5-4B-Q4_K_M.gguf
+		;
+	SEARCH on $(schwarzbrotModel)
+		= [ FDirName $(HAIKU_TOP) data schwarzbrot ] ;
+	AddFilesToPackage data schwarzbrot : $(schwarzbrotModel) ;
+} else {
+	Echo "SCHWARZBrOT: engine + UI baked; the model stays a separate optional download." ;
+}
+
+
+BuildHaikuPackage $(brandingPackage) : schwarzpause_branding ;

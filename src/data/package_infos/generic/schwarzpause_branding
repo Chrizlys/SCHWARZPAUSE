@@ -1,0 +1,19 @@
+name			schwarzpause_branding
+version			%HAIKU_VERSION%
+architecture	%HAIKU_PACKAGING_ARCH%
+summary			"Schwarzpause OS branding"
+description		"Public-facing Schwarzpause OS visual identity assets: logo, light wallpaper, icon style references, clean SVG icon sources, and generated HVIF icons."
+
+packager		"The Schwarzpause build system"
+vendor			"Haiku Project"
+
+copyrights		"2026 Schwarzpause"
+licenses		MIT
+
+provides {
+	schwarzpause_branding=%HAIKU_VERSION%
+}
+
+requires {
+	haiku
+}

@@ -34,14 +34,14 @@
 
 #define INTRODUCTION_TEXT_LATEST \
 	"%Appname% communicates with a " \
-	"server component called HaikuDepotServer. These are the latest " \
-	"usage conditions for use of the HaikuDepotServer service."
+	"server component for the software depot. These are the latest " \
+	"usage conditions for use of that service."
 
 #define INTRODUCTION_TEXT_USER \
 	"%Appname% communicates with a " \
-	"server component called HaikuDepotServer. These are the usage " \
+	"server component for the software depot. These are the usage " \
 	"conditions that the user '%Nickname%' agreed to at %AgreedToTimestamp% "\
-	"in relation to the use of the HaikuDepotServer service."
+	"in relation to the use of that service."
 
 #define KEY_USER_USAGE_CONDITIONS	"userUsageConditions"
 #define KEY_USER_DETAIL				"userDetail"
@@ -438,7 +438,7 @@ UserUsageConditionsWindow::_IntroductionTextForMode(UserUsageConditionsSelection
 		case LATEST:
 		{
 			BString text(B_TRANSLATE(INTRODUCTION_TEXT_LATEST));
-			text.ReplaceFirst("%Appname%", B_TRANSLATE_SYSTEM_NAME("HaikuDepot"));
+			text.ReplaceFirst("%Appname%", B_TRANSLATE_SYSTEM_NAME("Software Depot"));
 			return text;
 		}
 		case USER:
@@ -457,7 +457,7 @@ UserUsageConditionsWindow::_IntroductionTextForMode(UserUsageConditionsSelection
 			}
 
 			BString text = B_TRANSLATE(INTRODUCTION_TEXT_USER);
-			text.ReplaceFirst("%Appname%", B_TRANSLATE_SYSTEM_NAME("HaikuDepot"));
+			text.ReplaceFirst("%Appname%", B_TRANSLATE_SYSTEM_NAME("Software Depot"));
 			text.ReplaceAll("%Nickname%", nicknamePresentation);
 			text.ReplaceAll("%AgreedToTimestamp%", agreedToTimestampPresentation);
 			return text;

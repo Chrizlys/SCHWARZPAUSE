@@ -48,9 +48,11 @@ protected:
 									BRect rect);
 	virtual	void				_DrawMinimize(Decorator::Tab* tab, bool direct,
 									BRect rect);
+	virtual	bool				_HasMinimizeButton() const;
+	virtual	float				_BorderWidthForLook(window_look look) const;
+	virtual	float				_TabSpacing() const;
 	virtual	void				_DrawResizeKnob(BRect r, bool full,
 									const ComponentColors& color);
-
 private:
  			void				_DrawButtonBitmap(ServerBitmap* bitmap,
  									bool direct, BRect rect);

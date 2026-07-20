@@ -182,12 +182,18 @@ TabDecorator::SetRegionHighlight(Region region, uint8 highlight,
 		= static_cast<Decorator::Tab*>(_TabAt(tabIndex));
 	if (tab != NULL) {
 		tab->isHighlighted = highlight != 0;
-		// Invalidate the bitmap caches for the close/zoom button, when the
+		// Invalidate the bitmap caches for title buttons when the
 		// highlight changes.
 		switch (region) {
 			case REGION_CLOSE_BUTTON:
 				if (highlight != RegionHighlight(region))
 					memset(&tab->closeBitmaps, 0, sizeof(tab->closeBitmaps));
+				break;
+			case REGION_MINIMIZE_BUTTON:
+				if (highlight != RegionHighlight(region)) {
+					memset(&tab->minimizeBitmaps, 0,
+						sizeof(tab->minimizeBitmaps));
+				}
 				break;
 			case REGION_ZOOM_BUTTON:
 				if (highlight != RegionHighlight(region))
@@ -238,29 +244,11 @@ TabDecorator::_DoLayout()
 	// TODO: Put this computation somewhere more central!
 	const float scaleFactor = max_c(fDrawState.Font().Size() / 12.0f, 1.0f);
 
-	switch ((int)fTopTab->look) {
-		case B_MODAL_WINDOW_LOOK:
-			fBorderWidth = 5;
-			break;
-
-		case B_TITLED_WINDOW_LOOK:
-		case B_DOCUMENT_WINDOW_LOOK:
-			hasTab = true;
-			fBorderWidth = 5;
-			break;
-		case B_FLOATING_WINDOW_LOOK:
-		case kLeftTitledWindowLook:
-			hasTab = true;
-			fBorderWidth = 3;
-			break;
-
-		case B_BORDERED_WINDOW_LOOK:
-			fBorderWidth = 1;
-			break;
-
-		default:
-			fBorderWidth = 0;
-	}
+	hasTab = fTopTab->look == B_TITLED_WINDOW_LOOK
+		|| fTopTab->look == B_DOCUMENT_WINDOW_LOOK
+		|| fTopTab->look == B_FLOATING_WINDOW_LOOK
+		|| fTopTab->look == kLeftTitledWindowLook;
+	fBorderWidth = _BorderWidthForLook(fTopTab->look);
 
 	fBorderWidth = int32(fBorderWidth * scaleFactor);
 	fResizeKnobSize = kResizeKnobSize * scaleFactor;
@@ -367,7 +355,7 @@ TabDecorator::_DoTabLayout()
 		fDrawState.Font().GetHeight(fontHeight);
 
 		if (tab->look != kLeftTitledWindowLook) {
-			const float spacing = fBorderWidth * 1.4f;
+			const float spacing = _TabSpacing();
 			tabRect.Set(fFrame.left - fBorderWidth,
 				fFrame.top - fBorderWidth
 					- ceilf(fontHeight.ascent + fontHeight.descent + spacing),
@@ -397,6 +385,9 @@ TabDecorator::_DoTabLayout()
 		if ((tab->flags & B_NOT_CLOSABLE) == 0)
 			tab->minTabSize += offset + size;
 		if ((tab->flags & B_NOT_ZOOMABLE) == 0)
+			tab->minTabSize += offset + size;
+		if (_HasMinimizeButton()
+			&& (tab->flags & B_NOT_MINIMIZABLE) == 0)
 			tab->minTabSize += offset + size;
 
 		// tab->maxTabSize contains tab->minTabSize + the width required for the
@@ -573,6 +564,7 @@ TabDecorator::_MoveBy(BPoint offset)
 		Decorator::Tab* tab = fTabList.ItemAt(i);
 		tab->zoomRect.OffsetBy(offset);
 		tab->closeRect.OffsetBy(offset);
+		tab->minimizeRect.OffsetBy(offset);
 		tab->tabRect.OffsetBy(offset);
 	}
 
@@ -939,8 +931,47 @@ TabDecorator::_DrawButtons(Decorator::Tab* tab, const BRect& invalid)
 	// Draw the buttons if we're supposed to
 	if (!(tab->flags & B_NOT_CLOSABLE) && invalid.Intersects(tab->closeRect))
 		_DrawClose(tab, false, tab->closeRect);
+	if (_HasMinimizeButton() && !(tab->flags & B_NOT_MINIMIZABLE)
+		&& invalid.Intersects(tab->minimizeRect))
+		_DrawMinimize(tab, false, tab->minimizeRect);
 	if (!(tab->flags & B_NOT_ZOOMABLE) && invalid.Intersects(tab->zoomRect))
 		_DrawZoom(tab, false, tab->zoomRect);
+}
+
+
+bool
+TabDecorator::_HasMinimizeButton() const
+{
+	return false;
+}
+
+
+float
+TabDecorator::_BorderWidthForLook(window_look look) const
+{
+	switch ((int)look) {
+		case B_MODAL_WINDOW_LOOK:
+		case B_TITLED_WINDOW_LOOK:
+		case B_DOCUMENT_WINDOW_LOOK:
+			return 5;
+
+		case B_FLOATING_WINDOW_LOOK:
+		case kLeftTitledWindowLook:
+			return 3;
+
+		case B_BORDERED_WINDOW_LOOK:
+			return 1;
+
+		default:
+			return 0;
+	}
+}
+
+
+float
+TabDecorator::_TabSpacing() const
+{
+	return fBorderWidth * 1.4f;
 }
 
 
@@ -998,26 +1029,39 @@ TabDecorator::_LayoutTabItems(Decorator::Tab* _tab, const BRect& tabRect)
 
 	BRect& closeRect = tab->closeRect;
 	BRect& zoomRect = tab->zoomRect;
+	BRect& minimizeRect = tab->minimizeRect;
 
-	// calulate close rect based on the tab rectangle
+	// Calculate the button rectangles based on the tab rectangle.
 	if (tab->look != kLeftTitledWindowLook) {
-		closeRect.Set(tabRect.left + offset, tabRect.top + offset,
-			tabRect.left + offset + size, tabRect.top + offset + size);
-
-		zoomRect.Set(tabRect.right - offset - size, tabRect.top + offset,
+		closeRect.Set(tabRect.right - offset - size, tabRect.top + offset,
 			tabRect.right - offset, tabRect.top + offset + size);
+		if (_HasMinimizeButton()) {
+			minimizeRect = closeRect;
+			minimizeRect.OffsetBy(-(size + offset), 0);
+			zoomRect = minimizeRect;
+			zoomRect.OffsetBy(-(size + offset), 0);
+		} else {
+			closeRect.Set(tabRect.left + offset, tabRect.top + offset,
+				tabRect.left + offset + size, tabRect.top + offset + size);
+			zoomRect.Set(tabRect.right - offset - size, tabRect.top + offset,
+				tabRect.right - offset, tabRect.top + offset + size);
+			minimizeRect.Set(0, 0, -1, -1);
+		}
 
 		// hidden buttons have no width
 		if ((tab->flags & B_NOT_CLOSABLE) != 0)
 			closeRect.right = closeRect.left - offset;
 		if ((tab->flags & B_NOT_ZOOMABLE) != 0)
 			zoomRect.left = zoomRect.right + offset;
+		if ((tab->flags & B_NOT_MINIMIZABLE) != 0)
+			minimizeRect.right = minimizeRect.left - offset;
 	} else {
 		closeRect.Set(tabRect.left + offset, tabRect.top + offset,
 			tabRect.left + offset + size, tabRect.top + offset + size);
 
 		zoomRect.Set(tabRect.left + offset, tabRect.bottom - offset - size,
 			tabRect.left + size + offset, tabRect.bottom - offset);
+		minimizeRect.Set(0, 0, -1, -1);
 
 		// hidden buttons have no height
 		if ((tab->flags & B_NOT_CLOSABLE) != 0)
@@ -1030,16 +1074,40 @@ TabDecorator::_LayoutTabItems(Decorator::Tab* _tab, const BRect& tabRect)
 	// TODO: the +2 is there because the title often appeared
 	//	truncated for no apparent reason - OTOH the title does
 	//	also not appear perfectly in the middle
-	if (tab->look != kLeftTitledWindowLook)
-		size = (zoomRect.left - closeRect.right) - tab->textOffset * 2 + inset;
+	if (tab->look != kLeftTitledWindowLook) {
+		if (_HasMinimizeButton()) {
+			float firstButtonLeft = tabRect.right;
+			if (zoomRect.IsValid())
+				firstButtonLeft = zoomRect.left;
+			else if (minimizeRect.IsValid())
+				firstButtonLeft = minimizeRect.left;
+			else if (closeRect.IsValid())
+				firstButtonLeft = closeRect.left;
+			size = firstButtonLeft - tabRect.left - tab->textOffset * 2
+				+ inset;
+		} else {
+			size = zoomRect.left - closeRect.right - tab->textOffset * 2
+				+ inset;
+		}
+	}
 	else
 		size = (zoomRect.top - closeRect.bottom) - tab->textOffset * 2 + inset;
 
 	bool stackMode = fTabList.CountItems() > 1;
 	if (stackMode && IsFocus(tab) == false) {
 		zoomRect.Set(0, 0, 0, 0);
-		size = (tab->tabRect.right - closeRect.right) - tab->textOffset * 2
-			+ inset;
+		if (_HasMinimizeButton()) {
+			float firstButtonLeft = tabRect.right;
+			if (minimizeRect.IsValid())
+				firstButtonLeft = minimizeRect.left;
+			else if (closeRect.IsValid())
+				firstButtonLeft = closeRect.left;
+			size = firstButtonLeft - tabRect.left - tab->textOffset * 2
+				+ inset;
+		} else {
+			size = (tab->tabRect.right - closeRect.right)
+				- tab->textOffset * 2 + inset;
+		}
 	}
 	uint8 truncateMode = B_TRUNCATE_MIDDLE;
 	if (stackMode) {

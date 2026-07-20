@@ -39,7 +39,9 @@ All rights reserved.
 #include <Debug.h>
 #include <Bitmap.h>
 #include <Catalog.h>
+#include <ControlLook.h>
 #include <Dragger.h>
+#include <GraphicsDefs.h>
 #include <Locale.h>
 #include <Menu.h>
 #include <MenuItem.h>
@@ -75,6 +77,108 @@ namespace BPrivate {
 }
 
 using namespace BPrivate;
+
+
+//	#pragma mark - TShutdownMenuItem
+
+
+/*!	The Shutdown submenu item, drawn with a red power symbol to its left so it
+	stands out as the first entry of the Deskbar menu -- the familiar, prominent
+	power button found in almost every OS.
+*/
+class TShutdownMenuItem : public BMenuItem {
+public:
+							TShutdownMenuItem(BMenu* submenu, BMessage* message);
+
+	virtual	void			GetContentSize(float* _width, float* _height);
+	virtual	void			DrawContent();
+
+private:
+			float			_IconSize() const;
+			void			_DrawPowerGlyph(BPoint where);
+
+			float			fHeightDelta;
+};
+
+
+TShutdownMenuItem::TShutdownMenuItem(BMenu* submenu, BMessage* message)
+	:
+	BMenuItem(submenu, message),
+	fHeightDelta(0)
+{
+}
+
+
+float
+TShutdownMenuItem::_IconSize() const
+{
+	// Track the display scale (mini-icon size) so the glyph stays crisp on
+	// HiDPI and reads a touch larger than the label -- i.e. "present".
+	return ceilf(be_control_look->ComposeIconSize(B_MINI_ICON).Height());
+}
+
+
+void
+TShutdownMenuItem::GetContentSize(float* _width, float* _height)
+{
+	BMenuItem::GetContentSize(_width, _height);
+
+	const float iconSize = _IconSize();
+	fHeightDelta = iconSize - *_height;
+	if (*_height < iconSize)
+		*_height = iconSize;
+
+	*_width += iconSize + be_control_look->DefaultLabelSpacing();
+}
+
+
+void
+TShutdownMenuItem::DrawContent()
+{
+	const float iconSize = _IconSize();
+
+	// Draw the label shifted right, leaving room for the glyph (mirrors the
+	// proven IconMenuItem layout).
+	BPoint drawPoint(ContentLocation());
+	drawPoint.x += iconSize + be_control_look->DefaultLabelSpacing();
+	if (fHeightDelta > 0)
+		drawPoint.y += ceilf(fHeightDelta / 2);
+
+	Menu()->MovePenTo(drawPoint);
+	BMenuItem::DrawContent();
+
+	_DrawPowerGlyph(ContentLocation());
+}
+
+
+void
+TShutdownMenuItem::_DrawPowerGlyph(BPoint where)
+{
+	BMenu* menu = Menu();
+	const float size = _IconSize();
+
+	BPoint center(where.x + size / 2, where.y + size / 2);
+	float pen = ceilf(size / 8);
+	if (pen < 1)
+		pen = 1;
+	const float radius = size / 2 - pen;
+	BRect ring(center.x - radius, center.y - radius,
+		center.x + radius, center.y + radius);
+
+	menu->PushState();
+	menu->SetDrawingMode(B_OP_OVER);
+	menu->SetPenSize(pen);
+	menu->SetHighColor(make_color(222, 48, 48, 255));	// warning red
+
+	// The IEC power symbol: a broken ring with a ~60-degree gap centered at the
+	// top (90 degrees), and a vertical bar rising through that gap. Nudge the
+	// bar a bit right so it reads centered in the gap at small menu sizes.
+	float barX = center.x + size / 8;
+	menu->StrokeArc(ring, 120, 300);
+	menu->StrokeLine(BPoint(barX, ring.top), BPoint(barX, center.y));
+
+	menu->PopState();
+}
 
 
 //	#pragma mark - TDeskbarMenu
@@ -148,6 +252,13 @@ TDeskbarMenu::DoneBuildingItemList()
 		AddItem(item);
 	} else
 		BNavMenu::DoneBuildingItemList();
+
+	// Add Shutdown AFTER the browsed launcher categories are committed to the
+	// menu, so it is the very last item -- directly above the Deskbar button --
+	// with its separator dividing it cleanly from the apps. (Adding it earlier
+	// left it above the apps and produced an empty double-separator, because the
+	// browsed categories are always committed last by BNavMenu.)
+	AddShutdownMenu();
 }
 
 
@@ -243,15 +354,10 @@ TDeskbarMenu::AddStandardDeskbarMenuItems()
 // One of them is used if HAIKU_DISTRO_COMPATIBILITY_OFFICIAL, and the other if
 // not. However, we want both of them to end up in the catalog, so we have to
 // make them visible to collectcatkeys in either case.
-B_TRANSLATE_MARK_VOID("About Haiku")
-B_TRANSLATE_MARK_VOID("About this system")
+B_TRANSLATE_MARK_VOID("About Schwarzpause OS")
 
 	item = new BMenuItem(
-#ifdef HAIKU_DISTRO_COMPATIBILITY_OFFICIAL
-	B_TRANSLATE_NOCOLLECT("About Haiku")
-#else
-	B_TRANSLATE_NOCOLLECT("About this system")
-#endif
+	B_TRANSLATE_NOCOLLECT("About Schwarzpause OS")
 		, new BMessage(kShowSplash));
 	item->SetEnabled(!dragging);
 	AddItem(item);
@@ -291,11 +397,25 @@ B_TRANSLATE_MARK_VOID("About this system")
 	item->SetTarget(be_app);
 	AddItem(item);
 
+	fAddState = kAddingRecents;
+
+	return true;
+}
+
+
+void
+TDeskbarMenu::AddShutdownMenu()
+{
+	// Shutdown is added last so it renders at the very bottom of the menu, i.e.
+	// directly above the Deskbar button when the bar sits at the bottom edge --
+	// the familiar, prominent power-button placement, with a red power icon.
+	bool dragging = fBarView != NULL && fBarView->Dragging();
+
 	AddSeparatorItem();
 
 	BMenu* shutdownMenu = new BMenu(B_TRANSLATE("Shutdown" B_UTF8_ELLIPSIS));
 
-	item = new BMenuItem(B_TRANSLATE("Power off"),
+	BMenuItem* item = new BMenuItem(B_TRANSLATE("Power off"),
 		new BMessage(kShutdownSystem));
 	item->SetEnabled(!dragging);
 	shutdownMenu->AddItem(item);
@@ -320,11 +440,7 @@ B_TRANSLATE_MARK_VOID("About this system")
 
 	BMessage* message = new BMessage(kShutdownSystem);
 	message->AddBool("confirm", true);
-	AddItem(new BMenuItem(shutdownMenu, message));
-
-	fAddState = kAddingRecents;
-
-	return true;
+	AddItem(new TShutdownMenuItem(shutdownMenu, message));
 }
 
 

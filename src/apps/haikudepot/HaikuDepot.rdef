@@ -1,7 +1,7 @@
 
 resource app_signature "application/x-vnd.Haiku-HaikuDepot";
 
-resource app_name_catalog_entry "x-vnd.Haiku-HaikuDepot:System name:HaikuDepot";
+resource app_name_catalog_entry "x-vnd.Haiku-HaikuDepot:System name:Software Depot";
 
 resource app_flags B_SINGLE_LAUNCH;
 
@@ -13,8 +13,8 @@ resource app_version {
 	variety = B_APPV_ALPHA,
 	internal = 1,
 
-	short_info = "HaikuDepot",
-	long_info = "HaikuDepot ©2013-2024 Haiku"
+	short_info = "Software Depot",
+	long_info = "Software Depot"
 };
 
 resource file_types message {

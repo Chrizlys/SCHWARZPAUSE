@@ -36,6 +36,9 @@ All rights reserved.
 
 #include "BarMenuTitle.h"
 
+#include <algorithm>
+#include <math.h>
+
 #include <Bitmap.h>
 #include <ControlLook.h>
 #include <Debug.h>
@@ -44,7 +47,6 @@ All rights reserved.
 #include "BarApp.h"
 #include "BarView.h"
 #include "BarWindow.h"
-#include "DeskbarMenu.h"
 
 
 TBarMenuTitle::TBarMenuTitle(float width, float height, const BBitmap* icon,
@@ -129,17 +131,18 @@ TBarMenuTitle::DrawContent()
 	menu->SetDrawingMode(B_OP_ALPHA);
 
 	const BRect frame(Frame());
-	BRect iconRect(fIcon->Bounds().OffsetToCopy(frame.LeftTop()));
+	BRect sourceRect(fIcon->Bounds());
+	float sourceWidth = sourceRect.Width();
+	float sourceHeight = sourceRect.Height();
+	float targetHeight = std::max(1.0f, frame.Height() - 4.0f);
+	float scale = targetHeight / sourceHeight;
+	BRect iconRect(0, 0, sourceWidth * scale, sourceHeight * scale);
+	iconRect.OffsetTo(frame.LeftTop());
 
 	float widthOffset = rintf((frame.Width() - iconRect.Width()) / 2);
 	float heightOffset = rintf((frame.Height() - iconRect.Height()) / 2);
 
-	// cut-off the leaf
-	bool isLeafMenu = dynamic_cast<TDeskbarMenu*>(fMenu) != NULL;
-	if (isLeafMenu)
-		iconRect.OffsetBy(widthOffset, frame.Height() - iconRect.Height() + 2);
-	else
-		iconRect.OffsetBy(widthOffset, heightOffset);
+	iconRect.OffsetBy(widthOffset, heightOffset);
 
 	// clip to menu item frame
 	if (iconRect.Width() > frame.Width()) {
@@ -149,7 +152,7 @@ TBarMenuTitle::DrawContent()
 		menu->ConstrainClippingRegion(&clipping);
 	}
 
-	menu->DrawBitmapAsync(fIcon, iconRect);
+	menu->DrawBitmapAsync(fIcon, sourceRect, iconRect, B_FILTER_BITMAP_BILINEAR);
 	menu->ConstrainClippingRegion(NULL);
 }
 

@@ -244,6 +244,7 @@ BeDecorator::GetComponentColors(Component component, uint8 highlight,
 			break;
 
 		case COMPONENT_CLOSE_BUTTON:
+		case COMPONENT_MINIMIZE_BUTTON:
 		case COMPONENT_ZOOM_BUTTON:
 			if (highlight == HIGHLIGHT_STACK_AND_TILE) {
 				_colors[COLOR_BUTTON] = tint_color(fFocusTabColor,
@@ -967,6 +968,7 @@ BeDecorator::_GetBitmapForButton(Decorator::Tab* tab, Component item,
 		down ? "down" : "up", width, height));
 	switch (item) {
 		case COMPONENT_CLOSE_BUTTON:
+		case COMPONENT_MINIMIZE_BUTTON:
 		{
 			// BeOS R5 shadow2: active: 183, 131, 0 inactive: 160, 160, 160
 			rgb_color buttonColorShadow2(buttonColor);
@@ -1385,6 +1387,9 @@ BeDecorator::_GetComponentColors(Component component,
 			break;
 		case COMPONENT_CLOSE_BUTTON:
 			region = REGION_CLOSE_BUTTON;
+			break;
+		case COMPONENT_MINIMIZE_BUTTON:
+			region = REGION_MINIMIZE_BUTTON;
 			break;
 		case COMPONENT_ZOOM_BUTTON:
 			region = REGION_ZOOM_BUTTON;

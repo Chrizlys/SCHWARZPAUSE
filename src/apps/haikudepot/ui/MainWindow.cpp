@@ -204,7 +204,7 @@ private:
 
 MainWindow::MainWindow(const BMessage& settings)
 	:
-	BWindow(BRect(50, 50, 650, 550), B_TRANSLATE_SYSTEM_NAME("HaikuDepot"), B_DOCUMENT_WINDOW_LOOK,
+	BWindow(BRect(50, 50, 650, 550), B_TRANSLATE_SYSTEM_NAME("Software Depot"), B_DOCUMENT_WINDOW_LOOK,
 		B_NORMAL_WINDOW_FEEL, B_ASYNCHRONOUS_CONTROLS | B_AUTO_UPDATE_SIZE_LIMITS),
 	fScreenshotWindow(NULL),
 	fShuttingDownWindow(NULL),
@@ -302,7 +302,7 @@ MainWindow::MainWindow(const BMessage& settings)
 
 MainWindow::MainWindow(const BMessage& settings, const PackageInfoRef package)
 	:
-	BWindow(BRect(50, 50, 650, 350), B_TRANSLATE_SYSTEM_NAME("HaikuDepot"), B_DOCUMENT_WINDOW_LOOK,
+	BWindow(BRect(50, 50, 650, 350), B_TRANSLATE_SYSTEM_NAME("Software Depot"), B_DOCUMENT_WINDOW_LOOK,
 		B_NORMAL_WINDOW_FEEL, B_ASYNCHRONOUS_CONTROLS | B_AUTO_UPDATE_SIZE_LIMITS),
 	fFeaturedPackagesView(NULL),
 	fPackageListView(NULL),
@@ -919,7 +919,7 @@ MainWindow::_HandlePackagesChanged(const BMessage* message)
 void
 MainWindow::_BuildMenu(BMenuBar* menuBar)
 {
-	BMenu* menu = new BMenu(B_TRANSLATE_SYSTEM_NAME("HaikuDepot"));
+	BMenu* menu = new BMenu(B_TRANSLATE_SYSTEM_NAME("Software Depot"));
 	fRefreshRepositoriesItem
 		= new BMenuItem(B_TRANSLATE("Refresh repositories"), new BMessage(MSG_REFRESH_REPOS));
 	menu->AddItem(fRefreshRepositoriesItem);
@@ -1104,7 +1104,7 @@ MainWindow::_PromptCanShareAnonymousUserData()
 {
 	BAlert* alert = new(std::nothrow) BAlert(B_TRANSLATE("Sending anonymous usage data"),
 		B_TRANSLATE("Would it be acceptable to send anonymous usage data to the"
-					" HaikuDepotServer system from this computer? You can change your"
+					" software depot service from this computer? You can change your"
 					" preference in the \"Settings\" window later."),
 		B_TRANSLATE("No"), B_TRANSLATE("Yes"));
 
@@ -1692,7 +1692,7 @@ MainWindow::_RatePackage()
 {
 	if (!_SelectedPackageHasWebAppRepositoryCode()) {
 		BAlert* alert = new(std::nothrow) BAlert(B_TRANSLATE("Rating not possible"),
-			B_TRANSLATE("This package doesn't seem to be on the HaikuDepot Server, so it's not "
+			B_TRANSLATE("This package doesn't seem to be on the software depot server, so it's not "
 						"possible to create a new rating or edit an existing rating."),
 			B_TRANSLATE("OK"));
 		alert->Go();
@@ -2005,7 +2005,7 @@ MainWindow::_WindowTitleForPackage(const PackageInfoRef& pkg)
 		versionString = version->ToString();
 
 	BString title("%AppName% - %PackageName% %PackageVersion%");
-	title.ReplaceFirst("%AppName%", B_TRANSLATE_SYSTEM_NAME("HaikuDepot"));
+	title.ReplaceFirst("%AppName%", B_TRANSLATE_SYSTEM_NAME("Software Depot"));
 	title.ReplaceFirst("%PackageName%", pkg->Name());
 	title.ReplaceFirst("%PackageVersion%", versionString);
 

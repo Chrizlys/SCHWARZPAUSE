@@ -175,7 +175,7 @@ enum arg_switch {
 static void
 app_print_help()
 {
-	fprintf(stdout, "HaikuDepot ");
+	fprintf(stdout, "Software Depot ");
 	fprintf(stdout, "[-u|--webappbaseurl <web-app-base-url>]\n");
 	fprintf(stdout, "[-v|--verbosity [off|info|debug|trace]\n");
 	fprintf(stdout, "[--nonetworking]\n");
@@ -459,7 +459,7 @@ App::_CheckPackageDaemonRuns()
 		BString text(B_TRANSLATE("%appname% needs the package daemon to function, "
 						"and it appears to be not running.\n"
 						"Would you like to start it now?"));
-		text.ReplaceFirst("%appname%", B_TRANSLATE_SYSTEM_NAME("HaikuDepot"));
+		text.ReplaceFirst("%appname%", B_TRANSLATE_SYSTEM_NAME("Software Depot"));
 		BAlert* alert = new BAlert(B_TRANSLATE("Start package daemon"), text,
 			B_TRANSLATE("No, quit"), B_TRANSLATE("Start package daemon"), NULL,
 			B_WIDTH_AS_USUAL, B_WARNING_ALERT);

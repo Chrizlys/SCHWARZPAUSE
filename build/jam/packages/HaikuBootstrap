@@ -352,8 +352,13 @@ DESKBAR_APPLICATIONS =
 ;
 local linkTarget ;
 for linkTarget in $(DESKBAR_APPLICATIONS) {
-	AddSymlinkToPackage data deskbar menu Applications
-		: ../../../../apps/$(linkTarget) : $(linkTarget) ;
+	if $(linkTarget) = HaikuDepot {
+		AddSymlinkToPackage data deskbar menu Applications
+			: ../../../../apps/$(linkTarget) : Software\ Depot ;
+	} else {
+		AddSymlinkToPackage data deskbar menu Applications
+			: ../../../../apps/$(linkTarget) : $(linkTarget) ;
+	}
 }
 
 # "Desktop applets" links

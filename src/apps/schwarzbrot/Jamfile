@@ -1,0 +1,14 @@
+SubDir HAIKU_TOP src apps schwarzbrot ;
+
+# SCHWARZBrOT -- launcher for the bundled offline AI chat. The heavy pieces
+# (the AVX2 llama-server engine, its runtime libraries, the Qwen model and the
+# web UI) are prebuilt and shipped as data under /boot/system/apps/SCHWARZBrOT/
+# via the SchwarzpauseBranding package; this small app just starts the engine
+# and opens the branded UI in WebPositive. It only needs libnetwork for the
+# local "is the server already up?" socket check.
+
+Application SCHWARZBrOT :
+	SCHWARZBrOT.cpp
+	: network [ TargetLibstdc++ ] [ TargetLibsupc++ ]
+	: SCHWARZBROT.rdef
+	;

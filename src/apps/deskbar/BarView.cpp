@@ -133,7 +133,8 @@ BarViewMessageFilter::Filter(BMessage* message, BHandler** target)
 TBarView::TBarView(BRect frame, bool vertical, bool left, bool top,
 	int32 state, float)
 	:
-	BView(frame, "BarView", B_FOLLOW_ALL_SIDES, B_WILL_DRAW),
+	BView(frame, "BarView", B_FOLLOW_ALL_SIDES,
+		B_WILL_DRAW | B_DRAW_ON_CHILDREN),
 	fBarApp(static_cast<TBarApp*>(be_app)),
 	fBarWindow(NULL),
 	fInlineScrollView(NULL),
@@ -273,6 +274,17 @@ TBarView::Draw(BRect)
 		StrokeLine(BPoint(frame.left, frame.top - 1),
 			BPoint(frame.right, frame.top -1));
 	}
+}
+
+
+void
+TBarView::DrawAfterChildren(BRect)
+{
+	// Keep one continuous Schwarzpause accent above every Deskbar layout.
+	// Drawing after the child views prevents the menu, tray, and application
+	// list from covering it in either corner or screen-width mode.
+	SetHighColor(189, 150, 51, 255);
+	StrokeLine(Bounds().LeftTop(), Bounds().RightTop());
 }
 
 

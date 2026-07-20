@@ -85,6 +85,7 @@ public:
 	virtual	void			DetachedFromWindow();
 
 	virtual	void			Draw(BRect updateRect);
+	virtual	void			DrawAfterChildren(BRect updateRect);
 
 	virtual	void			MessageReceived(BMessage* message);
 

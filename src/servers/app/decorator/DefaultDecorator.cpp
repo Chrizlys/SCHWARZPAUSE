@@ -21,14 +21,12 @@
 
 #include "DefaultDecorator.h"
 
-#include <algorithm>
 #include <cmath>
 #include <new>
 #include <stdio.h>
 
 #include <Autolock.h>
 #include <Debug.h>
-#include <GradientLinear.h>
 #include <Rect.h>
 #include <Region.h>
 #include <View.h>
@@ -40,7 +38,6 @@
 #include "DrawingEngine.h"
 #include "DrawState.h"
 #include "FontManager.h"
-#include "PatternHandler.h"
 #include "ServerBitmap.h"
 
 
@@ -50,20 +47,6 @@
 #else
 #	define STRACE(x) ;
 #endif
-
-
-static inline uint8
-blend_color_value(uint8 a, uint8 b, float position)
-{
-	int16 delta = (int16)b - a;
-	int32 value = a + (int32)(position * delta);
-	if (value > 255)
-		return 255;
-	if (value < 0)
-		return 0;
-
-	return (uint8)value;
-}
 
 
 //	#pragma mark -
@@ -108,40 +91,35 @@ DefaultDecorator::GetComponentColors(Component component, uint8 highlight,
 	ComponentColors _colors, Decorator::Tab* _tab)
 {
 	Decorator::Tab* tab = static_cast<Decorator::Tab*>(_tab);
+	const bool active = tab != NULL && tab->buttonFocus;
+	const rgb_color tabColor = active
+		? (rgb_color){23, 25, 27, 255}
+		: (rgb_color){48, 51, 54, 255};
+	const rgb_color frameColor = active
+		? (rgb_color){17, 19, 21, 255}
+		: (rgb_color){60, 63, 65, 255};
+	const rgb_color textColor = active
+		? (rgb_color){241, 241, 239, 255}
+		: (rgb_color){181, 183, 184, 255};
+
 	switch (component) {
 		case COMPONENT_TAB:
-			if (tab && tab->buttonFocus) {
-				_colors[COLOR_TAB_FRAME_LIGHT]
-					= tint_color(fFocusFrameColor, B_DARKEN_2_TINT);
-				_colors[COLOR_TAB_FRAME_DARK]
-					= tint_color(fFocusFrameColor, B_DARKEN_3_TINT);
-				_colors[COLOR_TAB] = fFocusTabColor;
-				_colors[COLOR_TAB_LIGHT] = fFocusTabColorLight;
-				_colors[COLOR_TAB_BEVEL] = fFocusTabColorBevel;
-				_colors[COLOR_TAB_SHADOW] = fFocusTabColorShadow;
-				_colors[COLOR_TAB_TEXT] = fFocusTextColor;
-			} else {
-				_colors[COLOR_TAB_FRAME_LIGHT]
-					= tint_color(fNonFocusFrameColor, B_DARKEN_2_TINT);
-				_colors[COLOR_TAB_FRAME_DARK]
-					= tint_color(fNonFocusFrameColor, B_DARKEN_3_TINT);
-				_colors[COLOR_TAB] = fNonFocusTabColor;
-				_colors[COLOR_TAB_LIGHT] = fNonFocusTabColorLight;
-				_colors[COLOR_TAB_BEVEL] = fNonFocusTabColorBevel;
-				_colors[COLOR_TAB_SHADOW] = fNonFocusTabColorShadow;
-				_colors[COLOR_TAB_TEXT] = fNonFocusTextColor;
-			}
+			_colors[COLOR_TAB_FRAME_LIGHT] = frameColor;
+			_colors[COLOR_TAB_FRAME_DARK] = frameColor;
+			_colors[COLOR_TAB] = tabColor;
+			_colors[COLOR_TAB_LIGHT] = tabColor;
+			_colors[COLOR_TAB_BEVEL] = tabColor;
+			_colors[COLOR_TAB_SHADOW] = (rgb_color){101, 105, 108, 255};
+			_colors[COLOR_TAB_TEXT] = textColor;
 			break;
 
 		case COMPONENT_CLOSE_BUTTON:
+		case COMPONENT_MINIMIZE_BUTTON:
 		case COMPONENT_ZOOM_BUTTON:
-			if (tab && tab->buttonFocus) {
-				_colors[COLOR_BUTTON] = fFocusTabColor;
-				_colors[COLOR_BUTTON_LIGHT] = fFocusTabColorLight;
-			} else {
-				_colors[COLOR_BUTTON] = fNonFocusTabColor;
-				_colors[COLOR_BUTTON_LIGHT] = fNonFocusTabColorLight;
-			}
+			_colors[COLOR_BUTTON] = tabColor;
+			_colors[COLOR_BUTTON_LIGHT] = active
+				? (rgb_color){43, 46, 49, 255}
+				: (rgb_color){55, 58, 61, 255};
 			break;
 
 		case COMPONENT_LEFT_BORDER:
@@ -150,32 +128,10 @@ DefaultDecorator::GetComponentColors(Component component, uint8 highlight,
 		case COMPONENT_BOTTOM_BORDER:
 		case COMPONENT_RESIZE_CORNER:
 		default:
-			if (tab && tab->buttonFocus) {
-				_colors[0] = tint_color(fFocusFrameColor, B_DARKEN_2_TINT);
-				_colors[1] = tint_color(fFocusFrameColor, B_LIGHTEN_2_TINT);
-				_colors[2] = fFocusFrameColor;
-				_colors[3] = tint_color(fFocusFrameColor,
-					(B_DARKEN_1_TINT + B_NO_TINT) / 2);
-				_colors[4] = tint_color(fFocusFrameColor, B_DARKEN_2_TINT);
-				_colors[5] = tint_color(fFocusFrameColor, B_DARKEN_3_TINT);
-			} else {
-				_colors[0] = tint_color(fNonFocusFrameColor, B_DARKEN_2_TINT);
-				_colors[1] = tint_color(fNonFocusFrameColor, B_LIGHTEN_2_TINT);
-				_colors[2] = fNonFocusFrameColor;
-				_colors[3] = tint_color(fNonFocusFrameColor,
-					(B_DARKEN_1_TINT + B_NO_TINT) / 2);
-				_colors[4] = tint_color(fNonFocusFrameColor, B_DARKEN_2_TINT);
-				_colors[5] = tint_color(fNonFocusFrameColor, B_DARKEN_3_TINT);
-			}
-
-			// for the resize-border highlight dye everything bluish.
-			if (highlight == HIGHLIGHT_RESIZE_BORDER) {
-				for (int32 i = 0; i < 6; i++) {
-					_colors[i].red = std::max((int)_colors[i].red - 80, 0);
-					_colors[i].green = std::max((int)_colors[i].green - 80, 0);
-					_colors[i].blue = 255;
-				}
-			}
+			for (int32 i = 0; i < 6; i++)
+				_colors[i] = frameColor;
+			if (highlight == HIGHLIGHT_RESIZE_BORDER)
+				_colors[0] = (rgb_color){189, 150, 51, 255};
 			break;
 	}
 }
@@ -197,283 +153,69 @@ DefaultDecorator::_DrawFrame(BRect rect)
 	STRACE(("_DrawFrame(%f,%f,%f,%f)\n", rect.left, rect.top,
 		rect.right, rect.bottom));
 
-	// NOTE: the DrawingEngine needs to be locked for the entire
-	// time for the clipping to stay valid for this decorator
-
 	if (fTopTab->look == B_NO_BORDER_WINDOW_LOOK)
 		return;
 
 	if (fBorderWidth <= 0)
 		return;
 
-	// TODO: While this works, it does not look so crisp at higher resolutions.
-#define COLORS_INDEX(i, borderWidth, nominalLimit) int32((float(i) / float(borderWidth)) * nominalLimit)
+	const bool active = fTopTab != NULL && IsFocus(fTopTab);
+	const rgb_color frameColor = active
+		? (rgb_color){17, 19, 21, 255}
+		: (rgb_color){60, 63, 65, 255};
+	const rgb_color outerLine = active
+		? (rgb_color){9, 10, 11, 255}
+		: (rgb_color){45, 48, 50, 255};
 
-	// Draw the border frame
-	BRect border = BRect(fTopBorder.LeftTop(), fBottomBorder.RightBottom());
-	switch ((int)fTopTab->look) {
-		case B_TITLED_WINDOW_LOOK:
-		case B_DOCUMENT_WINDOW_LOOK:
-		case B_MODAL_WINDOW_LOOK:
-		{
-			// top
-			if (rect.Intersects(fTopBorder)) {
-				ComponentColors colors;
-				_GetComponentColors(COMPONENT_TOP_BORDER, colors, fTopTab);
+	// Keep the resize footprint, but render it as quiet, straight geometry.
+	if (rect.Intersects(fTopBorder))
+		fDrawingEngine->FillRect(fTopBorder, frameColor);
+	if (rect.Intersects(fLeftBorder))
+		fDrawingEngine->FillRect(fLeftBorder, frameColor);
+	if (rect.Intersects(fRightBorder))
+		fDrawingEngine->FillRect(fRightBorder, frameColor);
+	if (rect.Intersects(fBottomBorder))
+		fDrawingEngine->FillRect(fBottomBorder, frameColor);
 
-				for (int8 i = 0; i < fBorderWidth; i++) {
-					const int8 colorsIndex = COLORS_INDEX(i, fBorderWidth, 5);
-					fDrawingEngine->StrokeLine(
-						BPoint(border.left + i, border.top + i),
-						BPoint(border.right - i, border.top + i),
-						colors[colorsIndex]);
-				}
-				if (fTitleBarRect.IsValid()) {
-					// grey along the bottom of the tab
-					// (overwrites "white" from frame)
-					const int overdraw = (int)ceilf(fBorderWidth / 5.0f);
-					for (int i = 1; i <= overdraw; i++) {
-						fDrawingEngine->StrokeLine(
-							BPoint(fTitleBarRect.left + 2, fTitleBarRect.bottom + i),
-							BPoint(fTitleBarRect.right - 2, fTitleBarRect.bottom + i),
-							colors[2]);
-					}
-				}
-			}
-			// left
-			if (rect.Intersects(fLeftBorder.InsetByCopy(0, -fBorderWidth))) {
-				ComponentColors colors;
-				_GetComponentColors(COMPONENT_LEFT_BORDER, colors, fTopTab);
-
-				for (int8 i = 0; i < fBorderWidth; i++) {
-					const int8 colorsIndex = COLORS_INDEX(i, fBorderWidth, 5);
-					fDrawingEngine->StrokeLine(
-						BPoint(border.left + i, border.top + i),
-						BPoint(border.left + i, border.bottom - i),
-						colors[colorsIndex]);
-				}
-			}
-			// bottom
-			if (rect.Intersects(fBottomBorder)) {
-				ComponentColors colors;
-				_GetComponentColors(COMPONENT_BOTTOM_BORDER, colors, fTopTab);
-
-				for (int8 i = 0; i < fBorderWidth; i++) {
-					const int8 colorsIndex = COLORS_INDEX(i, fBorderWidth, 5);
-					fDrawingEngine->StrokeLine(
-						BPoint(border.left + i, border.bottom - i),
-						BPoint(border.right - i, border.bottom - i),
-						colors[(4 - colorsIndex) == 4 ? 5 : (4 - colorsIndex)]);
-				}
-			}
-			// right
-			if (rect.Intersects(fRightBorder.InsetByCopy(0, -fBorderWidth))) {
-				ComponentColors colors;
-				_GetComponentColors(COMPONENT_RIGHT_BORDER, colors, fTopTab);
-
-				for (int8 i = 0; i < fBorderWidth; i++) {
-					const int8 colorsIndex = COLORS_INDEX(i, fBorderWidth, 5);
-					fDrawingEngine->StrokeLine(
-						BPoint(border.right - i, border.top + i),
-						BPoint(border.right - i, border.bottom - i),
-						colors[(4 - colorsIndex) == 4 ? 5 : (4 - colorsIndex)]);
-				}
-			}
-			break;
-		}
-
-		case B_FLOATING_WINDOW_LOOK:
-		case kLeftTitledWindowLook:
-		{
-			// top
-			if (rect.Intersects(fTopBorder)) {
-				ComponentColors colors;
-				_GetComponentColors(COMPONENT_TOP_BORDER, colors, fTopTab);
-
-				for (int8 i = 0; i < fBorderWidth; i++) {
-					const int8 colorsIndex = COLORS_INDEX(i, fBorderWidth, 3);
-					fDrawingEngine->StrokeLine(
-						BPoint(border.left + i, border.top + i),
-						BPoint(border.right - i, border.top + i),
-						colors[colorsIndex * 2]);
-				}
-				if (fTitleBarRect.IsValid() && fTopTab->look != kLeftTitledWindowLook) {
-					// grey along the bottom of the tab
-					// (overwrites "white" from frame)
-					const int overdraw = (int)ceilf(fBorderWidth / 5.0f);
-					for (int i = 1; i <= overdraw; i++) {
-						fDrawingEngine->StrokeLine(
-							BPoint(fTitleBarRect.left + 2, fTitleBarRect.bottom + i),
-							BPoint(fTitleBarRect.right - 2, fTitleBarRect.bottom + i),
-							colors[2]);
-					}
-				}
-			}
-			// left
-			if (rect.Intersects(fLeftBorder.InsetByCopy(0, -fBorderWidth))) {
-				ComponentColors colors;
-				_GetComponentColors(COMPONENT_LEFT_BORDER, colors, fTopTab);
-
-				for (int8 i = 0; i < fBorderWidth; i++) {
-					const int8 colorsIndex = COLORS_INDEX(i, fBorderWidth, 3);
-					fDrawingEngine->StrokeLine(
-						BPoint(border.left + i, border.top + i),
-						BPoint(border.left + i, border.bottom - i),
-						colors[colorsIndex * 2]);
-				}
-				if (fTopTab->look == kLeftTitledWindowLook
-					&& fTitleBarRect.IsValid()) {
-					// grey along the right side of the tab
-					// (overwrites "white" from frame)
-					fDrawingEngine->StrokeLine(
-						BPoint(fTitleBarRect.right + 1,
-							fTitleBarRect.top + 2),
-						BPoint(fTitleBarRect.right + 1,
-							fTitleBarRect.bottom - 2), colors[2]);
-				}
-			}
-			// bottom
-			if (rect.Intersects(fBottomBorder)) {
-				ComponentColors colors;
-				_GetComponentColors(COMPONENT_BOTTOM_BORDER, colors, fTopTab);
-
-				for (int8 i = 0; i < fBorderWidth; i++) {
-					const int8 colorsIndex = COLORS_INDEX(i, fBorderWidth, 3);
-					fDrawingEngine->StrokeLine(
-						BPoint(border.left + i, border.bottom - i),
-						BPoint(border.right - i, border.bottom - i),
-						colors[(2 - colorsIndex) == 2 ? 5 : (2 - colorsIndex) * 2]);
-				}
-			}
-			// right
-			if (rect.Intersects(fRightBorder.InsetByCopy(0, -fBorderWidth))) {
-				ComponentColors colors;
-				_GetComponentColors(COMPONENT_RIGHT_BORDER, colors, fTopTab);
-
-				for (int8 i = 0; i < fBorderWidth; i++) {
-					const int8 colorsIndex = COLORS_INDEX(i, fBorderWidth, 3);
-					fDrawingEngine->StrokeLine(
-						BPoint(border.right - i, border.top + i),
-						BPoint(border.right - i, border.bottom - i),
-						colors[(2 - colorsIndex) == 2 ? 5 : (2 - colorsIndex) * 2]);
-				}
-			}
-			break;
-		}
-
-		case B_BORDERED_WINDOW_LOOK:
-		{
-			// TODO: Draw the borders individually!
-			ComponentColors colors;
-			_GetComponentColors(COMPONENT_LEFT_BORDER, colors, fTopTab);
-
-			fDrawingEngine->StrokeRect(border, colors[5]);
-			break;
-		}
-
-		default:
-			// don't draw a border frame
-			break;
-	}
-
-	// Draw the resize knob if we're supposed to
-	if (!(fTopTab->flags & B_NOT_RESIZABLE)) {
+	// Document windows reserve an interior bottom-right resize footprint.
+	// Paint it opaquely on every relevant update so stale client/desktop pixels
+	// cannot show through while the window is resized.
+	if (fTopTab->look == B_DOCUMENT_WINDOW_LOOK && fResizeRect.IsValid()
+		&& rect.Intersects(fResizeRect)) {
 		ComponentColors colors;
 		_GetComponentColors(COMPONENT_RESIZE_CORNER, colors, fTopTab);
-
-		switch ((int)fTopTab->look) {
-			case B_DOCUMENT_WINDOW_LOOK:
-			{
-				if (fOutlinesDelta.x != 0 || fOutlinesDelta.y != 0) {
-					border.Set(fFrame.right - 13, fFrame.bottom - 13,
-						fFrame.right + 3, fFrame.bottom + 3);
-
-					if (rect.Intersects(border))
-						_DrawResizeKnob(border, false, colors);
-				}
-
-				if (rect.Intersects(fResizeRect)) {
-					_DrawResizeKnob(fResizeRect, fTopTab && IsFocus(fTopTab),
-						colors);
-				}
-
-				break;
-			}
-
-			case B_TITLED_WINDOW_LOOK:
-			case B_FLOATING_WINDOW_LOOK:
-			case B_MODAL_WINDOW_LOOK:
-			case kLeftTitledWindowLook:
-			{
-				if (!rect.Intersects(BRect(
-						fRightBorder.right - fBorderResizeLength,
-						fBottomBorder.bottom - fBorderResizeLength,
-						fRightBorder.right - 1,
-						fBottomBorder.bottom - 1)))
-					break;
-
-				fDrawingEngine->StrokeLine(
-					BPoint(fRightBorder.left,
-						fBottomBorder.bottom - fBorderResizeLength),
-					BPoint(fRightBorder.right - 1,
-						fBottomBorder.bottom - fBorderResizeLength),
-					colors[0]);
-				fDrawingEngine->StrokeLine(
-					BPoint(fRightBorder.right - fBorderResizeLength,
-						fBottomBorder.top),
-					BPoint(fRightBorder.right - fBorderResizeLength,
-						fBottomBorder.bottom - 1),
-					colors[0]);
-				break;
-			}
-
-			default:
-				// don't draw resize corner
-				break;
-		}
+		const bool drawGrip = (fTopTab->flags & B_NOT_RESIZABLE) == 0;
+		_DrawResizeKnob(fResizeRect, drawGrip, colors);
 	}
+
+	BRect border(fTopBorder.LeftTop(), fBottomBorder.RightBottom());
+	if (rect.Intersects(border))
+		fDrawingEngine->StrokeRect(border, outerLine);
 }
 
 
 void
-DefaultDecorator::_DrawResizeKnob(BRect rect, bool full,
+DefaultDecorator::_DrawResizeKnob(BRect rect, bool drawGrip,
 	const ComponentColors& colors)
 {
-	float x = rect.right -= 3;
-	float y = rect.bottom -= 3;
-
-	BGradientLinear gradient;
-	gradient.SetStart(rect.LeftTop());
-	gradient.SetEnd(rect.RightBottom());
-	gradient.AddColor(colors[1], 0);
-	gradient.AddColor(colors[2], 255);
-
-	fDrawingEngine->FillRect(rect, gradient);
-
-	BPoint offset1(rect.Width(), rect.Height()),
-		offset2(rect.Width() - 1, rect.Height() - 1);
-	fDrawingEngine->StrokeLine(BPoint(x, y) - offset1,
-		BPoint(x - offset1.x, y - 2), colors[0]);
-	fDrawingEngine->StrokeLine(BPoint(x, y) - offset2,
-		BPoint(x - offset2.x, y - 1), colors[1]);
-	fDrawingEngine->StrokeLine(BPoint(x, y) - offset1,
-		BPoint(x - 2, y - offset1.y), colors[0]);
-	fDrawingEngine->StrokeLine(BPoint(x, y) - offset2,
-		BPoint(x - 1, y - offset2.y), colors[1]);
-
-	if (!full)
+	if (!rect.IsValid())
 		return;
 
-	static const rgb_color kWhite
-		= (rgb_color){ 255, 255, 255, 255 };
-	for (int8 i = 1; i <= 4; i++) {
-		for (int8 j = 1; j <= i; j++) {
-			BPoint pt1(x - (3 * j) + 1, y - (3 * (5 - i)) + 1);
-			BPoint pt2(x - (3 * j) + 2, y - (3 * (5 - i)) + 2);
-			fDrawingEngine->StrokePoint(pt1, colors[0]);
-			fDrawingEngine->StrokePoint(pt2, kWhite);
-		}
-	}
+	const bool highlighted = colors[0] != colors[1];
+	const rgb_color gripColor = highlighted
+		? colors[0] : (rgb_color){92, 96, 98, 255};
+
+	// A solid graphite field closes the decorator footprint. Two straight
+	// diagonals retain a quiet but discoverable resize affordance.
+	fDrawingEngine->FillRect(rect, colors[1]);
+	if (!drawGrip)
+		return;
+
+	const float step = max_c(3.0f, floorf(rect.Width() / 4.0f));
+	fDrawingEngine->StrokeLine(BPoint(rect.left + step, rect.bottom - 1),
+		BPoint(rect.right - 1, rect.top + step), gripColor);
+	fDrawingEngine->StrokeLine(BPoint(rect.left + step * 2, rect.bottom - 1),
+		BPoint(rect.right - 1, rect.top + step * 2), gripColor);
 }
 
 
@@ -499,58 +241,33 @@ DefaultDecorator::_DrawTab(Decorator::Tab* tab, BRect invalid)
 	ComponentColors colors;
 	_GetComponentColors(COMPONENT_TAB, colors, tab);
 
-	// outer frame
-	fDrawingEngine->StrokeLine(tabRect.LeftTop(), tabRect.LeftBottom(),
-		colors[COLOR_TAB_FRAME_LIGHT]);
-	fDrawingEngine->StrokeLine(tabRect.LeftTop(), tabRect.RightTop(),
-		colors[COLOR_TAB_FRAME_LIGHT]);
-	if (tab->look != kLeftTitledWindowLook) {
-		fDrawingEngine->StrokeLine(tabRect.RightTop(), tabRect.RightBottom(),
-			colors[COLOR_TAB_FRAME_DARK]);
-	} else {
-		fDrawingEngine->StrokeLine(tabRect.LeftBottom(),
-			tabRect.RightBottom(), colors[COLOR_TAB_FRAME_DARK]);
-	}
+	const bool active = tab->buttonFocus;
+	const rgb_color outerLine = active
+		? (rgb_color){17, 19, 21, 255}
+		: (rgb_color){60, 63, 65, 255};
+	const rgb_color separator = active
+		? (rgb_color){101, 105, 108, 255}
+		: (rgb_color){74, 78, 81, 255};
+	const rgb_color focusLine = (rgb_color){189, 150, 51, 255};
 
-	float tabBotton = tabRect.bottom;
-	if (fTopTab != tab)
-		tabBotton -= 1;
-
-	// bevel
-	fDrawingEngine->StrokeLine(BPoint(tabRect.left + 1, tabRect.top + 1),
-		BPoint(tabRect.left + 1,
-			tabBotton - (tab->look == kLeftTitledWindowLook ? 1 : 0)),
-		colors[COLOR_TAB_BEVEL]);
-	fDrawingEngine->StrokeLine(BPoint(tabRect.left + 1, tabRect.top + 1),
-		BPoint(tabRect.right - (tab->look == kLeftTitledWindowLook ? 0 : 1),
-			tabRect.top + 1),
-		colors[COLOR_TAB_BEVEL]);
+	// Flat Schwarzpause title surface: no gradient, bevel, or raised edge.
+	fDrawingEngine->FillRect(tabRect, colors[COLOR_TAB]);
+	fDrawingEngine->StrokeRect(tabRect, outerLine);
 
 	if (tab->look != kLeftTitledWindowLook) {
-		fDrawingEngine->StrokeLine(BPoint(tabRect.right - 1, tabRect.top + 2),
-			BPoint(tabRect.right - 1, tabBotton),
-			colors[COLOR_TAB_SHADOW]);
+		fDrawingEngine->StrokeLine(BPoint(tabRect.left + 1, tabRect.bottom),
+			BPoint(tabRect.right - 1, tabRect.bottom), separator);
+		if (active) {
+			fDrawingEngine->StrokeLine(BPoint(tabRect.left + 1, tabRect.top),
+				BPoint(tabRect.right - 1, tabRect.top), focusLine);
+		}
 	} else {
-		fDrawingEngine->StrokeLine(
-			BPoint(tabRect.left + 2, tabRect.bottom - 1),
-			BPoint(tabRect.right, tabRect.bottom - 1),
-			colors[COLOR_TAB_SHADOW]);
-	}
-
-	// fill
-	BGradientLinear gradient;
-	gradient.SetStart(tabRect.LeftTop());
-	gradient.AddColor(colors[COLOR_TAB_LIGHT], 0);
-	gradient.AddColor(colors[COLOR_TAB], 255);
-
-	if (tab->look != kLeftTitledWindowLook) {
-		gradient.SetEnd(tabRect.LeftBottom());
-		fDrawingEngine->FillRect(BRect(tabRect.left + 2, tabRect.top + 2,
-			tabRect.right - 2, tabBotton), gradient);
-	} else {
-		gradient.SetEnd(tabRect.RightTop());
-		fDrawingEngine->FillRect(BRect(tabRect.left + 2, tabRect.top + 2,
-			tabRect.right, tabRect.bottom - 2), gradient);
+		fDrawingEngine->StrokeLine(BPoint(tabRect.right, tabRect.top + 1),
+			BPoint(tabRect.right, tabRect.bottom - 1), separator);
+		if (active) {
+			fDrawingEngine->StrokeLine(BPoint(tabRect.left, tabRect.top + 1),
+				BPoint(tabRect.left, tabRect.bottom - 1), focusLine);
+		}
 	}
 
 	_DrawTitle(tab, tabRect);
@@ -578,7 +295,6 @@ DefaultDecorator::_DrawTitle(Decorator::Tab* _tab, BRect rect)
 	Decorator::Tab* tab = static_cast<Decorator::Tab*>(_tab);
 
 	const BRect& tabRect = tab->tabRect;
-	const BRect& closeRect = tab->closeRect;
 	const BRect& zoomRect = tab->zoomRect;
 
 	ComponentColors colors;
@@ -594,8 +310,7 @@ DefaultDecorator::_DrawTitle(Decorator::Tab* _tab, BRect rect)
 
 	BPoint titlePos;
 	if (tab->look != kLeftTitledWindowLook) {
-		titlePos.x = closeRect.IsValid() ? closeRect.right + tab->textOffset
-			: tabRect.left + tab->textOffset;
+		titlePos.x = tabRect.left + tab->textOffset;
 		titlePos.y = floorf(((tabRect.top + 2.0) + tabRect.bottom
 			+ fontHeight.ascent + fontHeight.descent) / 2.0
 			- fontHeight.descent + 0.5);
@@ -677,7 +392,56 @@ DefaultDecorator::_DrawZoom(Decorator::Tab* _tab, bool direct, BRect rect)
 void
 DefaultDecorator::_DrawMinimize(Decorator::Tab* tab, bool direct, BRect rect)
 {
-	// This decorator doesn't have this button
+	int32 index = (tab->buttonFocus ? 0 : 1)
+		+ (tab->minimizePressed ? 0 : 2);
+	ServerBitmap* bitmap = tab->minimizeBitmaps[index];
+	if (bitmap == NULL) {
+		bitmap = _GetBitmapForButton(tab, COMPONENT_MINIMIZE_BUTTON,
+			tab->minimizePressed, rect.IntegerWidth(), rect.IntegerHeight());
+		tab->minimizeBitmaps[index] = bitmap;
+	}
+
+	_DrawButtonBitmap(bitmap, direct, rect);
+}
+
+
+bool
+DefaultDecorator::_HasMinimizeButton() const
+{
+	return true;
+}
+
+
+float
+DefaultDecorator::_BorderWidthForLook(window_look look) const
+{
+	switch ((int)look) {
+		case B_MODAL_WINDOW_LOOK:
+		case B_TITLED_WINDOW_LOOK:
+		case B_DOCUMENT_WINDOW_LOOK:
+			return 2;
+
+		case B_FLOATING_WINDOW_LOOK:
+		case kLeftTitledWindowLook:
+		case B_BORDERED_WINDOW_LOOK:
+			return 1;
+
+		default:
+			return 0;
+	}
+}
+
+
+float
+DefaultDecorator::_TabSpacing() const
+{
+	const float scaleFactor = max_c(fDrawState.Font().Size() / 12.0f, 1.0f);
+	if (fTopTab->look == B_FLOATING_WINDOW_LOOK
+		|| fTopTab->look == kLeftTitledWindowLook) {
+		return 4.2f * scaleFactor;
+	}
+
+	return 7.0f * scaleFactor;
 }
 
 
@@ -711,29 +475,12 @@ void
 DefaultDecorator::_DrawBlendedRect(DrawingEngine* engine, const BRect rect,
 	bool down, const ComponentColors& colors)
 {
-	// figure out which colors to use
-	rgb_color startColor, endColor;
-	if (down) {
-		startColor = tint_color(colors[COLOR_BUTTON], B_DARKEN_1_TINT);
-		endColor = colors[COLOR_BUTTON_LIGHT];
-	} else {
-		startColor = tint_color(colors[COLOR_BUTTON], B_LIGHTEN_MAX_TINT);
-		endColor = colors[COLOR_BUTTON];
-	}
-
-	// fill
-	BRect fillRect(rect.InsetByCopy(1.0f, 1.0f));
-
-	BGradientLinear gradient;
-	gradient.SetStart(fillRect.LeftTop());
-	gradient.SetEnd(fillRect.RightBottom());
-	gradient.AddColor(startColor, 0);
-	gradient.AddColor(endColor, 255);
-
-	engine->FillRect(fillRect, gradient);
-
-	// outline
-	engine->StrokeRect(rect, tint_color(colors[COLOR_BUTTON], B_DARKEN_2_TINT));
+	const rgb_color fillColor = down
+		? (rgb_color){15, 17, 18, 255}
+		: colors[COLOR_BUTTON];
+	engine->FillRect(rect, fillColor);
+	engine->StrokeLine(rect.LeftTop(), rect.LeftBottom(),
+		(rgb_color){46, 50, 53, 255});
 }
 
 
@@ -785,6 +532,20 @@ DefaultDecorator::_GetBitmapForButton(Decorator::Tab* tab, Component item,
 		return NULL;
 
 	BRect rect(0, 0, width - 1, height - 1);
+	const bool active = tab != NULL && tab->buttonFocus;
+	const rgb_color closeColor = active
+		? (rgb_color){210, 43, 53, 255}
+		: (rgb_color){130, 70, 74, 255};
+	const rgb_color minimizeColor = active
+		? (rgb_color){205, 176, 50, 255}
+		: (rgb_color){130, 116, 65, 255};
+	const rgb_color zoomColor = active
+		? (rgb_color){50, 174, 75, 255}
+		: (rgb_color){65, 120, 75, 255};
+	const rgb_color zoomBackColor = active
+		? (rgb_color){148, 151, 153, 255}
+		: (rgb_color){92, 96, 98, 255};
+	const float glyphShift = width >= 12 ? 2.0f : 1.0f;
 
 	STRACE(("DefaultDecorator creating bitmap for %s %s at size %ldx%ld\n",
 		item == COMPONENT_CLOSE_BUTTON ? "close" : "zoom",
@@ -792,24 +553,34 @@ DefaultDecorator::_GetBitmapForButton(Decorator::Tab* tab, Component item,
 	switch (item) {
 		case COMPONENT_CLOSE_BUTTON:
 			_DrawBlendedRect(sBitmapDrawingEngine, rect, down, colors);
+			sBitmapDrawingEngine->StrokeLine(BPoint(2 + glyphShift, height - 3),
+				BPoint(width - 3 + glyphShift, 2), closeColor);
+			break;
+
+		case COMPONENT_MINIMIZE_BUTTON:
+			_DrawBlendedRect(sBitmapDrawingEngine, rect, down, colors);
+			// Keep a narrow visible gap above the button's bottom frame.
+			sBitmapDrawingEngine->StrokeLine(BPoint(2 + glyphShift, height - 4),
+				BPoint(width - 3 + glyphShift, height - 4), minimizeColor);
 			break;
 
 		case COMPONENT_ZOOM_BUTTON:
 		{
-			sBitmapDrawingEngine->FillRect(rect, B_TRANSPARENT_COLOR);
-				// init the background
-
-			float inset = floorf(width / 4.0);
-			BRect zoomRect(rect);
-			zoomRect.left += inset;
-			zoomRect.top += inset;
-			_DrawBlendedRect(sBitmapDrawingEngine, zoomRect, down, colors);
-
-			inset = floorf(width / 2.1);
-			zoomRect = rect;
-			zoomRect.right -= inset;
-			zoomRect.bottom -= inset;
-			_DrawBlendedRect(sBitmapDrawingEngine, zoomRect, down, colors);
+			_DrawBlendedRect(sBitmapDrawingEngine, rect, down, colors);
+			const float backWidth = max_c(7.0f, floorf(width * 0.58f));
+			const float backHeight = max_c(5.0f, floorf(height * 0.50f));
+			BRect back(2 + glyphShift, height - backHeight - 2,
+				min_c((float)width - 1, 2 + backWidth + glyphShift),
+				height - 3);
+			const float frontWidth = max_c(5.0f, floorf(width * 0.40f));
+			const float frontHeight = max_c(4.0f, floorf(height * 0.38f));
+			BRect front(width - frontWidth - 2 + glyphShift, 2,
+				width - 3 + glyphShift,
+				2 + frontHeight);
+			sBitmapDrawingEngine->StrokeRect(back, zoomBackColor);
+			// The foreground rectangle masks the rear outline where they overlap.
+			sBitmapDrawingEngine->FillRect(front, colors[COLOR_BUTTON]);
+			sBitmapDrawingEngine->StrokeRect(front, zoomColor);
 			break;
 		}
 
@@ -855,6 +626,9 @@ DefaultDecorator::_GetComponentColors(Component component,
 			break;
 		case COMPONENT_CLOSE_BUTTON:
 			region = REGION_CLOSE_BUTTON;
+			break;
+		case COMPONENT_MINIMIZE_BUTTON:
+			region = REGION_MINIMIZE_BUTTON;
 			break;
 		case COMPONENT_ZOOM_BUTTON:
 			region = REGION_ZOOM_BUTTON;

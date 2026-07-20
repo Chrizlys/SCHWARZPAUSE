@@ -1,0 +1,23 @@
+/* SCHWARZSEHER application resources.
+ *
+ * No icon resource is defined here on purpose: the sunglasses app icon is
+ * supplied by Tracker/Deskbar through the Schwarzpause PNG icon path in
+ * IconCache.cpp (keyed on this application's name/signature), matching the
+ * approved PNG-resource icon route used for the desktop icons.
+ */
+
+resource app_signature "application/x-vnd.schwarzpause-schwarzseher";
+
+resource app_version {
+	major  = 1,
+	middle = 0,
+	minor  = 0,
+
+	variety = B_APPV_DEVELOPMENT,
+	internal = 0,
+
+	short_info = "SCHWARZSEHER",
+	long_info  = "SCHWARZSEHER - visual authoring layer for OpenSCAD (Schwarzpause OS)"
+};
+
+resource app_flags B_SINGLE_LAUNCH;

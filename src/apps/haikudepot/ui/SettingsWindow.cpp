@@ -71,7 +71,7 @@ SettingsWindow::_InitUiControls()
 {
 	fCanShareAnonymousUsageDataCheckBox = new BCheckBox(
 		"share anonymous usage data",
-		B_TRANSLATE("Share anonymous usage data with HaikuDepotServer"), NULL);
+		B_TRANSLATE("Share anonymous usage data with the software depot service"), NULL);
 
 	fApplyButton = new BButton("apply", B_TRANSLATE("Apply"),
 		new BMessage(MSG_APPLY));

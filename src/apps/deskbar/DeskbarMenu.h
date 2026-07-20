@@ -119,6 +119,7 @@ class TDeskbarMenu : public BNavMenu {
 		BPoint			ScreenLocation();
 
 		bool			AddStandardDeskbarMenuItems();
+		void			AddShutdownMenu();
 
 	private:
 		virtual bool	StartBuildingItemList();

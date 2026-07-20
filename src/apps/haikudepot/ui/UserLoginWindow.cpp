@@ -587,7 +587,7 @@ UserLoginWindow::_HandleAuthenticationFailed()
 
 
 /*!	This is called when the user has successfully authenticated with the remote
-	HaikuDepotServer system; this handles the take-up of the data and closing
+	the software depot service; this handles the take-up of the data and closing
 	the window etc...
 */
 
@@ -1314,7 +1314,7 @@ UserLoginWindow::_HandleCreateAccountSuccess(const UserCredentials& credentials)
 {
 	BString message
 		= B_TRANSLATE("The user %Nickname% has been successfully "
-					  "created in the HaikuDepotServer system. You can administer your user "
+					  "created in the software depot service. You can administer your user "
 					  "details by using the web interface. You are now logged-in as this "
 					  "new user.");
 	message.ReplaceAll("%Nickname%", credentials.Nickname());

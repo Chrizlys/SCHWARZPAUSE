@@ -1,0 +1,16 @@
+SubDir HAIKU_TOP src apps schwarzseher ;
+
+# SCHWARZSEHER -- visual authoring layer that drives OpenSCAD. Self-contained:
+# the OpenSCAD codegen is compiled in (scadgen.cpp is #included by bridge.cpp)
+# and the whole web UI is embedded (ui_assets.h), so the only extra library it
+# needs is libnetwork for the local POSIX socket server.
+#
+# NOTE: the canonical source lives in SCHWARZSEHER/bridge_haiku/cpp/. The files
+# here are in-tree copies so the OS image can build the app; re-copy them after
+# changing the bridge.
+
+Application SCHWARZSEHER :
+	bridge.cpp
+	: network [ TargetLibstdc++ ] [ TargetLibsupc++ ]
+	: SCHWARZSEHER.rdef
+	;

@@ -63,10 +63,21 @@ All rights reserved.
 //			generic icon
 
 
+#include <algorithm>
+#include <math.h>
+#include <new>
+#include <string.h>
+
+#include <Bitmap.h>
 #include <ControlLook.h>
+#include <DataIO.h>
 #include <Debug.h>
 #include <Screen.h>
+#include <TranslatorFormats.h>
+#include <TranslationUtils.h>
+#include <View.h>
 #include <Volume.h>
+#include <VolumeRoster.h>
 
 #include <fs_info.h>
 
@@ -76,6 +87,393 @@ All rights reserved.
 #include "MimeTypes.h"
 #include "Model.h"
 #include "Thumbnails.h"
+
+
+enum SchwarzpauseTrackerIcon {
+	kSchwarzpauseHomeIcon,
+	kSchwarzpauseDisksIcon,
+	kSchwarzpauseTrashIcon,
+	kSchwarzpauseFileIcon,
+	kSchwarzpauseSchwarzseherIcon,
+	kSchwarzpauseSchwarzbrotIcon
+};
+
+
+static bool
+SchwarzpauseIsBootVolume(Model* model)
+{
+	if (model == NULL || model->NodeRef() == NULL)
+		return false;
+
+	BVolume bootVolume;
+	return BVolumeRoster().GetBootVolume(&bootVolume) == B_OK
+		&& model->NodeRef()->device == bootVolume.Device();
+}
+
+
+static bool
+SchwarzpauseIsSchwarzseherApp(Model* model)
+{
+	// The SCHWARZSEHER application uses the approved sunglasses PNG icon. Gate
+	// cheaply on IsExecutable() (skips the vast majority of nodes), then match
+	// the binary name, so the icon shows in the Deskbar Applications menu and in
+	// Tracker without reaching for a resource-embedded HVIF/CMAP8 icon.
+	return model != NULL && model->IsExecutable() && model->Name() != NULL
+		&& strcmp(model->Name(), "SCHWARZSEHER") == 0;
+}
+
+
+static bool
+SchwarzpauseIsSchwarzbrotApp(Model* model)
+{
+	// The SCHWARZBrOT launcher uses the approved white-tile/black-loaf PNG icon,
+	// supplied the same way as SCHWARZSEHER: match the executable by name so the
+	// icon shows in the Deskbar Applications menu and in Tracker.
+	return model != NULL && model->IsExecutable() && model->Name() != NULL
+		&& strcmp(model->Name(), "SCHWARZBrOT") == 0;
+}
+
+
+static float
+SchwarzpauseIconSize(BRect bounds)
+{
+	return std::min(bounds.Width() + 1, bounds.Height() + 1);
+}
+
+
+static BPoint
+SchwarzpauseRotatedPoint(BRect bounds, float angle, float localX, float localY)
+{
+	const float scale = SchwarzpauseIconSize(bounds) / 96.0f;
+	const float radians = angle * 3.14159265358979323846f / 180.0f;
+	const float x = localX * scale;
+	const float y = localY * scale;
+	const float centerX = (bounds.left + bounds.right) / 2.0f;
+	const float centerY = (bounds.top + bounds.bottom) / 2.0f;
+
+	return BPoint(centerX + x * cosf(radians) - y * sinf(radians),
+		centerY + x * sinf(radians) + y * cosf(radians));
+}
+
+
+static void
+SchwarzpauseFillRotatedCircle(BView* canvas, BRect bounds, float angle,
+	float localX, float localY, float radius)
+{
+	const float scale = SchwarzpauseIconSize(bounds) / 96.0f;
+	BPoint center = SchwarzpauseRotatedPoint(bounds, angle, localX, localY);
+	canvas->FillEllipse(BRect(center.x - radius * scale, center.y - radius * scale,
+		center.x + radius * scale, center.y + radius * scale));
+}
+
+
+static void
+SchwarzpauseDrawTile(BView* canvas, BRect bounds)
+{
+	const float size = SchwarzpauseIconSize(bounds);
+	const float radius = std::max(1.5f, size * 0.06f);
+
+	BRect tile(bounds.left + size * 0.07f, bounds.top + size * 0.06f,
+		bounds.right - size * 0.07f, bounds.bottom - size * 0.06f);
+	canvas->SetHighColor(2, 3, 5, 255);
+	canvas->FillRoundRect(tile, radius, radius);
+
+	canvas->SetHighColor(82, 84, 90, 255);
+	canvas->StrokeRoundRect(tile, radius, radius);
+}
+
+
+static void
+SchwarzpauseDrawHome(BView* canvas, BRect bounds)
+{
+	const float size = SchwarzpauseIconSize(bounds);
+	const float s = size / 96.0f;
+
+	canvas->SetHighColor(248, 249, 250, 255);
+	canvas->SetPenSize(std::max(1.0f, 5.2f * s));
+	canvas->StrokeLine(BPoint(bounds.left + size * 0.27f, bounds.top + size * 0.52f),
+		BPoint(bounds.left + size * 0.50f, bounds.top + size * 0.31f));
+	canvas->StrokeLine(BPoint(bounds.left + size * 0.50f, bounds.top + size * 0.31f),
+		BPoint(bounds.left + size * 0.73f, bounds.top + size * 0.52f));
+
+	canvas->SetHighColor(214, 218, 224, 255);
+	canvas->SetPenSize(std::max(1.0f, 3.2f * s));
+	canvas->StrokeLine(BPoint(bounds.left + size * 0.34f, bounds.top + size * 0.53f),
+		BPoint(bounds.left + size * 0.34f, bounds.top + size * 0.72f));
+	canvas->StrokeLine(BPoint(bounds.left + size * 0.66f, bounds.top + size * 0.53f),
+		BPoint(bounds.left + size * 0.66f, bounds.top + size * 0.72f));
+	canvas->StrokeLine(BPoint(bounds.left + size * 0.34f, bounds.top + size * 0.72f),
+		BPoint(bounds.left + size * 0.66f, bounds.top + size * 0.72f));
+}
+
+
+static void
+SchwarzpauseDrawUsb(BView* canvas, BRect bounds)
+{
+	const float angle = -43.0f;
+	const float size = SchwarzpauseIconSize(bounds);
+	const float s = size / 96.0f;
+
+	BPoint plug[] = {
+		SchwarzpauseRotatedPoint(bounds, angle, 13, -9),
+		SchwarzpauseRotatedPoint(bounds, angle, 36, -9),
+		SchwarzpauseRotatedPoint(bounds, angle, 36, 9),
+		SchwarzpauseRotatedPoint(bounds, angle, 13, 9)
+	};
+	canvas->SetHighColor(6, 7, 9, 255);
+	canvas->FillPolygon(plug, 4);
+	canvas->SetHighColor(248, 249, 250, 255);
+	canvas->SetPenSize(std::max(1.0f, 2.8f * s));
+	canvas->StrokePolygon(plug, 4, true);
+
+	BPoint body[16];
+	int32 index = 0;
+	body[index++] = SchwarzpauseRotatedPoint(bounds, angle, 17, -14);
+	body[index++] = SchwarzpauseRotatedPoint(bounds, angle, 24, 0);
+	body[index++] = SchwarzpauseRotatedPoint(bounds, angle, 17, 14);
+	for (int32 i = 0; i <= 8; i++) {
+		const float arc = (90.0f + i * 22.5f) * 3.14159265358979323846f / 180.0f;
+		body[index++] = SchwarzpauseRotatedPoint(bounds, angle,
+			-22 + 14 * cosf(arc), 14 * sinf(arc));
+	}
+	canvas->SetHighColor(248, 249, 250, 255);
+	canvas->FillPolygon(body, index);
+
+	canvas->SetHighColor(6, 7, 9, 255);
+	SchwarzpauseFillRotatedCircle(canvas, bounds, angle, -29, 0, 4.0f);
+
+	canvas->SetHighColor(248, 249, 250, 255);
+	SchwarzpauseFillRotatedCircle(canvas, bounds, angle, 27.7f, -4.6f, 1.6f);
+	SchwarzpauseFillRotatedCircle(canvas, bounds, angle, 28.4f, 3.6f, 1.6f);
+}
+
+
+static void
+SchwarzpauseDrawTrash(BView* canvas, BRect bounds)
+{
+	const float size = SchwarzpauseIconSize(bounds);
+	const float s = size / 96.0f;
+
+	canvas->SetHighColor(248, 249, 250, 255);
+	canvas->SetPenSize(std::max(1.0f, 4.4f * s));
+	canvas->StrokeLine(BPoint(bounds.left + size * 0.31f, bounds.top + size * 0.36f),
+		BPoint(bounds.left + size * 0.69f, bounds.top + size * 0.36f));
+
+	canvas->SetHighColor(214, 218, 224, 255);
+	canvas->SetPenSize(std::max(1.0f, 2.5f * s));
+	canvas->StrokeLine(BPoint(bounds.left + size * 0.43f, bounds.top + size * 0.30f),
+		BPoint(bounds.left + size * 0.57f, bounds.top + size * 0.30f));
+	canvas->StrokeLine(BPoint(bounds.left + size * 0.47f, bounds.top + size * 0.30f),
+		BPoint(bounds.left + size * 0.45f, bounds.top + size * 0.36f));
+	canvas->StrokeLine(BPoint(bounds.left + size * 0.55f, bounds.top + size * 0.30f),
+		BPoint(bounds.left + size * 0.57f, bounds.top + size * 0.36f));
+
+	canvas->SetHighColor(248, 249, 250, 255);
+	canvas->SetPenSize(std::max(1.0f, 4.4f * s));
+	BPoint body[] = {
+		BPoint(bounds.left + size * 0.36f, bounds.top + size * 0.42f),
+		BPoint(bounds.left + size * 0.64f, bounds.top + size * 0.42f),
+		BPoint(bounds.left + size * 0.60f, bounds.top + size * 0.73f),
+		BPoint(bounds.left + size * 0.40f, bounds.top + size * 0.73f),
+		BPoint(bounds.left + size * 0.36f, bounds.top + size * 0.42f)
+	};
+	canvas->StrokePolygon(body, 5, false);
+
+	canvas->SetHighColor(214, 218, 224, 255);
+	canvas->SetPenSize(std::max(1.0f, 2.5f * s));
+	canvas->StrokeLine(BPoint(bounds.left + size * 0.45f, bounds.top + size * 0.48f),
+		BPoint(bounds.left + size * 0.46f, bounds.top + size * 0.66f));
+	canvas->StrokeLine(BPoint(bounds.left + size * 0.55f, bounds.top + size * 0.48f),
+		BPoint(bounds.left + size * 0.54f, bounds.top + size * 0.66f));
+}
+
+
+static status_t __attribute__((unused))
+SchwarzpauseDrawIcon(BBitmap* bitmap, SchwarzpauseTrackerIcon icon)
+{
+	if (bitmap == NULL || bitmap->InitCheck() != B_OK)
+		return B_BAD_VALUE;
+
+	if (bitmap->Bits() != NULL && bitmap->BitsLength() > 0)
+		memset(bitmap->Bits(), 0, bitmap->BitsLength());
+
+	BRect bounds(bitmap->Bounds());
+	if (!bitmap->Lock())
+		return B_ERROR;
+
+	BView* canvas = new(std::nothrow) BView(bounds, "schwarzpause tracker icon",
+		B_FOLLOW_NONE, B_WILL_DRAW);
+	if (canvas == NULL) {
+		bitmap->Unlock();
+		return B_NO_MEMORY;
+	}
+
+	bitmap->AddChild(canvas);
+	canvas->SetDrawingMode(B_OP_COPY);
+	canvas->SetHighColor(0, 0, 0, 0);
+	canvas->FillRect(bounds);
+	canvas->SetDrawingMode(B_OP_ALPHA);
+	canvas->SetBlendingMode(B_PIXEL_ALPHA, B_ALPHA_COMPOSITE);
+
+	SchwarzpauseDrawTile(canvas, bounds);
+
+	switch (icon) {
+		case kSchwarzpauseHomeIcon:
+			SchwarzpauseDrawHome(canvas, bounds);
+			break;
+		case kSchwarzpauseDisksIcon:
+			SchwarzpauseDrawUsb(canvas, bounds);
+			break;
+		case kSchwarzpauseTrashIcon:
+			SchwarzpauseDrawTrash(canvas, bounds);
+			break;
+		case kSchwarzpauseFileIcon:
+			break;
+		case kSchwarzpauseSchwarzseherIcon:
+			break;
+		case kSchwarzpauseSchwarzbrotIcon:
+			break;
+	}
+
+	canvas->Sync();
+	bitmap->RemoveChild(canvas);
+	bitmap->Unlock();
+	delete canvas;
+
+	return B_OK;
+}
+
+
+static int32
+SchwarzpausePngResource(SchwarzpauseTrackerIcon icon)
+{
+	switch (icon) {
+		case kSchwarzpauseHomeIcon:
+			return R_SchwarzpauseHomePng;
+		case kSchwarzpauseDisksIcon:
+			return R_SchwarzpauseDisksPng;
+		case kSchwarzpauseTrashIcon:
+			return R_SchwarzpauseTrashPng;
+		case kSchwarzpauseFileIcon:
+			return R_SchwarzpauseFilePng;
+		case kSchwarzpauseSchwarzseherIcon:
+			return R_SchwarzpauseSchwarzseherPng;
+		case kSchwarzpauseSchwarzbrotIcon:
+			return R_SchwarzpauseSchwarzbrotPng;
+	}
+
+	return -1;
+}
+
+
+static int32
+SchwarzpauseVectorResource(SchwarzpauseTrackerIcon icon)
+{
+	switch (icon) {
+		case kSchwarzpauseHomeIcon:
+			return R_HomeDirIcon;
+		case kSchwarzpauseDisksIcon:
+			return R_BootVolumeIcon;
+		case kSchwarzpauseTrashIcon:
+			return R_TrashIcon;
+		case kSchwarzpauseFileIcon:
+			return R_FileIcon;
+		case kSchwarzpauseSchwarzseherIcon:
+			return R_AppIcon;
+		case kSchwarzpauseSchwarzbrotIcon:
+			return R_AppIcon;
+	}
+
+	return -1;
+}
+
+
+static BBitmap*
+SchwarzpauseLoadPngIcon(SchwarzpauseTrackerIcon icon, BSize size)
+{
+	size_t length = 0;
+	const void* data = GetTrackerResources()->LoadResource(B_PNG_FORMAT,
+		SchwarzpausePngResource(icon), &length);
+	if (data == NULL)
+		return NULL;
+
+	BMemoryIO stream(data, length);
+	BBitmap* source = BTranslationUtils::GetBitmap(&stream);
+	if (source == NULL)
+		return NULL;
+
+	BBitmap* bitmap = new(std::nothrow) BBitmap(BRect(BPoint(0, 0), size),
+		kDefaultIconDepth, true);
+	if (bitmap == NULL || bitmap->InitCheck() != B_OK) {
+		delete bitmap;
+		delete source;
+		return NULL;
+	}
+
+	BView canvas(bitmap->Bounds(), "schwarzpause png icon", B_FOLLOW_NONE,
+		B_WILL_DRAW);
+	bitmap->AddChild(&canvas);
+	bool drewBitmap = false;
+	if (canvas.LockLooper()) {
+		canvas.SetLowColor(B_TRANSPARENT_COLOR);
+		canvas.SetDrawingMode(B_OP_COPY);
+		canvas.FillRect(canvas.Bounds(), B_SOLID_LOW);
+		canvas.SetDrawingMode(B_OP_ALPHA);
+		canvas.SetBlendingMode(B_PIXEL_ALPHA, B_ALPHA_COMPOSITE);
+		canvas.DrawBitmap(source, source->Bounds(), bitmap->Bounds(),
+			B_FILTER_BITMAP_BILINEAR);
+		canvas.Sync();
+		canvas.UnlockLooper();
+		drewBitmap = true;
+	}
+	bitmap->RemoveChild(&canvas);
+
+	delete source;
+	if (!drewBitmap) {
+		delete bitmap;
+		return NULL;
+	}
+
+	return bitmap;
+}
+
+
+static IconCacheEntry*
+GetSchwarzpauseIcon(SharedIconCache* cache, const char* key,
+	SchwarzpauseTrackerIcon icon, IconDrawMode mode, BSize size,
+	LazyBitmapAllocator* lazyBitmap)
+{
+	IconCacheEntry* entry = cache->FindItem(key);
+	if (entry != NULL) {
+		entry = IconCacheEntry::ResolveIfAlias(cache, entry);
+		if (entry->HaveIconBitmap(mode, size))
+			return entry;
+	}
+
+	if (entry == NULL || !entry->HaveIconBitmap(NORMAL_ICON_ONLY, size)) {
+		if (entry == NULL)
+			entry = cache->AddItem(key);
+
+		BBitmap* bitmap = SchwarzpauseLoadPngIcon(icon, size);
+		if (bitmap != NULL) {
+			entry->SetIcon(bitmap, kNormalIcon, size);
+		} else {
+			bitmap = lazyBitmap->Get();
+			if (GetTrackerResources()->GetIconResource(
+					SchwarzpauseVectorResource(icon),
+					(icon_size)(size.IntegerWidth() + 1), bitmap) == B_OK) {
+				entry->SetIcon(lazyBitmap->Adopt(), kNormalIcon, size);
+			}
+		}
+	}
+
+	if (mode != kNormalIcon && !entry->HaveIconBitmap(mode, size)) {
+		entry->ConstructBitmap(mode, size, lazyBitmap);
+		entry->SetIcon(lazyBitmap->Adopt(), mode, size);
+	}
+
+	return entry;
+}
 
 
 //#if DEBUG
@@ -663,7 +1061,8 @@ IconCache::GetRootIcon(AutoLock<SimpleIconCache>*,
 
 	source = kTrackerSupplied;
 
-	return GetIconFromMetaMime(B_ROOT_MIMETYPE, mode, size, lazyBitmap, 0);
+	return GetSchwarzpauseIcon(&fSharedCache, "tracker/schwarzpause_disks",
+		kSchwarzpauseDisksIcon, mode, size, lazyBitmap);
 }
 
 
@@ -716,16 +1115,18 @@ IconCache::GetWellKnownIcon(AutoLock<SimpleIconCache>*,
 		int32 resourceId = -1;
 		switch ((uint32)wellKnownEntry->which) {
 			case B_BOOT_DISK:
-				resourceId = R_BootVolumeIcon;
-				break;
+				return GetSchwarzpauseIcon(&fSharedCache,
+					"tracker/schwarzpause_boot_volume",
+					kSchwarzpauseDisksIcon, mode, size, lazyBitmap);
 
 			case B_BEOS_DIRECTORY:
 				resourceId = R_BeosFolderIcon;
 				break;
 
 			case B_USER_DIRECTORY:
-				resourceId = R_HomeDirIcon;
-				break;
+				return GetSchwarzpauseIcon(&fSharedCache,
+					"tracker/schwarzpause_home",
+					kSchwarzpauseHomeIcon, mode, size, lazyBitmap);
 
 			case B_SYSTEM_FONTS_DIRECTORY:
 			case B_SYSTEM_NONPACKAGED_FONTS_DIRECTORY:
@@ -905,10 +1306,15 @@ IconCache::GetFallbackIcon(AutoLock<SimpleIconCache>* sharedCacheLocker,
 	entry = fSharedCache.AddItem(model->MimeType(),
 		model->PreferredAppSignature());
 
-	BBitmap* bitmap = lazyBitmap->Get();
-	GetTrackerResources()->GetIconResource(R_FileIcon,
-		icon_size_for(size), bitmap);
-	entry->SetIcon(lazyBitmap->Adopt(), kNormalIcon, size);
+	BBitmap* bitmap = SchwarzpauseLoadPngIcon(kSchwarzpauseFileIcon, size);
+	if (bitmap != NULL) {
+		entry->SetIcon(bitmap, kNormalIcon, size);
+	} else {
+		bitmap = lazyBitmap->Get();
+		GetTrackerResources()->GetIconResource(R_FileIcon,
+			icon_size_for(size), bitmap);
+		entry->SetIcon(lazyBitmap->Adopt(), kNormalIcon, size);
+	}
 
 	if (mode != kNormalIcon) {
 		entry->ConstructBitmap(mode, size, lazyBitmap);
@@ -944,22 +1350,58 @@ IconCache::Preload(AutoLock<SimpleIconCache>* nodeCacheLocker,
 			// lazyBitmap manages bitmap allocation and freeing if needed
 
 		IconSource source = model->IconFrom();
-		if (source == kUnknownSource || source == kUnknownNotFromNode) {
+		if (SchwarzpauseIsSchwarzseherApp(model)) {
+			resultingOpenCache = sharedCacheLocker;
+			resultingOpenCache->Lock();
+			source = kTrackerSupplied;
+			entry = GetSchwarzpauseIcon(&fSharedCache,
+				"tracker/schwarzpause_schwarzseher",
+				kSchwarzpauseSchwarzseherIcon, mode, size, &lazyBitmap);
+			model->SetIconFrom(source);
+			ASSERT(entry != NULL);
+		} else if (SchwarzpauseIsSchwarzbrotApp(model)) {
+			resultingOpenCache = sharedCacheLocker;
+			resultingOpenCache->Lock();
+			source = kTrackerSupplied;
+			entry = GetSchwarzpauseIcon(&fSharedCache,
+				"tracker/schwarzpause_schwarzbrot",
+				kSchwarzpauseSchwarzbrotIcon, mode, size, &lazyBitmap);
+			model->SetIconFrom(source);
+			ASSERT(entry != NULL);
+		} else if (model->IsTrash()) {
+			resultingOpenCache = sharedCacheLocker;
+			resultingOpenCache->Lock();
+			source = kTrackerSupplied;
+			entry = GetSchwarzpauseIcon(&fSharedCache,
+				"tracker/schwarzpause_trash", kSchwarzpauseTrashIcon,
+				mode, size, &lazyBitmap);
+			model->SetIconFrom(source);
+			ASSERT(entry != NULL);
+		} else if (source == kUnknownSource || source == kUnknownNotFromNode) {
 			// fish for special first models and handle them appropriately
 			if (model->IsRoot()) {
 				entry = GetRootIcon(nodeCacheLocker, sharedCacheLocker, &resultingOpenCache, model,
 					source, mode, size, &lazyBitmap);
 				ASSERT(entry != NULL);
 			} else if (model->IsVolume()) {
-				// volume may use specialized icon in the volume node
-				entry = GetNodeIcon(&modelOpener, nodeCacheLocker,
-					&resultingOpenCache, model, source, mode, size,
-					&lazyBitmap, entry, permanent);
-				if (entry == NULL || !entry->HaveIconBitmap(mode, size)) {
-					// look for volume defined icon
-					entry = GetVolumeIcon(nodeCacheLocker, sharedCacheLocker,
-						&resultingOpenCache, model, source, mode,
-						size, &lazyBitmap);
+				if (SchwarzpauseIsBootVolume(model)) {
+					resultingOpenCache = sharedCacheLocker;
+					resultingOpenCache->Lock();
+					source = kTrackerSupplied;
+					entry = GetSchwarzpauseIcon(&fSharedCache,
+						"tracker/schwarzpause_boot_volume",
+						kSchwarzpauseDisksIcon, mode, size, &lazyBitmap);
+				} else {
+					// volume may use specialized icon in the volume node
+					entry = GetNodeIcon(&modelOpener, nodeCacheLocker,
+						&resultingOpenCache, model, source, mode, size,
+						&lazyBitmap, entry, permanent);
+					if (entry == NULL || !entry->HaveIconBitmap(mode, size)) {
+						// look for volume defined icon
+						entry = GetVolumeIcon(nodeCacheLocker,
+							sharedCacheLocker, &resultingOpenCache, model,
+							source, mode, size, &lazyBitmap);
+					}
 				}
 			} else if (model->IsPrintersDir()) {
 				entry = GetPrinterIcon(nodeCacheLocker, sharedCacheLocker,
@@ -1037,14 +1479,24 @@ IconCache::Preload(AutoLock<SimpleIconCache>* nodeCacheLocker,
 				case kTrackerDefault:
 				case kVolume:
 					if (model->IsVolume()) {
-						entry = GetNodeIcon(&modelOpener, nodeCacheLocker,
-							&resultingOpenCache, model, source,
-							mode, size, &lazyBitmap, entry, permanent);
-						if (entry == NULL
-							|| !entry->HaveIconBitmap(mode, size)) {
-							entry = GetVolumeIcon(nodeCacheLocker,
-								sharedCacheLocker, &resultingOpenCache, model,
-								source, mode, size, &lazyBitmap);
+						if (SchwarzpauseIsBootVolume(model)) {
+							resultingOpenCache = sharedCacheLocker;
+							resultingOpenCache->Lock();
+							source = kTrackerSupplied;
+							entry = GetSchwarzpauseIcon(&fSharedCache,
+								"tracker/schwarzpause_boot_volume",
+								kSchwarzpauseDisksIcon, mode, size,
+								&lazyBitmap);
+						} else {
+							entry = GetNodeIcon(&modelOpener, nodeCacheLocker,
+								&resultingOpenCache, model, source,
+								mode, size, &lazyBitmap, entry, permanent);
+							if (entry == NULL
+								|| !entry->HaveIconBitmap(mode, size)) {
+								entry = GetVolumeIcon(nodeCacheLocker,
+									sharedCacheLocker, &resultingOpenCache,
+									model, source, mode, size, &lazyBitmap);
+							}
 						}
 						break;
 					}

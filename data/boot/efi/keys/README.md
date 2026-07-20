@@ -1,6 +1,6 @@
-# Haiku UEFI Keys
+# UEFI Secure Boot Keys
 
-The EFI keys in this directory can be used to boot Haiku in UEFI Secure Mode.
+The EFI keys in this directory can be used to boot Schwarzpause OS in UEFI Secure Mode.
 The Haiku, Inc. key must be appended to your EFI BIOS trusted keychain to function.
 
 > This is only needed when you're booting in EFI Secure Boot mode! It's probably
@@ -8,10 +8,10 @@ The Haiku, Inc. key must be appended to your EFI BIOS trusted keychain to functi
 
 ## Installing UEFI Keys
 
-To trust Haiku's EFI bootloader, you'll need to append our DB key to your BIOS's
+To trust the EFI bootloader, you'll need to append the DB key to your BIOS's
 DB keychain.
 
-> Ensure the Haiku installation media is inserted / plugged into your computer.
+> Ensure the Schwarzpause OS installation media is inserted / plugged into your computer.
 
 Real world examples:
 
@@ -23,7 +23,7 @@ Real world examples:
     * "Enable Custom Mode" checked
     * Press "Reset All Keys"
     * Choose db, then press "Append from File"
-    * Navigate to the Haiku USB installation media
+    * Navigate to the Schwarzpause OS USB installation media
     * EFI -> KEYS -> DB.auth
 
 * Framework Laptop (InsydeH20 BIOS)

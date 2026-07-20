@@ -163,6 +163,7 @@ FlatDecorator::GetComponentColors(Component component, uint8 highlight,
 			break;
 
 		case COMPONENT_CLOSE_BUTTON:
+		case COMPONENT_MINIMIZE_BUTTON:
 		case COMPONENT_ZOOM_BUTTON:
 			if (tab && tab->buttonFocus) {
 				_colors[COLOR_BUTTON] = fFocusTabColor;
@@ -860,6 +861,7 @@ FlatDecorator::_GetBitmapForButton(Decorator::Tab* tab, Component item,
 		down ? "down" : "up", width, height));
 	switch (item) {
 		case COMPONENT_CLOSE_BUTTON:
+		case COMPONENT_MINIMIZE_BUTTON:
 			if (tab && tab->buttonFocus)
 				_DrawBlendedRect(sBitmapDrawingEngine, rect, down, colors);
 			else
@@ -933,6 +935,9 @@ FlatDecorator::_GetComponentColors(Component component,
 			break;
 		case COMPONENT_CLOSE_BUTTON:
 			region = REGION_CLOSE_BUTTON;
+			break;
+		case COMPONENT_MINIMIZE_BUTTON:
+			region = REGION_MINIMIZE_BUTTON;
 			break;
 		case COMPONENT_ZOOM_BUTTON:
 			region = REGION_ZOOM_BUTTON;

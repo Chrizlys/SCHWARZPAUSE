@@ -16,7 +16,7 @@
 //#define WINDOW_FEEL B_FLOATING_ALL_WINDOW_FEEL
 
 LoginWindow::LoginWindow(BRect frame)
-	: BWindow(frame, B_TRANSLATE("Welcome to Haiku"), B_TITLED_WINDOW_LOOK, 
+	: BWindow(frame, B_TRANSLATE("Welcome to Schwarzpause OS"), B_TITLED_WINDOW_LOOK, 
 		WINDOW_FEEL, 
 		B_NOT_MOVABLE | B_NOT_CLOSABLE | B_NOT_ZOOMABLE | 
 		B_NOT_MINIMIZABLE | B_NOT_RESIZABLE | 

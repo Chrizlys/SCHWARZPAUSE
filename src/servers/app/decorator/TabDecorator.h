@@ -51,6 +51,7 @@ protected:
 				COMPONENT_TAB,
 
 				COMPONENT_CLOSE_BUTTON,
+				COMPONENT_MINIMIZE_BUTTON,
 				COMPONENT_ZOOM_BUTTON,
 
 				COMPONENT_LEFT_BORDER,
@@ -92,6 +93,9 @@ protected:
 	virtual	void				_DrawTitle(Decorator::Tab* tab, BRect r) = 0;
 	virtual	void				_DrawZoom(Decorator::Tab* tab, bool direct,
 									BRect r) = 0;
+	virtual	bool				_HasMinimizeButton() const;
+	virtual	float				_BorderWidthForLook(window_look look) const;
+	virtual	float				_TabSpacing() const;
 
 	virtual	void				_SetTitle(Decorator::Tab* tab,
 									const char* string,
