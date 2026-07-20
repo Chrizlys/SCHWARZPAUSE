@@ -30,25 +30,72 @@ Interfaces and defaults are still changing.
 Building
 --------
 
-SCHWARZPAUSE builds like Haiku, from Linux (or WSL on Windows). Clone this repository
-and Haiku's `buildtools` next to each other:
+SCHWARZPAUSE is built on Linux. **On Windows the recommended way is WSL** (Windows
+Subsystem for Linux) — you do not need a second PC, a virtual machine, or a Linux
+installation. The steps below work from a completely fresh Windows machine.
 
+### Step 1 — Install WSL (Windows only)
+
+Open **PowerShell as Administrator** and run:
+
+    wsl --install
+
+This installs WSL2 together with Ubuntu. **Restart the computer when prompted.**
+
+After the restart, start **Ubuntu** from the Start menu. On first launch it asks you to
+create a Linux user name and password — pick anything you like and remember the password,
+you will need it for `sudo`. You now have a Linux terminal; every command from here on is
+typed in that Ubuntu window.
+
+(If `wsl --install` is not recognised, your Windows is too old — update Windows, or see
+Microsoft's WSL installation guide.)
+
+### Step 2 — Install the build dependencies
+
+In the Ubuntu window:
+
+    sudo apt update
+    sudo apt install -y autoconf automake bc bison build-essential flex gawk git \
+        libtool libzstd-dev dos2unix mtools nasm pkg-config python3 rsync texinfo \
+        unzip wget xorriso zip zlib1g-dev
+
+### Step 3 — Get the sources
+
+**Work inside the Linux home directory (`~`), not under `/mnt/c/...`.** Building from a
+Windows path is many times slower, and Windows line endings (CRLF) will break the build.
+
+    cd ~
     git clone https://github.com/Chrizlys/SCHWARZPAUSE.git
     git clone https://review.haiku-os.org/buildtools.git
 
-Activate the SCHWARZPAUSE build configuration, then configure and build:
+### Step 4 — Build
 
-    cd SCHWARZPAUSE
+    cd ~/SCHWARZPAUSE
     cp build/jam/UserBuildConfig.schwarzpause build/jam/UserBuildConfig
     ./configure --build-cross-tools x86_64 ../buildtools
     mkdir -p generated.x86_64 && cd generated.x86_64
     jam -q -j$(nproc) @nightly-anyboot
 
-The result is a bootable anyboot image. Write it to a USB stick in raw/DD mode and boot
-from it. For general Haiku build requirements see `ReadMe.Compiling.md`.
+The first build also compiles a complete cross-compiler, so it takes a while; later builds
+are much faster. The finished image is:
 
-Note for Windows users: build from a Linux filesystem, not directly from a Windows path,
-and keep line endings as LF — CRLF breaks the build.
+    ~/SCHWARZPAUSE/generated.x86_64/haiku-nightly-anyboot.iso
+
+Copy it to Windows with, for example:
+
+    cp haiku-nightly-anyboot.iso /mnt/c/Users/<YourName>/Desktop/
+
+**If the build fails**, run `jam` again with `-j1` instead of `-j$(nproc)`. A parallel
+build interleaves the output and hides which command actually failed; a single-job build
+shows the real error.
+
+### Step 5 — Write it to a USB stick
+
+Write the `.iso` to a USB stick in **raw / DD mode** (on Windows, [Rufus](https://rufus.ie)
+in "DD Image" mode). Then boot from the stick — in the boot menu choose the entry that
+lists the USB stick as a **disk**, not the CD/DVD entry.
+
+For general Haiku build requirements see `ReadMe.Compiling.md`.
 
 License and attribution
 -----------------------
