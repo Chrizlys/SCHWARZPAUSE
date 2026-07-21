@@ -14,19 +14,10 @@
 #include <string.h>
 #include <new>
 
-
-#define PCI_MECH1_REQ_PORT				0xCF8
-#define PCI_MECH1_DATA_PORT 			0xCFC
-#define PCI_MECH1_REQ_DATA(bus, device, func, offset) \
-	(0x80000000 | (bus << 16) | (device << 11) | (func << 8) | (offset & ~3))
-
-#define PCI_MECH2_ENABLE_PORT			0x0cf8
-#define PCI_MECH2_FORWARD_PORT			0x0cfa
-#define PCI_MECH2_CONFIG_PORT(dev, offset) \
-	(uint16)(0xC00 | (dev << 8) | offset)
+#include "PCI_x86.h"
 
 
-//#pragma mark - driver
+// #pragma mark - driver
 
 
 float
@@ -46,13 +37,20 @@ X86PCIController::SupportsDevice(device_node* parent)
 status_t
 X86PCIController::RegisterDevice(device_node* parent)
 {
+	// I/O port for PCI config space address
+#define PCI_CONFIG_ADDRESS 0xcf8
+
+	io_resource resources[2] = {
+		{B_IO_PORT, PCI_CONFIG_ADDRESS, 8},
+		{}
+	};
 	device_attr attrs[] = {
 		{ B_DEVICE_PRETTY_NAME, B_STRING_TYPE, {.string = "X86 PCI Host Controller"} },
 		{ B_DEVICE_FIXED_CHILD, B_STRING_TYPE, {.string = "bus_managers/pci/root/driver_v1"} },
 		{}
 	};
 
-	return gDeviceManager->register_node(parent, PCI_X86_DRIVER_MODULE_NAME, attrs, NULL, NULL);
+	return gDeviceManager->register_node(parent, PCI_X86_DRIVER_MODULE_NAME, attrs, resources, NULL);
 }
 
 
@@ -161,7 +159,7 @@ X86PCIController::GetRange(uint32 index, pci_resource_range* range)
 status_t
 X86PCIController::Finalize()
 {
-	ioapic_init();
+	ioapic_routing_init();
 	return B_OK;
 }
 
@@ -240,14 +238,15 @@ X86PCIControllerMeth1::WriteConfig(
 }
 
 
-status_t X86PCIControllerMeth1::GetMaxBusDevices(int32& count)
+status_t
+X86PCIControllerMeth1::GetMaxBusDevices(int32& count)
 {
 	count = 32;
 	return B_OK;
 }
 
 
-//#pragma mark - X86PCIControllerMeth2
+// #pragma mark - X86PCIControllerMeth2
 
 
 status_t
@@ -327,14 +326,15 @@ X86PCIControllerMeth2::WriteConfig(
 }
 
 
-status_t X86PCIControllerMeth2::GetMaxBusDevices(int32& count)
+status_t
+X86PCIControllerMeth2::GetMaxBusDevices(int32& count)
 {
 	count = 16;
 	return B_OK;
 }
 
 
-//#pragma mark - X86PCIControllerMethPcie
+// #pragma mark - X86PCIControllerMethPcie
 
 
 status_t

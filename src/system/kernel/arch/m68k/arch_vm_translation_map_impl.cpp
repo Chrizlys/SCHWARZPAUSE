@@ -739,20 +739,20 @@ query_tmap_interrupt(vm_translation_map *map, addr_t va, addr_t *_physical,
 	index = VADDR_TO_PRENT(va);
 	if (pr && pr[index].type == DT_ROOT) {
 		put_page_table_entry_in_pgtable(&sQueryDesc, PRE_TO_TA(pr[index]), B_KERNEL_READ_AREA, false);
-		arch_cpu_invalidate_TLB_range((addr_t)pt, (addr_t)pt);
+		arch_cpu_invalidate_tlb_range(0, (addr_t)pt, (addr_t)pt);
 		pd = (page_directory_entry *)sQueryPage;
 
 		index = VADDR_TO_PDENT(va);
 		if (pd && pd[index].type == DT_DIR) {
 			put_page_table_entry_in_pgtable(&sQueryDesc, PDE_TO_TA(pd[index]), B_KERNEL_READ_AREA, false);
-			arch_cpu_invalidate_TLB_range((addr_t)pt, (addr_t)pt);
+			arch_cpu_invalidate_tlb_range(0, (addr_t)pt, (addr_t)pt);
 			pt = (page_table_entry *)sQueryPage;
 
 			index = VADDR_TO_PTENT(va);
 			if (pt && pt[index].type == DT_INDIRECT) {
 				pi = (page_indirect_entry *)pt;
 				put_page_table_entry_in_pgtable(&sQueryDesc, PIE_TO_TA(pi[index]), B_KERNEL_READ_AREA, false);
-				arch_cpu_invalidate_TLB_range((addr_t)pt, (addr_t)pt);
+				arch_cpu_invalidate_tlb_range(0, (addr_t)pt, (addr_t)pt);
 				pt = (page_table_entry *)sQueryPage;
 				index = 0; // single descriptor
 			}
@@ -1046,15 +1046,15 @@ flush_tmap(vm_translation_map *map)
 			map->arch_data->num_invalidate_pages));
 
 		if (IS_KERNEL_MAP(map)) {
-			arch_cpu_global_TLB_invalidate();
+			arch_cpu_global_tlb_invalidate();
 		} else {
-			arch_cpu_user_TLB_invalidate();
+			arch_cpu_user_tlb_invalidate(0);
 		}
 	} else {
 		TRACE(("flush_tmap: %d pages to invalidate, invalidate list\n",
 			map->arch_data->num_invalidate_pages));
 
-		arch_cpu_invalidate_TLB_list(map->arch_data->pages_to_invalidate,
+		arch_cpu_invalidate_tlb_list(0, map->arch_data->pages_to_invalidate,
 			map->arch_data->num_invalidate_pages);
 	}
 	map->arch_data->num_invalidate_pages = 0;
@@ -1090,9 +1090,9 @@ map_iospace_chunk(addr_t va, addr_t pa, uint32 flags)
 	}
 
 	state = disable_interrupts();
-	arch_cpu_invalidate_TLB_range(va, va + (IOSPACE_CHUNK_SIZE - B_PAGE_SIZE));
-	//smp_send_broadcast_ici(SMP_MSG_INVALIDATE_PAGE_RANGE,
-	//	va, va + (IOSPACE_CHUNK_SIZE - B_PAGE_SIZE), 0,
+	arch_cpu_invalidate_tlb_range(0, va, va + (IOSPACE_CHUNK_SIZE - B_PAGE_SIZE));
+	//smp_send_broadcast_ici(SMP_MSG_INVALIDATE_PAGE_RANGE, 0,
+	//	va, va + (IOSPACE_CHUNK_SIZE - B_PAGE_SIZE),
 	//	NULL, SMP_MSG_FLAG_SYNC);
 	restore_interrupts(state);
 
@@ -1510,7 +1510,7 @@ m68k_vm_translation_map_early_map(kernel_args *args, addr_t va, addr_t pa,
 	put_page_table_entry_in_pgtable(&pt[index], pa, attributes,
 		IS_KERNEL_ADDRESS(va));
 
-	arch_cpu_invalidate_TLB_range(va, va);
+	arch_cpu_invalidate_tlb_range(0, va, va);
 
 	return B_OK;
 }

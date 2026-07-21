@@ -6,6 +6,7 @@
 #include <efi/types.h>
 
 #include <kernel/arch/arm64/arm_registers.h>
+#include <kernel/arch/arm64/arch_hypervisor.h>
 #include <kernel/arch/arm64/arch_pte.h>
 
 #include <arch_kernel.h>
@@ -145,6 +146,7 @@ static inline void _arch_mmu_set_sctlr(uint64 sctlr)
 			WRITE_SPECIALREG(SCTLR_EL3, sctlr);
 			break;
 	}
+	asm("isb");
 }
 
 
@@ -235,7 +237,7 @@ static inline uint32 arch_mmu_kernel_granule()
  */
 static inline bool arch_mmu_is_kernel_address(uint64 address)
 {
-	return address > KERNEL_BASE;
+	return address >= KERNEL_BASE;
 }
 
 

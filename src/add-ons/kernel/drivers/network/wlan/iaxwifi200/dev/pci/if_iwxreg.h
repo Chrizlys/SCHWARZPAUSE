@@ -1,4 +1,4 @@
-/*	$OpenBSD: if_iwxreg.h,v 1.55 2024/11/08 09:12:46 kettenis Exp $	*/
+/*	$OpenBSD: if_iwxreg.h,v 1.58 2025/12/01 16:44:13 stsp Exp $	*/
 
 /*-
  * Based on BSD-licensed source modules in the Linux iwlwifi driver,
@@ -2836,7 +2836,7 @@ struct iwx_fw_dbg_trigger_time_event {
  * rx_bar: tid bitmap to configure on what tid the trigger should occur
  *	when a BAR is received (for a Tx BlockAck session).
  * tx_bar: tid bitmap to configure on what tid the trigger should occur
- *	when a BAR is send (for an Rx BlocAck session).
+ *	when a BAR is send (for an Rx BlockAck session).
  * frame_timeout: tid bitmap to configure on what tid the trigger should occur
  *	when a frame times out in the reordering buffer.
  */
@@ -4527,7 +4527,7 @@ struct iwx_mac_ctx_cmd {
  *	Available only from version 2 of the command.
  *	This values comes from the EMLSR transition delay in the EML Capabilities
  *	subfield.
- * @medium_sync_delay: the value as it appeasr in P802.11be_D2.2 Figure 9-1002j.
+ * @medium_sync_delay: the value as it appears in P802.11be_D2.2 Figure 9-1002j.
  * @assoc_id: unique ID assigned by the AP during association
  * @reserved1: alignment
  * @data_policy: see &enum iwx_mac_data_policy
@@ -8040,15 +8040,33 @@ struct iwx_rm_sta_cmd {
  * @key_id:
  * @receive_seq_cnt: initial RSC/PN needed for replay check
  */
-struct iwx_mgmt_mcast_key_cmd {
+struct iwx_mgmt_mcast_key_cmd_v1 {
 	uint32_t ctrl_flags;
-	uint8_t IGTK[16];
-	uint8_t K1[16];
-	uint8_t K2[16];
+	uint8_t igtk[16];
+	uint8_t k1[16];
+	uint8_t k2[16];
 	uint32_t key_id;
 	uint32_t sta_id;
 	uint64_t receive_seq_cnt;
 } __packed; /* SEC_MGMT_MULTICAST_KEY_CMD_API_S_VER_1 */
+
+/**
+ * struct iwx_mgmt_mcast_key_cmd - IGTK command
+ * ( MGMT_MCAST_KEY = 0x1f )
+ * @ctrl_flags: &enum iwx_sta_key_flag
+ * @igtk: IGTK master key
+ * @sta_id: station ID that support IGTK
+ * @key_id: key ID
+ * @receive_seq_cnt: initial RSC/PN needed for replay check
+ */
+struct iwx_mgmt_mcast_key_cmd {
+	uint32_t ctrl_flags;
+	uint8_t igtk[32];
+	uint32_t key_id;
+	uint32_t sta_id;
+	uint64_t receive_seq_cnt;
+} __packed; /* SEC_MGMT_MULTICAST_KEY_CMD_API_S_VER_2 */
+
 
 struct iwx_wep_key {
 	uint8_t key_index;

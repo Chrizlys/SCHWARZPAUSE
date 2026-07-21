@@ -26,6 +26,8 @@
 #include <Notification.h>
 #include <Roster.h>
 
+#include <package/CleanUpAdminDirectoryRequest.h>
+#include <package/InstallationLocationInfo.h>
 #include <package/manager/Exceptions.h>
 #include <package/solver/SolverPackage.h>
 
@@ -369,20 +371,6 @@ void
 UpdateManager::ProgressTransactionCommitted(InstalledRepository& repository,
 	const BCommitTransactionResult& result)
 {
-	_SetCurrentStep(ACTION_STEP_COMPLETE);
-	BString header(B_TRANSLATE("Updates completed"));
-
-	BString detail;
-	if (BPackageRoster().IsRebootNeeded()) {
-		detail = B_TRANSLATE("A reboot is necessary to complete the "
-			"update process.");
-		fStatusWindow->PostMessage(kMsgShowReboot);
-	} else {
-		detail = B_TRANSLATE("Updates have been successfully installed.");
-	}
-
-	_FinalUpdate(header.String(), detail.String());
-
 	if (fVerbose) {
 		const char* repositoryName = repository.Name().String();
 
@@ -410,6 +398,34 @@ UpdateManager::ProgressApplyingChangesDone(InstalledRepository& repository)
 {
 	if (fVerbose)
 		printf("[%s] Done.\n", repository.Name().String());
+
+	if (fStatusWindow->ShouldCleanUpAdminDirectory()) {
+		BInstallationLocationInfo info;
+		if (BPackageRoster().GetInstallationLocationInfo(repository.Location(), info) == B_OK) {
+			BDecisionProvider decisionProvider;
+			BJobStateListener listener;
+			BContext context(decisionProvider, listener);
+
+			time_t before = time(NULL) - kCleanUpKeepDays * 24 * 60 * 60;
+
+			CleanUpAdminDirectoryRequest request(context, info, before, kCleanUpKeepStates);
+			request.Process();
+		}
+	}
+
+	_SetCurrentStep(ACTION_STEP_COMPLETE);
+	BString header(B_TRANSLATE("Updates completed"));
+
+	BString detail;
+	if (BPackageRoster().IsRebootNeeded()) {
+		detail = B_TRANSLATE("A reboot is necessary to complete the "
+			"update process.");
+		fStatusWindow->PostMessage(kMsgShowReboot);
+	} else {
+		detail = B_TRANSLATE("Updates have been successfully installed.");
+	}
+
+	_FinalUpdate(header.String(), detail.String());
 }
 
 

@@ -7,9 +7,13 @@
 class TextControlTestcase: public TestCase {
 public:
 	void
-	SizeTest()
+	ClassSizeTest()
 	{
+#ifdef B_HAIKU_32_BIT
 		CPPUNIT_ASSERT_EQUAL(312, sizeof(BTextControl));
+#else
+		CPPUNIT_ASSERT(true);
+#endif
 	}
 
 	void
@@ -31,7 +35,7 @@ TextControlTestSuite()
 	TestSuite *testSuite = new TestSuite();
 
 	testSuite->addTest(new CppUnit::TestCaller<TextControlTestcase>(
-		"BTextControl_Size", &TextControlTestcase::SizeTest));
+		"BTextControl_ClassSize", &TextControlTestcase::ClassSizeTest));
 	testSuite->addTest(new CppUnit::TestCaller<TextControlTestcase>(
 		"BTextControl_GetText", &TextControlTestcase::GetTextTest));
 

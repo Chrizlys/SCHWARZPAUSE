@@ -30,17 +30,17 @@
 #include <package/ActivationTransaction.h>
 #include <package/DaemonClient.h>
 #include <package/manager/RepositoryBuilder.h>
-#include <package/ValidateChecksumJob.h>
 
 #include "FetchFileJob.h"
 #include "FetchUtils.h"
-using BPackageKit::BPrivate::FetchUtils;
 #include "PackageManagerUtils.h"
+#include "ValidateChecksumJob.h"
 
 #undef B_TRANSLATION_CONTEXT
 #define B_TRANSLATION_CONTEXT "PackageManagerKit"
 
 
+using BPackageKit::BPrivate::FetchUtils;
 using BPackageKit::BPrivate::FetchFileJob;
 using BPackageKit::BPrivate::ValidateChecksumJob;
 
@@ -398,9 +398,13 @@ BPackageManager::JobProgress(BSupportKit::BJob* job)
 {
 	if (dynamic_cast<FetchFileJob*>(job) != NULL) {
 		FetchFileJob* fetchJob = (FetchFileJob*)job;
-		fUserInteractionHandler->ProgressPackageDownloadActive(
-			fetchJob->DownloadFileName(), fetchJob->DownloadProgress(),
-			fetchJob->DownloadBytes(), fetchJob->DownloadTotalBytes());
+		try {
+			fUserInteractionHandler->ProgressPackageDownloadActive(
+				fetchJob->DownloadFileName(), fetchJob->DownloadProgress(),
+				fetchJob->DownloadBytes(), fetchJob->DownloadTotalBytes());
+		} catch (BAbortedByUserException&) {
+			fetchJob->Stop();
+		}
 	}
 }
 

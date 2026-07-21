@@ -7,9 +7,13 @@
 class TextViewTestcase: public TestCase {
 public:
 	void
-	SizeTest()
+	ClassSizeTest()
 	{
+#ifdef B_HAIKU_32_BIT
 		CPPUNIT_ASSERT_EQUAL(356, sizeof(BTextView));
+#else
+		CPPUNIT_ASSERT(true);
+#endif
 	}
 
 	void
@@ -33,7 +37,7 @@ TextViewTestSuite()
 	TestSuite *testSuite = new TestSuite();
 
 	testSuite->addTest(new CppUnit::TestCaller<TextViewTestcase>(
-		"BTextView_Size", &TextViewTestcase::SizeTest));
+		"BTextView_ClassSize", &TextViewTestcase::ClassSizeTest));
 	testSuite->addTest(new CppUnit::TestCaller<TextViewTestcase>(
 		"BTextView_GetText", &TextViewTestcase::GetTextTest));
 

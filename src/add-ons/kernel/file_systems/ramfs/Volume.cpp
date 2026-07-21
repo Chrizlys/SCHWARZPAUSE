@@ -612,46 +612,6 @@ Volume::RemoveEntryListener(EntryListener *listener, Entry *entry)
 }
 
 
-status_t
-Volume::NodeAttributeAdded(ino_t id, Attribute *attribute)
-{
-	status_t error = (attribute ? B_OK : B_BAD_VALUE);
-	if (error == B_OK) {
-		// notify the respective attribute index
-		if (error == B_OK) {
-			if (AttributeIndex *index = FindAttributeIndex(
-					attribute->GetName(), attribute->GetType())) {
-				index->Added(attribute);
-			}
-		}
-	}
-	return error;
-}
-
-
-status_t
-Volume::NodeAttributeRemoved(ino_t id, Attribute *attribute)
-{
-	if (attribute == NULL)
-		return B_BAD_VALUE;
-
-	// notify the attribute index
-	if (AttributeIndex *index = attribute->GetIndex())
-		index->Removed(attribute);
-
-	// update live queries
-	if (attribute->GetNode() != NULL) {
-		uint8 oldKey[kMaxIndexKeyLength];
-		size_t oldLength;
-		attribute->GetKey(oldKey, &oldLength);
-		UpdateLiveQueries(NULL, attribute->GetNode(), attribute->GetName(),
-			attribute->GetType(), oldKey, oldLength, NULL, 0);
-	}
-
-	return B_OK;
-}
-
-
 NameIndex *
 Volume::GetNameIndex() const
 {
@@ -725,7 +685,7 @@ Volume::UpdateLiveQueries(Entry *entry, Node* node, const char *attribute,
 
 
 void
-Volume::GetAllocationInfo(AllocationInfo &info)
+Volume::GetAllocationInfo(AllocationInfo &info) const
 {
 	// tables
 	info.AddOtherAllocation(sizeof(NodeTable));

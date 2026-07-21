@@ -12,7 +12,6 @@
 
 struct vm_page;
 class VMCache;
-class AllocationInfo;
 class Volume;
 
 
@@ -27,6 +26,7 @@ public:
 
 	status_t Resize(off_t newSize);
 	off_t GetSize() const { return fSize; }
+	off_t GetCommittedSize() const;
 
 	VMCache* GetCache(struct vnode* vnode);
 
@@ -34,9 +34,6 @@ public:
 							size_t *bytesRead);
 	virtual status_t WriteAt(off_t offset, const void *buffer, size_t size,
 							 size_t *bytesWritten);
-
-	// debugging
-	void GetAllocationInfo(AllocationInfo &info);
 
 private:
 	inline bool _RequiresCacheMode(size_t size);

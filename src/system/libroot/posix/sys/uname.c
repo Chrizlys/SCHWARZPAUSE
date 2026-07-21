@@ -51,6 +51,8 @@ uname(struct utsname *info)
 		case B_HAIKU_VERSION_1_PRE_BETA_5:	release = "R1~beta4+development"; break;
 		case B_HAIKU_VERSION_1_BETA_5:		release = "R1~beta5"; break;
 		case B_HAIKU_VERSION_1_PRE_BETA_6:	release = "R1~beta5+development"; break;
+		case B_HAIKU_VERSION_1_BETA_6:		release = "R1~beta6"; break;
+		case B_HAIKU_VERSION_1_PRE_BETA_7:	release = "R1~beta6+development"; break;
 		case B_HAIKU_VERSION_1:				release = "R1"; break;
 		default:
 			snprintf(info->release, sizeof(info->release), "%" B_PRId64,
@@ -84,7 +86,7 @@ uname(struct utsname *info)
 				platform = "arm";
 				break;
 			case B_CPU_ARM_64:
-				platform = "aarch64";
+				platform = "arm64";
 				break;
 			case B_CPU_RISC_V:
 				platform = "riscv64";

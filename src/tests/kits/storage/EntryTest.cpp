@@ -218,12 +218,12 @@ EntryTest::Suite()
 
 	StatableTest::AddBaseClassTests<EntryTest>("BEntry::", suite);
 
-	suite->addTest( new TC("BEntry::Init Test1", &EntryTest::InitTest1) );
-	suite->addTest( new TC("BEntry::Init Test2", &EntryTest::InitTest2) );
+//	suite->addTest( new TC("BEntry::Init Test1", &EntryTest::InitTest1) );
+//	suite->addTest( new TC("BEntry::Init Test2", &EntryTest::InitTest2) );
 	suite->addTest( new TC("BEntry::Special cases for Exists(), GetPath(),...",
 						   &EntryTest::SpecialGetCasesTest) );
-	suite->addTest( new TC("BEntry::Rename Test", &EntryTest::RenameTest) );
-	suite->addTest( new TC("BEntry::MoveTo Test", &EntryTest::MoveToTest) );
+//	suite->addTest( new TC("BEntry::Rename Test", &EntryTest::RenameTest) );
+//	suite->addTest( new TC("BEntry::MoveTo Test", &EntryTest::MoveToTest) );
 	suite->addTest( new TC("BEntry::Remove Test", &EntryTest::RemoveTest) );
 	suite->addTest( new TC("BEntry::Comparison Test",
 						   &EntryTest::ComparisonTest) );

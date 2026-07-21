@@ -12,6 +12,7 @@
 
 #define	BUS_DMA_READ		(BUS_DMA_NOWRITE)
 #define	BUS_DMA_WRITE		(0)
+#define	BUS_DMA_64BIT		(0) /* TODO */
 
 struct bus_dmamap_obsd {
 	bus_dma_tag_t _dmat;

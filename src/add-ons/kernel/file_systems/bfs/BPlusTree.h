@@ -230,7 +230,7 @@ public:
 			bplustree_node*		Node() const { return fNode; }
 
 protected:
-			bplustree_node*		InternalSetTo(Transaction* transaction,
+			status_t			InternalSetTo(Transaction* transaction,
 									off_t offset);
 
 			BPlusTree*			fTree;

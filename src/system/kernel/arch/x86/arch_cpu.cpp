@@ -88,6 +88,8 @@ extern addr_t _clac;
 extern addr_t _xsave;
 extern addr_t _xsavec;
 extern addr_t _xrstor;
+extern addr_t _vzeroall;
+extern addr_t _xrstor_initial;
 uint64 gXsaveMask;
 uint64 gFPUSaveLength = 512;
 bool gHasXsave = false;
@@ -165,7 +167,7 @@ disable_caches()
 	x86_write_cr0((x86_read_cr0() | CR0_CACHE_DISABLE)
 		& ~CR0_NOT_WRITE_THROUGH);
 	wbinvd();
-	arch_cpu_global_TLB_invalidate();
+	arch_cpu_global_tlb_invalidate();
 }
 
 
@@ -174,7 +176,7 @@ static void
 enable_caches()
 {
 	wbinvd();
-	arch_cpu_global_TLB_invalidate();
+	arch_cpu_global_tlb_invalidate();
 	x86_write_cr0(x86_read_cr0()
 		& ~(CR0_CACHE_DISABLE | CR0_NOT_WRITE_THROUGH));
 }
@@ -348,7 +350,7 @@ x86_init_fpu(void)
 #ifndef __x86_64__
 	if (!x86_check_feature(IA32_FEATURE_FPU, FEATURE_COMMON)) {
 		// No FPU... time to install one in your 386?
-		dprintf("%s: Warning: CPU has no reported FPU.\n", __func__);
+		panic("CPU has no reported FPU!\n");
 		gX86SwapFPUFunc = x86_noop_swap;
 		return;
 	}
@@ -357,17 +359,13 @@ x86_init_fpu(void)
 		|| !x86_check_feature(IA32_FEATURE_FXSR, FEATURE_COMMON)) {
 		dprintf("%s: CPU has no SSE... just enabling FPU.\n", __func__);
 		// we don't have proper SSE support, just enable FPU
-		x86_write_cr0(x86_read_cr0() & ~(CR0_FPU_EMULATION | CR0_MONITOR_FPU));
 		gX86SwapFPUFunc = x86_fnsave_swap;
 		return;
 	}
-#endif
 
-	dprintf("%s: CPU has SSE... enabling FXSR and XMM.\n", __func__);
-#ifndef __x86_64__
 	// enable OS support for SSE
+	dprintf("%s: CPU has SSE... enabling FXSR and XMM.\n", __func__);
 	x86_write_cr4(x86_read_cr4() | CR4_OS_FXSR | CR4_OS_XMM_EXCEPTION);
-	x86_write_cr0(x86_read_cr0() & ~(CR0_FPU_EMULATION | CR0_MONITOR_FPU));
 
 	gX86SwapFPUFunc = x86_fxsave_swap;
 	gHasSSE = true;
@@ -660,6 +658,16 @@ dump_feature_string(int currentCPU, cpu_ent* cpu)
 		strlcat(features, "msr_arch ", sizeof(features));
 	if (cpu->arch.feature[FEATURE_7_EDX] & IA32_FEATURE_SSBD)
 		strlcat(features, "ssbd ", sizeof(features));
+	if (cpu->arch.feature[FEATURE_7_1_EAX] & IA32_FEATURE_LASS)
+		strlcat(features, "lass ", sizeof(features));
+	if (cpu->arch.feature[FEATURE_7_1_EAX] & IA32_FEATURE_FRED)
+		strlcat(features, "fred ", sizeof(features));
+	if (cpu->arch.feature[FEATURE_7_1_EAX] & IA32_FEATURE_LKGS)
+		strlcat(features, "lkgs ", sizeof(features));
+	if (cpu->arch.feature[FEATURE_7_1_EAX] & IA32_FEATURE_WRMSRNS)
+		strlcat(features, "wrmsrns ", sizeof(features));
+	if (cpu->arch.feature[FEATURE_7_1_EAX] & IA32_FEATURE_NMI_SRC)
+		strlcat(features, "nmi_src ", sizeof(features));
 	if (cpu->arch.feature[FEATURE_EXT_7_EDX] & IA32_FEATURE_AMD_HW_PSTATE)
 		strlcat(features, "hwpstate ", sizeof(features));
 	if (cpu->arch.feature[FEATURE_EXT_7_EDX] & IA32_FEATURE_INVARIANT_TSC)
@@ -1344,6 +1352,7 @@ detect_cpu(int currentCPU, bool full = true)
 	cpu->arch.feature[FEATURE_7_ECX] = 0;
 	cpu->arch.feature[FEATURE_7_EDX] = 0;
 	cpu->arch.feature[FEATURE_D_1_EAX] = 0;
+	cpu->arch.feature[FEATURE_7_1_EAX] = 0;
 	cpu->arch.model_name[0] = 0;
 
 	// print some fun data
@@ -1460,6 +1469,8 @@ detect_cpu(int currentCPU, bool full = true)
 		cpu->arch.feature[FEATURE_7_EBX] = cpuid.regs.ebx;
 		cpu->arch.feature[FEATURE_7_ECX] = cpuid.regs.ecx;
 		cpu->arch.feature[FEATURE_7_EDX] = cpuid.regs.edx;
+		get_current_cpuid(&cpuid, 7, 1);
+		cpu->arch.feature[FEATURE_7_1_EAX] = cpuid.regs.eax;
 	}
 
 	if (maxBasicLeaf >= 0xd) {
@@ -1550,6 +1561,9 @@ x86_double_fault_get_cpu()
 status_t
 arch_cpu_preboot_init_percpu(kernel_args* args, int cpu)
 {
+	// Reset CR0.
+	x86_write_cr0(CR0_PROTECTED_MODE | CR0_PAGING | CR0_WRITE_PROTECT | CR0_NUMERIC_ERROR);
+
 	if (cpu == 0) {
 		// We can't allocate pages at this stage in the boot process, only virtual addresses.
 		sDoubleFaultStacks = vm_allocate_early(args,
@@ -1920,6 +1934,10 @@ arch_cpu_init_post_vm(kernel_args* args)
 		cpuid_info cpuid;
 		get_current_cpuid(&cpuid, IA32_CPUID_LEAF_XSTATE, 0);
 		gXsaveMask |= (cpuid.regs.eax & IA32_XCR0_AVX);
+		if (x86_check_feature(IA32_FEATURE_AVX512F, FEATURE_7_EBX)) {
+			gXsaveMask |= cpuid.regs.eax
+				& (IA32_XCR0_OPMASK | IA32_XCR0_ZMM_HI256 | IA32_XCR0_HI16_ZMM);
+		}
 		call_all_cpus_sync(&enable_xsavemask, NULL);
 		get_current_cpuid(&cpuid, IA32_CPUID_LEAF_XSTATE, 0);
 		gFPUSaveLength = cpuid.regs.ebx;
@@ -1930,6 +1948,18 @@ arch_cpu_init_post_vm(kernel_args* args)
 			gHasXsavec ? &_xsavec : &_xsave, 4);
 		arch_altcodepatch_replace(ALTCODEPATCH_TAG_XRSTOR,
 			&_xrstor, 4);
+
+		if ((gXsaveMask & IA32_XCR0_AVX) != 0) {
+			if ((gXsaveMask & ~(IA32_XCR0_X87 | IA32_XCR0_SSE | IA32_XCR0_AVX)) == 0) {
+				// If we are stopping at AVX, VZEROALL should suffice.
+				arch_altcodepatch_replace(ALTCODEPATCH_TAG_CLEAR_FPU,
+					&_vzeroall, 3);
+			} else {
+				// Otherwise, use XRSTOR to reset every supported state.
+				arch_altcodepatch_replace(ALTCODEPATCH_TAG_CLEAR_FPU,
+					&_xrstor_initial, 24);
+			}
+		}
 
 		dprintf("enable %s 0x%" B_PRIx64 " %" B_PRId64 "\n",
 			gHasXsavec ? "XSAVEC" : "XSAVE", gXsaveMask, gFPUSaveLength);
@@ -1981,35 +2011,37 @@ arch_cpu_init_post_modules(kernel_args* args)
 
 
 void
-arch_cpu_user_TLB_invalidate(void)
+arch_cpu_user_tlb_invalidate(intptr_t context)
 {
+	if (context != 0 && (intptr_t)x86_read_cr3() != context)
+		return;
+
 	x86_write_cr3(x86_read_cr3());
 }
 
 
 void
-arch_cpu_global_TLB_invalidate(void)
+arch_cpu_global_tlb_invalidate()
 {
 	uint32 flags = x86_read_cr4();
-
-	if (flags & IA32_CR4_GLOBAL_PAGES) {
+	if ((flags & IA32_CR4_GLOBAL_PAGES) != 0) {
 		// disable and reenable the global pages to flush all TLBs regardless
 		// of the global page bit
 		x86_write_cr4(flags & ~IA32_CR4_GLOBAL_PAGES);
 		x86_write_cr4(flags | IA32_CR4_GLOBAL_PAGES);
 	} else {
-		cpu_status state = disable_interrupts();
-		arch_cpu_user_TLB_invalidate();
-		restore_interrupts(state);
+		arch_cpu_user_tlb_invalidate(0);
 	}
 }
 
 
 void
-arch_cpu_invalidate_TLB_range(addr_t start, addr_t end)
+arch_cpu_invalidate_tlb_range(intptr_t context, addr_t start, addr_t end)
 {
-	int32 num_pages = end / B_PAGE_SIZE - start / B_PAGE_SIZE;
-	while (num_pages-- >= 0) {
+	if (context != 0 && (intptr_t)x86_read_cr3() != context)
+		return;
+
+	while (start <= end) {
 		invalidate_TLB(start);
 		start += B_PAGE_SIZE;
 	}
@@ -2017,12 +2049,13 @@ arch_cpu_invalidate_TLB_range(addr_t start, addr_t end)
 
 
 void
-arch_cpu_invalidate_TLB_list(addr_t pages[], int num_pages)
+arch_cpu_invalidate_tlb_list(intptr_t context, addr_t pages[], int num_pages)
 {
-	int i;
-	for (i = 0; i < num_pages; i++) {
+	if (context != 0 && (intptr_t)x86_read_cr3() != context)
+		return;
+
+	for (int i = 0; i < num_pages; i++)
 		invalidate_TLB(pages[i]);
-	}
 }
 
 

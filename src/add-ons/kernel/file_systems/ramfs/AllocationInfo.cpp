@@ -12,7 +12,7 @@
 #include "File.h"
 #include "SymLink.h"
 
-// constructor
+
 AllocationInfo::AllocationInfo()
 	: fNodeTableArraySize(0),
 	  fNodeTableVectorSize(0),
@@ -30,10 +30,6 @@ AllocationInfo::AllocationInfo()
 	  fSymLinkCount(0),
 	  fSymLinkSize(0),
 
-	  fAreaCount(0),
-	  fAreaSize(0),
-	  fBlockCount(0),
-	  fBlockSize(0),
 	  fListCount(0),
 	  fListSize(0),
 	  fOtherCount(0),
@@ -43,34 +39,32 @@ AllocationInfo::AllocationInfo()
 {
 }
 
-// destructor
+
 AllocationInfo::~AllocationInfo()
 {
 }
 
-// AddNodeTableAllocation
+
 void
 AllocationInfo::AddNodeTableAllocation(size_t arraySize, size_t vectorSize,
-									   size_t elementSize, size_t elementCount)
+	size_t elementSize, size_t elementCount)
 {
 	fNodeTableArraySize += arraySize;
 	fNodeTableVectorSize += vectorSize * elementSize;
 	fNodeTableElementCount += elementCount;
 }
 
-// AddDirectoryEntryTableAllocation
+
 void
 AllocationInfo::AddDirectoryEntryTableAllocation(size_t arraySize,
-												 size_t vectorSize,
-												 size_t elementSize,
-												 size_t elementCount)
+	size_t vectorSize, size_t elementSize, size_t elementCount)
 {
 	fDirectoryEntryTableArraySize += arraySize;
 	fDirectoryEntryTableVectorSize += vectorSize * elementSize;
 	fDirectoryEntryTableElementCount += elementCount;
 }
 
-// AddAttributeAllocation
+
 void
 AllocationInfo::AddAttributeAllocation(size_t size)
 {
@@ -78,21 +72,21 @@ AllocationInfo::AddAttributeAllocation(size_t size)
 	fAttributeSize += size;
 }
 
-// AddDirectoryAllocation
+
 void
 AllocationInfo::AddDirectoryAllocation()
 {
 	fDirectoryCount++;
 }
 
-// AddEntryAllocation
+
 void
 AllocationInfo::AddEntryAllocation()
 {
 	fEntryCount++;
 }
 
-// AddFileAllocation
+
 void
 AllocationInfo::AddFileAllocation(size_t size)
 {
@@ -100,7 +94,7 @@ AllocationInfo::AddFileAllocation(size_t size)
 	fFileSize += size;
 }
 
-// AddSymLinkAllocation
+
 void
 AllocationInfo::AddSymLinkAllocation(size_t size)
 {
@@ -108,23 +102,7 @@ AllocationInfo::AddSymLinkAllocation(size_t size)
 	fSymLinkSize += size;
 }
 
-// AddAreaAllocation
-void
-AllocationInfo::AddAreaAllocation(size_t size, size_t count)
-{
-	fAreaCount += count;
-	fAreaSize += count * size;
-}
 
-// AddBlockAllocation
-void
-AllocationInfo::AddBlockAllocation(size_t size)
-{
-	fBlockCount++;
-	fBlockSize += size;
-}
-
-// AddListAllocation
 void
 AllocationInfo::AddListAllocation(size_t capacity, size_t elementSize)
 {
@@ -132,7 +110,7 @@ AllocationInfo::AddListAllocation(size_t capacity, size_t elementSize)
 	fListSize += capacity * elementSize;
 }
 
-// AddOtherAllocation
+
 void
 AllocationInfo::AddOtherAllocation(size_t size, size_t count)
 {
@@ -140,7 +118,7 @@ AllocationInfo::AddOtherAllocation(size_t size, size_t count)
 	fOtherSize += size * count;
 }
 
-// AddStringAllocation
+
 void
 AllocationInfo::AddStringAllocation(size_t size)
 {
@@ -148,7 +126,7 @@ AllocationInfo::AddStringAllocation(size_t size)
 	fStringSize += size;
 }
 
-// Dump
+
 void
 AllocationInfo::Dump() const
 {
@@ -193,10 +171,6 @@ AllocationInfo::Dump() const
 	heapSize += fSymLinkCount * sizeof(SymLink);
 
 	PRINT("  areas:       %9lu, size: %9lu\n", fAreaCount, fAreaSize);
-	areaCount += fAreaCount;
-	areaSize += fAreaSize;
-
-	PRINT("  blocks:      %9lu, size: %9lu\n", fBlockCount, fBlockSize);
 
 	PRINT("  lists:       %9lu, size: %9lu\n", fListCount, fListSize);
 	heapCount += fListCount;
@@ -211,6 +185,5 @@ AllocationInfo::Dump() const
 	heapSize += fStringSize;
 
 	PRINT("heap:  %9lu allocations, size: %9lu\n", heapCount, heapSize);
-	PRINT("areas: %9lu allocations, size: %9lu\n", areaCount, areaSize);
 }
 

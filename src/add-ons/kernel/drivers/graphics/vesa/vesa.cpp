@@ -301,6 +301,7 @@ remap_frame_buffer(vesa_info& info, addr_t physicalBase, uint32 width,
 {
 	vesa_shared_info& sharedInfo = *info.shared_info;
 	addr_t frameBuffer = info.frame_buffer;
+	bool updated = false;
 
 	if (!info.complete_frame_buffer_mapped) {
 		addr_t base = physicalBase;
@@ -316,23 +317,20 @@ remap_frame_buffer(vesa_info& info, addr_t physicalBase, uint32 width,
 
 		if (remap) {
 			area_id area = map_physical_memory("vesa frame buffer", base,
-				size, B_ANY_KERNEL_ADDRESS, B_READ_AREA | B_WRITE_AREA,
+				size, B_ANY_KERNEL_ADDRESS, B_KERNEL_READ_AREA | B_KERNEL_WRITE_AREA,
 				(void**)&frameBuffer);
 			if (area < 0)
 				return area;
 
-			if (initializing) {
-				// We need to manually update the kernel's frame buffer address,
-				// since this frame buffer remapping has not been issued by the
-				// app_server (which would otherwise take care of this)
-				frame_buffer_update(frameBuffer, width, height, depth,
-					bytesPerRow);
-			}
+			frame_buffer_update(frameBuffer, width, height, depth,
+				bytesPerRow);
+			updated = true;
 
-			delete_area(info.shared_info->frame_buffer_area);
+			vm_change_clones_to_null_areas(info.frame_buffer_area);
+			delete_area(info.frame_buffer_area);
 
 			info.frame_buffer = frameBuffer;
-			sharedInfo.frame_buffer_area = area;
+			info.frame_buffer_area = area;
 
 			// Turn on write combining for the area
 			vm_set_area_memory_type(area, base, B_WRITE_COMBINING_MEMORY);
@@ -342,13 +340,11 @@ remap_frame_buffer(vesa_info& info, addr_t physicalBase, uint32 width,
 		}
 	}
 
-	if (info.complete_frame_buffer_mapped)
-		frameBuffer += physicalBase - info.physical_frame_buffer;
-
 	// Update shared frame buffer information
-	sharedInfo.frame_buffer = (uint8*)frameBuffer;
-	sharedInfo.physical_frame_buffer = (uint8*)physicalBase;
 	sharedInfo.bytes_per_row = bytesPerRow;
+
+	if (!updated)
+		frame_buffer_update(frameBuffer, width, height, depth, bytesPerRow);
 
 	return B_OK;
 }
@@ -400,7 +396,7 @@ vesa_init(vesa_info& info)
 		memcpy((uint8*)&sharedInfo + sharedSize, modes, modesSize);
 	}
 
-	sharedInfo.frame_buffer_area = bufferInfo->area;
+	info.frame_buffer_area = bufferInfo->area;
 
 	remap_frame_buffer(info, bufferInfo->physical_frame_buffer,
 		bufferInfo->width, bufferInfo->height, bufferInfo->depth,
@@ -476,7 +472,8 @@ vesa_uninit(vesa_info& info)
 {
 	dprintf(DEVICE_NAME": vesa_uninit()\n");
 
-	delete_area(info.shared_info->frame_buffer_area);
+	vm_change_clones_to_null_areas(info.frame_buffer_area);
+	delete_area(info.frame_buffer_area);
 	delete_area(info.shared_area);
 }
 

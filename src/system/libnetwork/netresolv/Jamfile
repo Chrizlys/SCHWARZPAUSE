@@ -64,6 +64,7 @@ for architectureObject in [ MultiArchSubDirSetup ] {
 			getservent.c
 			getservent_r.c
 			hesiod.c
+			map_v4v6.c
 			nsdispatch.c
 			nslexer.l
 			nsparser.y

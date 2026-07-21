@@ -119,33 +119,6 @@ ADDRESS_TRANSLATE_FUNC(s1e1r)
 ADDRESS_TRANSLATE_FUNC(s1e1w)
 
 
-struct aarch64_fpu_state
-{
-	uint64 regs[32 * 2];
-	uint64 fpsr;
-	uint64 fpcr;
-};
-
-
-/* raw exception frames */
-struct iframe {
-	// return info
-	uint64 elr;
-	uint64 spsr;
-	uint64 x[29];
-	uint64 fp;
-	uint64 lr;
-	uint64 sp;
-
-	// exception info
-	uint64 esr;
-	uint64 far;
-
-	// fpu
-	struct aarch64_fpu_state fpu;
-};
-
-
 #ifdef __cplusplus
 namespace BKernel {
 	struct Thread;
@@ -153,7 +126,7 @@ namespace BKernel {
 
 
 typedef struct arch_cpu_info {
-	uint32						mpidr;
+	uint64						mpidr;
 	BKernel::Thread*			last_vfp_user;
 } arch_cpu_info;
 #endif

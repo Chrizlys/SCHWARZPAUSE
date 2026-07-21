@@ -19,5 +19,6 @@ UnitTestLib servicekittest.so :
 	[ TargetLibstdc++ ]
 	;
 
-UnitTestResources proxy.py testserver.py : : isExec ;
-UnitTestResources testfile.txt ;
+local destDir = [ FDirName kits service ] ;
+UnitTestResources proxy.py testserver.py : $(destDir) : isExec ;
+UnitTestResources testfile.txt : $(destDir) ;

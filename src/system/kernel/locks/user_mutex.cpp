@@ -219,31 +219,26 @@ user_mutex_init()
 }
 
 
-struct user_mutex_context*
-get_team_user_mutex_context()
+status_t
+allocate_team_user_mutex_context(Team* team)
 {
-	struct user_mutex_context* context =
-		thread_get_current_thread()->team->user_mutex_context;
-	if (context != NULL)
-		return context;
-
-	Team* team = thread_get_current_thread()->team;
-	TeamLocker teamLocker(team);
+	team->AssertLocked();
 	if (team->user_mutex_context != NULL)
-		return team->user_mutex_context;
+		return B_OK;
 
-	context = new(std::nothrow) user_mutex_context;
+	struct user_mutex_context* context = new(std::nothrow) user_mutex_context;
 	if (context == NULL)
-		return NULL;
+		return B_NO_MEMORY;
 
 	context->lock = RW_LOCK_INITIALIZER("user mutex table");
-	if (context->table.Init() != B_OK) {
+	status_t status = context->table.Init();
+	if (status != B_OK) {
 		delete context;
-		return NULL;
+		return status;
 	}
 
 	team->user_mutex_context = context;
-	return context;
+	return B_OK;
 }
 
 
@@ -284,8 +279,10 @@ get_user_mutex_entry(struct user_mutex_context* context,
 	}
 
 	entry = new(std::nothrow) UserMutexEntry;
-	if (entry == NULL)
+	if (entry == NULL) {
+		panic("UserMutexEntry allocation failed!");
 		return entry;
+	}
 
 	entry->address = address;
 	entry->ref_count = 1;
@@ -467,10 +464,18 @@ struct UserMutexContextFetcher {
 		fAddress(0)
 	{
 		if (!fShared) {
-			fContext = get_team_user_mutex_context();
+			fContext = thread_get_current_thread()->team->user_mutex_context;
 			if (fContext == NULL) {
-				fInitStatus = B_NO_MEMORY;
-				return;
+				// This should only happen for single-threaded applications (some
+				// appear to use mutexes as a sleep mechanism), as the context gets
+				// allocated on the creation of a second thread.
+				Team* team = thread_get_current_thread()->team;
+				team->Lock();
+				fInitStatus = allocate_team_user_mutex_context(team);
+				fContext = team->user_mutex_context;
+				team->Unlock();
+				if (fInitStatus != B_OK)
+					return;
 			}
 
 			fAddress = (addr_t)mutex;

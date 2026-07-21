@@ -302,6 +302,7 @@ VMTranslationMap::UnaccessedPageUnmapped(VMArea* area, page_num_t pageNumber)
 	// get the page
 	vm_page* page = vm_lookup_page(pageNumber);
 	ASSERT_PRINT(page != NULL, "page number: %#" B_PRIxPHYSADDR, pageNumber);
+	DEBUG_PAGE_ACCESS_CHECK(page);
 
 	// remove the mapping object/decrement the wired_count of the page
 	vm_page_mapping* mapping = NULL;
@@ -330,6 +331,46 @@ VMTranslationMap::UnaccessedPageUnmapped(VMArea* area, page_num_t pageNumber)
 			CACHE_DONT_WAIT_FOR_MEMORY | CACHE_DONT_LOCK_KERNEL_SPACE);
 			// Since this is called by the page daemon, we never want to lock
 			// the kernel address space.
+	}
+}
+
+
+/*!	Invokes arch_cpu_user_tlb_invalidate() on the specified CPUs. */
+void
+VMTranslationMap::InvalidateUserTLB(CPUSet cpus, intptr_t context)
+{
+	int32 cpu = smp_get_current_cpu();
+	const bool current = cpus.GetBit(cpu);
+	cpus.ClearBit(cpu);
+	if (!cpus.IsEmpty()) {
+		if (current)
+			cpus.SetBit(cpu);
+		smp_multicast_ici(cpus, SMP_MSG_USER_INVALIDATE_PAGES,
+			context, 0, 0, NULL, SMP_MSG_FLAG_SYNC);
+	} else if (current) {
+		cpu_status state = disable_interrupts();
+		arch_cpu_user_tlb_invalidate(context);
+		restore_interrupts(state);
+	}
+}
+
+
+/*!	Invokes arch_cpu_invalidate_tlb_list() on the specified CPUs. */
+void
+VMTranslationMap::InvalidateTLBList(CPUSet cpus, intptr_t context,
+	addr_t* invalidPages, int32 count)
+{
+	int32 cpu = smp_get_current_cpu();
+	const bool current = cpus.GetBit(cpu);
+	cpus.ClearBit(cpu);
+	if (!cpus.IsEmpty()) {
+		if (current)
+			cpus.SetBit(cpu);
+		smp_multicast_ici(cpus, SMP_MSG_INVALIDATE_PAGE_LIST,
+			context, (addr_t)invalidPages, count, NULL,
+			SMP_MSG_FLAG_SYNC);
+	} else if (current) {
+		arch_cpu_invalidate_tlb_list(context, invalidPages, count);
 	}
 }
 

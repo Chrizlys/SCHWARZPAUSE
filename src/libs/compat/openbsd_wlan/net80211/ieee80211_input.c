@@ -1,4 +1,4 @@
-/*	$OpenBSD: ieee80211_input.c,v 1.254 2024/05/23 11:19:13 stsp Exp $	*/
+/*	$OpenBSD: ieee80211_input.c,v 1.258 2026/01/30 04:25:52 gnezdo Exp $	*/
 /*	$NetBSD: ieee80211_input.c,v 1.24 2004/05/31 11:12:24 dyoung Exp $	*/
 
 /*-
@@ -424,7 +424,9 @@ ieee80211_inputm(struct ifnet *ifp, struct mbuf *m, struct ieee80211_node *ni,
 		*orxseq = nrxseq;
 	}
 	if (ic->ic_state > IEEE80211_S_SCAN) {
-		ni->ni_rssi = rxi->rxi_rssi;
+		/* Only update RSSI if driver provided a valid value. */
+		if (rxi->rxi_rssi != 0)
+			ni->ni_rssi = rxi->rxi_rssi;
 		ni->ni_rstamp = rxi->rxi_tstamp;
 		ni->ni_inact = 0;
 
@@ -637,26 +639,39 @@ ieee80211_inputm(struct ifnet *ifp, struct mbuf *m, struct ieee80211_node *ni,
 		}
 
 		if (ni->ni_flags & IEEE80211_NODE_RXMGMTPROT) {
+			int is_multicast, is_protected;
+
+			is_multicast = IEEE80211_IS_MULTICAST(wh->i_addr1);
+			is_protected = (wh->i_fc[1] & IEEE80211_FC1_PROTECTED);
+
 			/* MMPDU protection is on for Rx */
 			if (subtype == IEEE80211_FC0_SUBTYPE_DISASSOC ||
 			    subtype == IEEE80211_FC0_SUBTYPE_DEAUTH ||
 			    subtype == IEEE80211_FC0_SUBTYPE_ACTION) {
-				if (!IEEE80211_IS_MULTICAST(wh->i_addr1) &&
-				    !(wh->i_fc[1] & IEEE80211_FC1_PROTECTED)) {
+				if (rxi->rxi_flags & IEEE80211_RXI_HWDEC) {
+					m = ieee80211_input_hwdecrypt(ic, ni,
+					    m, rxi);
+					if (m == NULL)
+						goto out;
+				} else if (!is_multicast && !is_protected) {
 					/* unicast mgmt not encrypted */
+					ic->ic_stats.is_rx_unencrypted++;
 					goto out;
-				}
-				/* do software decryption */
-				m = ieee80211_decrypt(ic, m, ni);
-				if (m == NULL) {
-					/* XXX stats */
-					goto out;
+				} else {
+					/* do software decryption */
+					m = ieee80211_decrypt(ic, m, ni);
+					if (m == NULL) {
+						ic->ic_stats.is_rx_wepfail++;
+						goto out;
+					}
 				}
 				wh = mtod(m, struct ieee80211_frame *);
 			}
 		} else if ((ic->ic_flags & IEEE80211_F_RSNON) &&
-		    (wh->i_fc[1] & IEEE80211_FC1_PROTECTED)) {
+		    ((wh->i_fc[1] & IEEE80211_FC1_PROTECTED) ||
+		    (rxi->rxi_flags & IEEE80211_RXI_HWDEC))) {
 			/* encrypted but MMPDU Rx protection off for TA */
+			ic->ic_stats.is_rx_nowep++;
 			goto out;
 		}
 
@@ -1429,6 +1444,8 @@ ieee80211_parse_rsn_akm(const u_int8_t selector[4])
 			return IEEE80211_AKM_SHA256_8021X;
 		case 6:	/* PSK with SHA256 KDF */
 			return IEEE80211_AKM_SHA256_PSK;
+		case 8:	/* SAE */
+			return IEEE80211_AKM_SAE;
 		}
 	}
 	return IEEE80211_AKM_NONE;	/* ignore unknown AKMs */
@@ -2669,7 +2686,7 @@ ieee80211_recv_assoc_resp(struct ieee80211com *ic, struct mbuf *m,
 	else if (ni->ni_flags & IEEE80211_NODE_HT)
 		ieee80211_setmode(ic, IEEE80211_MODE_11N);
 	else
-		ieee80211_setmode(ic, ieee80211_chan2mode(ic, ni->ni_chan));
+		ieee80211_setmode(ic, ieee80211_node_abg_mode(ic, ni));
 	/*
 	 * Reset the erp state (mostly the slot time) now that
 	 * our operating mode has been nailed down.

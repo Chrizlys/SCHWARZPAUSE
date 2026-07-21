@@ -6,6 +6,7 @@
 
 #include "Node.h"
 
+#include "Utility.h"
 #include "VerifyHeader.h"
 
 
@@ -138,7 +139,7 @@ NodeDirectory::FillBuffer(int type, char* blockBuffer, int howManyBlocksFurthur)
 	if (type == DATA) {
 		fDataBuffer = blockBuffer;
 		ExtentDataHeader* header = ExtentDataHeader::Create(fInode, fDataBuffer);
-		if(header == NULL)
+		if (header == NULL)
 			return B_NO_MEMORY;
 		if (!VerifyHeader<ExtentDataHeader>(header, fDataBuffer, fInode,
 				howManyBlocksFurthur, fDataMap, XFS_NODE)) {
@@ -378,7 +379,7 @@ NodeDirectory::Lookup(const char* name, size_t length, xfs_ino_t* ino)
 	/* Leaf now has the nodes. */
 	uint32 rightMapOffset;
 	status = FindHashInNode(hashValueOfRequest, &rightMapOffset);
-	if(status != B_OK)
+	if (status != B_OK)
 		return status;
 
 	if (rightMapOffset == 1) {
@@ -388,8 +389,7 @@ NodeDirectory::Lookup(const char* name, size_t length, xfs_ino_t* ino)
 
 	TRACE("rightMapOffset:(%" B_PRIu32 ")\n", rightMapOffset);
 
-	for(int i = fFirstLeafMapIndex; i < fInode->DataExtentsCount(); i++)
-	{
+	for (int i = fFirstLeafMapIndex; i < fInode->DataExtentsCount(); i++) {
 		FillMapEntry(i, fLeafMap);
 		fCurLeafMapNumber = 2;
 		status = FillBuffer(LEAF, fLeafBuffer,
@@ -398,7 +398,7 @@ NodeDirectory::Lookup(const char* name, size_t length, xfs_ino_t* ino)
 			return status;
 		fCurLeafBufferNumber = 2;
 		ExtentLeafHeader* leafHeader = ExtentLeafHeader::Create(fInode, fLeafBuffer);
-		if(leafHeader == NULL)
+		if (leafHeader == NULL)
 			return B_NO_MEMORY;
 		ExtentLeafEntry* leafEntry =
 			(ExtentLeafEntry*)(void*)(fLeafBuffer + ExtentLeafHeader::Size(fInode));
@@ -439,8 +439,7 @@ NodeDirectory::Lookup(const char* name, size_t length, xfs_ino_t* ino)
 			TRACE("offset:(%" B_PRIu32 ")\n", offset);
 			ExtentDataEntry* entry = (ExtentDataEntry*)(fDataBuffer + offset);
 
-			int retVal = strncmp(name, (char*)entry->name, entry->namelen);
-			if (retVal == 0) {
+			if (xfs_name_comp(name, length, entry->name, entry->namelen)) {
 				*ino = B_BENDIAN_TO_HOST_INT64(entry->inumber);
 				TRACE("ino:(%" B_PRIu64 ")\n", *ino);
 				return B_OK;

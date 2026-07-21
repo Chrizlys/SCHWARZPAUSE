@@ -128,7 +128,7 @@ arm_swap_pgdir(uint32_t pageDirectoryAddress)
 	arm_set_ttbr0(pageDirectoryAddress);
 	isb();
 
-	arch_cpu_global_TLB_invalidate();
+	arch_cpu_global_tlb_invalidate();
 
 	//TODO: update Context ID (incl. ASID)
 	//TODO: check if any additional TLB or Cache maintenance is needed

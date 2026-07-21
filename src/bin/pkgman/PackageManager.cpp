@@ -20,6 +20,7 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 
+#include <package/CleanUpAdminDirectoryRequest.h>
 #include <package/CommitTransactionResult.h>
 #include <package/DownloadFileRequest.h>
 #include <package/RefreshRepositoryRequest.h>
@@ -331,6 +332,20 @@ void
 PackageManager::ProgressApplyingChangesDone(InstalledRepository& repository)
 {
 	printf("[%s] Done.\n", repository.Name().String());
+
+	BInstallationLocationInfo info;
+	if (BPackageRoster().GetInstallationLocationInfo(repository.Location(), info) == B_OK) {
+		time_t before = time(NULL) - kCleanUpKeepDays * 24 * 60 * 60;
+		BJobStateListener listener;
+		CleanUpAdminDirectoryRequest request(BContext(fDecisionProvider, listener),
+			info, before, kCleanUpKeepStates);
+		size_t count;
+		if (request.GetOldStatesCount(count) == B_OK && count > 0) {
+			printf("[%s] %" B_PRIuSIZE " old state(s) can be cleaned up. "
+				"Use \"pkgman cleanup\" to remove them.\n",
+				repository.Name().String(), count);
+		}
+	}
 
 	if (BPackageRoster().IsRebootNeeded())
 		printf("A reboot is necessary to complete the installation process.\n");

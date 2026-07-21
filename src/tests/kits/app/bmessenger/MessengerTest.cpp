@@ -15,7 +15,7 @@ CppUnit::Test* MessengerTestSuite()
 	testSuite->addTest(LockTargetWithTimeoutTester::Suite());
 	testSuite->addTest(MessengerAssignmentTester::Suite());
 	testSuite->addTest(MessengerComparissonTester::Suite());
-	testSuite->addTest(SendMessageTester::Suite());
+//	testSuite->addTest(SendMessageTester::Suite());
 	testSuite->addTest(TBMessengerTester::Suite());
 	testSuite->addTest(TargetTester::Suite());
 

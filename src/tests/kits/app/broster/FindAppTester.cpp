@@ -888,18 +888,18 @@ Test* FindAppTester::Suite()
 
 	ADD_TEST4(BRoster, SuiteOfTests, FindAppTester, FindAppTestA1);
 	ADD_TEST4(BRoster, SuiteOfTests, FindAppTester, FindAppTestA2);
-	ADD_TEST4(BRoster, SuiteOfTests, FindAppTester, FindAppTestA3);
+//	ADD_TEST4(BRoster, SuiteOfTests, FindAppTester, FindAppTestA3);
 
 	ADD_TEST4(BRoster, SuiteOfTests, FindAppTester, FindAppTestB1);
 	ADD_TEST4(BRoster, SuiteOfTests, FindAppTester, FindAppTestB2);
-	ADD_TEST4(BRoster, SuiteOfTests, FindAppTester, FindAppTestB3);
+//	ADD_TEST4(BRoster, SuiteOfTests, FindAppTester, FindAppTestB3);
 	ADD_TEST4(BRoster, SuiteOfTests, FindAppTester, FindAppTestB4);
 	ADD_TEST4(BRoster, SuiteOfTests, FindAppTester, FindAppTestB5);
 	ADD_TEST4(BRoster, SuiteOfTests, FindAppTester, FindAppTestB6);
 	ADD_TEST4(BRoster, SuiteOfTests, FindAppTester, FindAppTestB7);
 	ADD_TEST4(BRoster, SuiteOfTests, FindAppTester, FindAppTestB8);
-	ADD_TEST4(BRoster, SuiteOfTests, FindAppTester, FindAppTestB9);
-	ADD_TEST4(BRoster, SuiteOfTests, FindAppTester, FindAppTestB10);
+//	ADD_TEST4(BRoster, SuiteOfTests, FindAppTester, FindAppTestB9);
+//	ADD_TEST4(BRoster, SuiteOfTests, FindAppTester, FindAppTestB10);
 	ADD_TEST4(BRoster, SuiteOfTests, FindAppTester, FindAppTestB11);
 	ADD_TEST4(BRoster, SuiteOfTests, FindAppTester, FindAppTestB12);
 

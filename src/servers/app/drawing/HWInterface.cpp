@@ -117,8 +117,12 @@ HWInterface::GetMonitorInfo(monitor_info* info)
 void
 HWInterface::SetCursor(ServerCursor* cursor)
 {
-	if (!fFloatingOverlaysLock.Lock())
+	if (!LockParallelAccess())
 		return;
+	if (!fFloatingOverlaysLock.Lock()) {
+		UnlockParallelAccess();
+		return;
+	}
 
 	if (fCursor.Get() != cursor) {
 		BRect oldFrame = _CursorFrame();
@@ -130,7 +134,9 @@ HWInterface::SetCursor(ServerCursor* cursor)
 		_AdoptDragBitmap();
 		Invalidate(_CursorFrame());
 	}
+
 	fFloatingOverlaysLock.Unlock();
+	UnlockParallelAccess();
 }
 
 
@@ -159,8 +165,12 @@ HWInterface::CursorAndDragBitmap() const
 void
 HWInterface::SetCursorVisible(bool visible)
 {
-	if (!fFloatingOverlaysLock.Lock())
+	if (!LockParallelAccess())
 		return;
+	if (!fFloatingOverlaysLock.Lock()) {
+		UnlockParallelAccess();
+		return;
+	}
 
 	if (fCursorVisible != visible) {
 		// NOTE: _CursorFrame() will
@@ -181,7 +191,9 @@ HWInterface::SetCursorVisible(bool visible)
 			Invalidate(r);
 		}
 	}
+
 	fFloatingOverlaysLock.Unlock();
+	UnlockParallelAccess();
 }
 
 
@@ -200,29 +212,47 @@ HWInterface::IsCursorVisible()
 void
 HWInterface::ObscureCursor()
 {
-	if (!fFloatingOverlaysLock.Lock())
+	if (!LockExclusiveAccess())
 		return;
+	if (!fFloatingOverlaysLock.Lock()) {
+		UnlockExclusiveAccess();
+		return;
+	}
 
 	if (!fCursorObscured) {
 		SetCursorVisible(false);
 		fCursorObscured = true;
 	}
+
 	fFloatingOverlaysLock.Unlock();
+	UnlockExclusiveAccess();
 }
 
 
 void
 HWInterface::MoveCursorTo(float x, float y)
 {
-	if (!fFloatingOverlaysLock.Lock())
+	if (!LockParallelAccess())
 		return;
+	if (!fFloatingOverlaysLock.Lock()) {
+		UnlockParallelAccess();
+		return;
+	}
 
 	BPoint p(x, y);
 	if (p != fCursorLocation) {
 		// unhide cursor if it is obscured only
 		if (fCursorObscured) {
+			fFloatingOverlaysLock.Unlock();
+			UnlockParallelAccess();
+
 			SetCursorVisible(true);
+
+			if (!LockParallelAccess())
+				return;
+			fFloatingOverlaysLock.Lock();
 		}
+
 		IntRect oldFrame = _CursorFrame();
 		fCursorLocation = p;
 		if (fCursorVisible) {
@@ -244,7 +274,9 @@ HWInterface::MoveCursorTo(float x, float y)
 			}
 		}
 	}
+
 	fFloatingOverlaysLock.Unlock();
+	UnlockParallelAccess();
 }
 
 
@@ -646,6 +678,27 @@ HWInterface::_CopyToFront(uint8* src, uint32 srcBPR, int32 x, int32 y,
 					dst += dstBPR;
 					src += srcBPR;
 				}
+			}
+			break;
+		}
+
+		case B_RGB30:
+		{
+			dst += y * dstBPR + x * 4;
+			for (; y <= bottom; y++) {
+				uint32* srcHandle = (uint32*)dst;
+				uint32* dstHandle = (uint32*)src;
+				for (int32 left = x; left <= right; left++, srcHandle++, dstHandle++) {
+					uint32 r = (*dstHandle) & 0xff;
+					uint32 g = (*dstHandle >> 8) & 0xff;
+					uint32 b = (*dstHandle >> 16) & 0xff;
+					*srcHandle = ((r * 1023) / 255)
+						| (((g * 1023) / 255) << 10)
+						| (((b * 1023) / 255) << 20);
+				}
+
+				src += srcBPR;
+				dst += dstBPR;
 			}
 			break;
 		}

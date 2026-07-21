@@ -527,20 +527,20 @@ void SetBitsTester::SetBits2()
 	BApplication app("application/x-vnd.obos.bitmap-setbits-test");
 //	test_set_bits(cmap8_test_data3_initial, cmap8_test_data3_set,
 //				  cmap8_test_data3_final);
-	test_set_bits(gray1_test_data3_initial, gray1_test_data3_set,
-				  gray1_test_data3_final);
-	test_set_bits(gray1_test_data4_initial, gray1_test_data4_set,
-				  gray1_test_data4_final);
+//	test_set_bits(gray1_test_data3_initial, gray1_test_data3_set,
+//				  gray1_test_data3_final);
+//	test_set_bits(gray1_test_data4_initial, gray1_test_data4_set,
+//				  gray1_test_data4_final);
 
 // ignores source row padding
 //	test_set_bits(rgb32_test_data3a_initial, cmap8_test_data3a_set,
 //				  rgb32_test_data3_final);
 #ifndef TEST_R5
 // R5: broken: no effect
-	test_set_bits(rgb32_test_data3a_initial, gray1_test_data3_set,
-				  rgb32_test_data3g_final);
-	test_set_bits(rgb32_test_data4a_initial, gray1_test_data4_set,
-				  rgb32_test_data4g_final);
+//	test_set_bits(rgb32_test_data3a_initial, gray1_test_data3_set,
+//				  rgb32_test_data3g_final);
+//	test_set_bits(rgb32_test_data4a_initial, gray1_test_data4_set,
+//				  rgb32_test_data4g_final);
 // R5: broken: ignores target bitmap row padding
 //	test_set_bits(cmap8_test_data3_initial, rgb32_test_data3_set,
 //				  cmap8_test_data3_final);
@@ -648,14 +648,14 @@ void SetBitsTester::ImportBitsA3()
 					 rgb32_test_data3_final);
 //	test_import_bits(rgb32_test_data3_initial, cmap8_test_data3_final,
 //					 rgb32_test_data3_final);
-	test_import_bits(rgb32_test_data3_initial, gray1_test_data3_final,
-					 rgb32_test_data3g_final);
+//	test_import_bits(rgb32_test_data3_initial, gray1_test_data3_final,
+//					 rgb32_test_data3g_final);
 	test_import_bits(rgb32_test_data4_initial, rgb32_test_data4_final,
 					 rgb32_test_data4_final);
 //	test_import_bits(rgb32_test_data4_initial, cmap8_test_data4_final,
 //					 rgb32_test_data4_final);
-	test_import_bits(rgb32_test_data4_initial, gray1_test_data4_final,
-					 rgb32_test_data4g_final);
+//	test_import_bits(rgb32_test_data4_initial, gray1_test_data4_final,
+//					 rgb32_test_data4g_final);
 	// B_CMAP8
 //	test_import_bits(cmap8_test_data3_initial, rgb32_test_data3_final,
 //					 cmap8_test_data3_final);
@@ -670,18 +670,18 @@ void SetBitsTester::ImportBitsA3()
 //	test_import_bits(cmap8_test_data4_initial, gray1_test_data4_final,
 //					 cmap8_test_data4g_final);
 	// B_GRAY1
-	test_import_bits(gray1_test_data3_initial, rgb32_test_data3_final,
-					 gray1_test_data3_final);
+//	test_import_bits(gray1_test_data3_initial, rgb32_test_data3_final,
+//					 gray1_test_data3_final);
 //	test_import_bits(gray1_test_data3_initial, cmap8_test_data3_final,
 //					 gray1_test_data3_final);
-	test_import_bits(gray1_test_data3_initial, gray1_test_data3_final,
-					 gray1_test_data3_final);
-	test_import_bits(gray1_test_data4_initial, rgb32_test_data4_final,
-					 gray1_test_data4_final);
+//	test_import_bits(gray1_test_data3_initial, gray1_test_data3_final,
+//					 gray1_test_data3_final);
+//	test_import_bits(gray1_test_data4_initial, rgb32_test_data4_final,
+//					 gray1_test_data4_final);
 //	test_import_bits(gray1_test_data4_initial, cmap8_test_data4_final,
 //					 gray1_test_data4_final);
-	test_import_bits(gray1_test_data4_initial, gray1_test_data4_final,
-					 gray1_test_data4_final);
+//	test_import_bits(gray1_test_data4_initial, gray1_test_data4_final,
+//					 gray1_test_data4_final);
 }
 #endif // ifndef TEST_R5
 

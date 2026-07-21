@@ -70,11 +70,11 @@ typedef uint64_t uintmax_t;
 #define UINT32_MAX	(4294967295U)
 
 #if defined(__SIZEOF_LONG__) && __SIZEOF_LONG__ > 4
-#define INT64_MAX	(9223372036854775807L)
-#define UINT64_MAX	(18446744073709551615UL)
+#define INT64_MAX	(0x7FFFFFFFFFFFFFFFL)
+#define UINT64_MAX	(0xFFFFFFFFFFFFFFFFUL)
 #else
-#define INT64_MAX	(9223372036854775807LL)
-#define UINT64_MAX	(18446744073709551615ULL)
+#define INT64_MAX	(0x7FFFFFFFFFFFFFFFLL)
+#define UINT64_MAX	(0xFFFFFFFFFFFFFFFFULL)
 #endif
 #define INT64_MIN	(-INT64_MAX-1)
 
@@ -129,7 +129,11 @@ typedef uint64_t uintmax_t;
 #define SIG_ATOMIC_MIN INT32_MIN
 #define SIG_ATOMIC_MAX INT32_MAX
 
+#ifdef __SIZE_MAX__
+#define SIZE_MAX __SIZE_MAX__
+#else
 #define SIZE_MAX 	__HAIKU_ADDR_MAX
+#endif
 
 #define WINT_MIN 	0
 #define WINT_MAX 	((wint_t)-1)

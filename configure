@@ -289,6 +289,7 @@ standard_gcc_settings()
 		i?86-*)		targetCpu=x86;;
 		m68k-*)		targetCpu=m68k;;
 		powerpc-*)	targetCpu=ppc;;
+		powerpc64-*)	targetCpu=ppc64;;
 		riscv64-*)	targetCpu=riscv64;;
 		sparc64-*)	targetCpu=sparc;;
 		x86_64-*)	targetCpu=x86_64;;
@@ -328,6 +329,13 @@ standard_gcc_settings()
 			bootLibgcc=`$gcc -print-file-name=libgcc.a`
 			bootLibSupCxx=`$gcc -print-file-name=libsupc++.a`
 
+			if [ "$bootLibSupCxx" = "libsupc++.a" ]; then
+				echo "libsupc++.a could not be found!"
+				if [ "$HOST_PLATFORM" = "haiku_host" ]; then
+					echo "try installing gcc_syslibs_devel or using the cross-tools"
+				fi
+				exit 1
+			fi
 			local headersBase=$gccdir/../../../..
 			local headers=$headersBase/$gccMachine/include/c++/$gccRawVersion
 			if [ ! -d $headers ]; then
@@ -647,7 +655,6 @@ fi
 #
 GIT_DIR=`git -C "$configureDir" rev-parse --git-dir | sed 's/^gitdir: //'`
 HOST_GCC_MACHINE=`$CC -dumpmachine`
-HOST_GCC_VERSION=`$CC -dumpversion`
 HAIKU_INCLUDE_SOURCES=0
 HAIKU_INCLUDE_3RDPARTY=0
 HAIKU_DISTRO_COMPATIBILITY=default
@@ -690,6 +697,7 @@ supportedTargetArchs="
 	arm64
 	m68k
 	ppc
+	ppc64
 	riscv64
 	sparc
 	x86
@@ -741,6 +749,7 @@ while [ $# -gt 0 ] ; do
 				x86)		targetMachine=i586-pc-haiku;;
 				x86_64)		targetMachine=x86_64-unknown-haiku;;
 				ppc)		targetMachine=powerpc-apple-haiku;;
+				ppc64)		targetMachine=powerpc64-unknown-haiku;;
 				m68k)		targetMachine=m68k-unknown-haiku;;
 				arm)		targetMachine=arm-unknown-haiku;;
 				arm64)		targetMachine=aarch64-unknown-haiku;;
@@ -753,9 +762,6 @@ while [ $# -gt 0 ] ; do
 			esac
 			set_variable buildCrossToolsMachine_$targetArch $targetMachine
 			targetArchs="$targetArchs $targetArch"
-			if [ "$targetArch" = "x86_gcc2" ] && [ ${HOST_GCC_VERSION%%.*} -ge 14 ]; then
-				CC="$CC -Wno-error=implicit-int -Wno-error=implicit-function-declaration"
-			fi
 			;;
 		--cross-tools-prefix)
 			assertparam "$1" $#
@@ -805,6 +811,7 @@ while [ $# -gt 0 ] ; do
 				x86)		targetMachine=i586-pc-haiku;;
 				x86_64)		targetMachine=x86_64-unknown-haiku;;
 				ppc)		targetMachine=powerpc-apple-haiku;;
+				ppc64)		targetMachine=powerpc64-unknown-haiku;;
 				arm)		targetMachine=arm-unknown-haiku;;
 				arm64)		targetMachine=aarch64-unknown-haiku;;
 				riscv64)	targetMachine=riscv64-unknown-haiku;;
@@ -901,12 +908,12 @@ if [ -z "$HOST_PYTHON" ]; then
 fi
 
 # check is python is new enough
-# usage of python by HDS requires at least 3.9
+# usage of python by HDS requires at least 3.10
 PYTHON_VERSION=$("$HOST_PYTHON" --version 2>&1 | sed -e 's/Python //')
 
 case $PYTHON_VERSION in
-	2.* | 3.[1-8].*)
-		echo "Python $PYTHON_VERSION is too old; need at least Python 3.9."
+	2.* | 3.[1-9].*)
+		echo "Python $PYTHON_VERSION is too old; need at least Python 3.10."
 		echo "(maybe specify a newer one in HOST_PYTHON?)"
 		exit 1
 		;;
@@ -928,6 +935,22 @@ if [ "$("$HAIKU_NASM" -hf | grep -c elf'[36][24] ')" -ne "2" ]; then
 		echo "You can install it from Mac Ports."
 		echo "Mac Ports is available at: http://www.macports.org/"
 	fi
+	exit 1
+fi
+
+# locate awk
+if [ -z "$HOST_AWK" ]; then
+	HOST_AWK="awk"
+	awk 'BEGIN{strftime()}' 2>/dev/null
+	if [ $? -ne 0 ]; then
+		# awk does not support strftime, try gawk
+		HOST_AWK="gawk"
+	fi
+fi
+$HOST_AWK 'BEGIN{strftime()}' 2>/dev/null
+if [ $? -ne 0 ]; then
+	echo "A working awk was not found. Install gawk or specify"
+	echo "a different awk with HOST_AWK."
 	exit 1
 fi
 
@@ -1171,6 +1194,7 @@ HOST_OBJCOPY				?= ${HOST_GCC_OBJCOPY} ;
 HOST_EXTENDED_REGEX_SED		?= ${HOST_EXTENDED_REGEX_SED} ;
 HOST_SHA256					?= ${HOST_SHA256} ;
 HOST_PYTHON					?= ${HOST_PYTHON} ;
+HOST_AWK					?= ${HOST_AWK} ;
 HOST_WGET_RETRY_ON_HOST_ERROR			?= ${HOST_WGET_RETRY_ON_HOST_ERROR} ;
 HAIKU_NASM					?= ${HAIKU_NASM} ;
 

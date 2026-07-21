@@ -1,0 +1,23 @@
+SubDir HAIKU_TOP src add-ons kernel bus_managers hyperv ;
+
+UsePrivateKernelHeaders ;
+UsePrivateHeaders hyperv ;
+
+SubDirHdrs $(HAIKU_TOP) src system kernel device_manager ;
+SubDirHdrs $(HAIKU_TOP) src add-ons kernel bus_managers acpi acpica include ;
+SubDirHdrs $(HAIKU_TOP) src add-ons kernel bus_managers acpi acpica include platform ;
+
+KernelAddon hyperv :
+	Driver.cpp
+
+	VMBus.cpp
+	VMBusRequest.cpp
+	VMBusModule.cpp
+	VMBusDevice.cpp
+	VMBusDeviceModule.cpp
+
+	: hyperv_arch_bus_manager.a
+	;
+
+SubInclude HAIKU_TOP src add-ons kernel bus_managers hyperv arch
+	$(TARGET_KERNEL_ARCH_DIR) ;

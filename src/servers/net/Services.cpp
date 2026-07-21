@@ -13,12 +13,14 @@
 
 #include <errno.h>
 #include <netinet/in.h>
+#include <spawn.h>
 #include <stdlib.h>
 #include <strings.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 
 #include <Autolock.h>
+#include <AutoDeleter.h>
 #include <NetworkAddress.h>
 #include <NetworkSettings.h>
 
@@ -426,51 +428,56 @@ Services::_LaunchService(struct service& service, int socket)
 		return errno;
 	}
 
-	pid_t child = fork();
-	if (child == 0) {
-		setsid();
-			// make sure we're in our own session, and don't accidently quit
-			// the net_server
+	posix_spawnattr_t attr;
+	status_t status = posix_spawnattr_init(&attr);
+	if (status != 0)
+		return status;
+	CObjectDeleter<posix_spawnattr_t, int, posix_spawnattr_destroy>
+		attrDeleter(&attr);
 
-		if (socket != -1) {
-			// We're the child, replace standard input/output
-			dup2(socket, STDIN_FILENO);
-			dup2(socket, STDOUT_FILENO);
-			dup2(socket, STDERR_FILENO);
-			close(socket);
-		}
+	posix_spawn_file_actions_t fileActions;
+	status = posix_spawn_file_actions_init(&fileActions);
+	if (status != 0)
+		return status;
+	CObjectDeleter<posix_spawn_file_actions_t, int, posix_spawn_file_actions_destroy>
+		actionsDeleter(&fileActions);
 
-		// build argument array
+	// make sure the child has its own session, and doesn't accidentally quit
+	// the net_server
+	posix_spawnattr_setflags(&attr, POSIX_SPAWN_SETSID);
 
-		const char** args = (const char**)malloc(
-			(service.arguments.size() + 1) * sizeof(char*));
-		if (args == NULL)
-			exit(1);
+	// replace standard input/output in the child
+	posix_spawn_file_actions_adddup2(&fileActions, socket, STDIN_FILENO);
+	posix_spawn_file_actions_adddup2(&fileActions, socket, STDOUT_FILENO);
+	posix_spawn_file_actions_adddup2(&fileActions, socket, STDERR_FILENO);
+	posix_spawn_file_actions_addclose(&fileActions, socket);
 
-		for (size_t i = 0; i < service.arguments.size(); i++) {
-			args[i] = service.arguments[i].c_str();
-		}
-		args[service.arguments.size()] = NULL;
+	// build argument array
+	const char** args = (const char**)malloc(
+		(service.arguments.size() + 1) * sizeof(char*));
+	if (args == NULL)
+		return ENOMEM;
+	MemoryDeleter argsDeleter(args);
 
-		if (execv(service.arguments[0].c_str(), (char* const*)args) < 0) {
-			free(args);
-			exit(1);
-		}
+	for (size_t i = 0; i < service.arguments.size(); i++)
+		args[i] = service.arguments[i].c_str();
+	args[service.arguments.size()] = NULL;
 
-		// we'll never trespass here
-	} else {
-		// the server does not need the socket anymore
-		if (socket != -1)
-			close(socket);
+	// spawn
+	pid_t child;
+	status = posix_spawn(&child, service.arguments[0].c_str(),
+		&fileActions, &attr, (char* const*)args, NULL);
 
-		if (child < 0) {
-			fprintf(stderr, "Could not start service %s\n",
-				service.name.c_str());
-		} else if (service.stand_alone)
-			service.process = child;
-	}
+	if (status != 0 || child < 0) {
+		fprintf(stderr, "Could not start service %s\n",
+			service.name.c_str());
+	} else if (service.stand_alone)
+		service.process = child;
 
-	// TODO: make sure child started successfully...
+	// the server does not need the socket anymore
+	if (socket != -1)
+		close(socket);
+
 	return B_OK;
 }
 

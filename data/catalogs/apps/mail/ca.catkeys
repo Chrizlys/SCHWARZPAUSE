@@ -1,5 +1,4 @@
-1	catalan; valencian	x-vnd.Be-MAIL	3439134129
-Set to Saved	Mail		Estableix com a desat
+1	catalan; valencian	x-vnd.Be-MAIL	1977644174
 Your main text contains %ld unencodable characters. Perhaps a different character set would work better? Hit Send to send it anyway (a substitute character will be used in place of the unencodable ones), or choose Cancel to go back and try fixing it up.	Mail		El vostre text principal conté %ld caràcters no codificables. Potser amb un conjunt de caràcters diferent funcionaria millor? Premeu Envia per enviar-ho tanmateix (se substituiran per altres els caràcters que no es puguin codificar), o bé trieu Cancel·la per tornar enrere i intentar esmenar-ho.
 Text wrapping:	Mail		Ajustament de línia:
 Show icons & labels	Mail		Mostra les icones i les etiquetes
@@ -71,7 +70,6 @@ spam	B_USER_DIRECTORY/mail/spam		brossa
 Reply to all	Mail		Respon a tothom
 Cancel	Mail		Cancel·la
 Off	Mail		Atura
-Set to %s	Mail		Estableix com a %s
 Signature:	Mail		Signatura:
 Forward without attachments	Mail		Reenvia sense els fitxers adjunts
 None	Settings		Cap
@@ -92,16 +90,19 @@ Auto signature:	Mail		Auto signatura:
 Same subject	Mail		El mateix assumpte
 Send	Mail		Envia
 Open draft	Mail		Obre l'esborrany
-Leave as 'New'	Mail	Do not translate New - this is non-localizable e-mail status	Deixa-ho com a nou
 Random	Mail		Aleatori
+Leave as 'New'	Mail	Do not translate New - this is non-localizable e-mail status	Deixa-ho com a nou
 Attach attributes:	Mail		Atributs del fitxer adjunt:
+Remove label	Mail		Suprimeix l'etiqueta
 Find again	Mail		Repeteix la cerca
 Size:	Mail		Mida:
+New label:	LabelWindow		Etiqueta nova:
 To:	Mail		A:
 Need Tracker to move items to trash	Mail		Cal el Rastrejador per moure elements a la paperera.
 The mail_daemon could not be started:\n\t	Mail		No s'ha pogut iniciar el dimoni del correu:\n\t
 <no account found>	Mail		<no s'ha trobat cap compte>
 helpful message	Mail		missatge d'ajuda
+Label as…	Mail		Etiqueta com a...
  Read 	Mail		 Llegeix 
 Font:	Mail		Tipus de lletra:
 Accounts…	Mail		Comptes...
@@ -109,11 +110,11 @@ Previous	Mail		Anterior
 Include file attributes in attachments	Mail		Inclou els atributs dels fitxers als adjunts
 Start now	Mail		Comença ara
 (Name unavailable)	Mail		(El nom no està disponible)
+Cancel	LabelWindow		Cancel·la
 Move to trash	Mail		Mou a la paperera
 <none>	Mail		<cap>
 %d - Date	Mail		%d - Data
 Check spelling	Mail		Revisa'n l'ortografia
-Status:	Mail		Estat:
 Redo	Mail		Refés
 Leave as '%s'	Mail		Deixa-ho com a "%s'"
 Print…	Mail		Imprimeix…
@@ -137,13 +138,14 @@ Hide	Mail		Amaga
 From:	Mail		De :
 No file attributes, just plain data	Mail		No hi ha cap atribut del fitxer, només dades netes.
 Add	Mail		Afegeix
+Same label	Mail		La mateixa etiqueta
 out	B_USER_DIRECTORY/mail/out		bústia de sortida
 Send this message before closing?	Mail		Voleu enviar aquest missatge abans de tancar?
 in	B_USER_DIRECTORY/mail/in		a
 Open	Mail		Obre
 Don't save	Mail		No ho desis
-Leave same	Mail		Deixa-ho igual
 An error occurred trying to save the attachment.	Mail		Hi ha hagut un error en desar el fitxer adjunt.
+Leave same	Mail		Deixa-ho igual
 Save address	Mail		Desa l'adreça
 Initial spell check mode:	Mail		Mode de revisió ortogràfica inicial:
 Edit queries…	Mail		Edita les consultes...
@@ -156,17 +158,19 @@ Edit signatures…	Mail		Edita les signatures...
 User interface	Mail		Interfície d'usuari
 Inconsistency occurred in the undo/redo buffer.	Mail		Hi ha hagut una inconsistència en desfer / refer la memòria intermèdia.
 Remove attachment	Mail		Suprimeix el fitxer adjunt
-Set to…	Mail		Estableix-ho com a...
 Edit	Mail		Edita
 Page setup…	Mail		Configuració de la pàgina...
 An error occurred trying to save this signature.	Mail		Hi ha hagut un error en intentar desar aquesta signatura.
+Set label	Mail		Estableix-ne l'etiqueta
 Beginner	Mail		Principiant
 Previous message, keep status	Mail		Missatge anterior, mantén l'estat
 Send message	Mail		Envia el missatge
 Delete	Mail		Suprimeix
 Put your favorite e-mail queries and query templates in this folder.	Mail		Poseu les consultes de correu i plantilles de consultes preferides en aquesta carpeta.
+Manage labels…	Mail		Gestioneu les etiquetes...
 Spam	Mail		Brossa
 Couldn't open this signature. Sorry.	Mail		No s'ha pogut obrir aquesta signatura. Disculpeu.
+OK	LabelWindow		D'acord
 Revert	Mail		Reverteix
 Unknown	Mail		Desconegut
 Increase quote level	Mail		Augmenta el nivell de citació

@@ -46,6 +46,7 @@
 #include <tls.h>
 #include <user_runtime.h>
 #include <user_thread.h>
+#include <user_mutex.h>
 #include <vfs.h>
 #include <vm/vm.h>
 #include <vm/VMAddressSpace.h>
@@ -536,6 +537,8 @@ Thread::ResetSignalsOnExec()
 status_t
 Thread::AddUserTimer(UserTimer* timer)
 {
+	ASSERT_LOCKED_MUTEX(&fLock);
+
 	// If the timer is user-defined, check timer limit and increment
 	// user-defined count.
 	if (timer->ID() < 0 && !team->CheckAddUserDefinedTimer())
@@ -557,6 +560,8 @@ Thread::AddUserTimer(UserTimer* timer)
 void
 Thread::RemoveUserTimer(UserTimer* timer)
 {
+	ASSERT_LOCKED_MUTEX(&fLock);
+
 	fUserTimers.RemoveTimer(timer);
 
 	if (timer->ID() >= USER_TIMER_FIRST_USER_DEFINED_ID)
@@ -1084,6 +1089,13 @@ thread_create_thread(const ThreadCreationAttributes& attributes, bool kernel)
 
 	bool debugNewThread = false;
 	if (!kernel) {
+		// ensure there's a user_mutex_context, if this isn't the main thread
+		if (team->main_thread != NULL && team->user_mutex_context == NULL) {
+			status_t status = allocate_team_user_mutex_context(team);
+			if (status != B_OK)
+				return status;
+		}
+
 		// allocate the user_thread structure, if not already allocated
 		if (thread->user_thread == NULL) {
 			thread->user_thread = team_allocate_user_thread(team);
@@ -1867,6 +1879,7 @@ _dump_thread_info(Thread *thread, bool shortInfo)
 	else
 		kprintf("\n");
 	kprintf("cpumask:            %#" B_PRIx32 "\n", thread->cpumask.Bits(0));
+	kprintf("pinned_to_cpu:      %#" B_PRIx32 "\n", thread->pinned_to_cpu);
 	kprintf("sig_pending:        %#" B_PRIx64 " (blocked: %#" B_PRIx64
 		", before sigsuspend(): %#" B_PRIx64 ")\n",
 		(int64)thread->ThreadPendingSignals(),

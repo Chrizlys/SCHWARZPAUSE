@@ -118,7 +118,7 @@ _start(kernel_args *bootKernelArgs, int currentCPU)
 
 	// the passed in kernel args are in a non-allocated range of memory
 	if (currentCPU == 0)
-		memcpy(&sKernelArgs, bootKernelArgs, bootKernelArgs->kernel_args_size);
+		memcpy((void*)&sKernelArgs, bootKernelArgs, bootKernelArgs->kernel_args_size);
 
 	smp_cpu_rendezvous(&sCpuRendezvous2);
 
@@ -258,7 +258,7 @@ _start(kernel_args *bootKernelArgs, int currentCPU)
 		// the boot processor has probably been sending us
 		// tlb sync messages all along the way, but we've
 		// been ignoring them
-		arch_cpu_global_TLB_invalidate();
+		arch_cpu_global_tlb_invalidate();
 
 		// this is run for each non boot processor after they've been set loose
 		smp_per_cpu_init(&sKernelArgs, currentCPU);

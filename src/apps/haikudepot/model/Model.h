@@ -1,17 +1,17 @@
 /*
  * Copyright 2013-2014, Stephan Aßmus <superstippi@gmx.de>.
- * Copyright 2016-2025, Andrew Lindesay <apl@lindesay.co.nz>.
+ * Copyright 2016-2026, Andrew Lindesay <apl@lindesay.co.nz>.
  * All rights reserved. Distributed under the terms of the MIT License.
  */
 #ifndef MODEL_H
 #define MODEL_H
+
 
 #include <vector>
 #include <map>
 
 #include <Locker.h>
 
-#include "AbstractProcess.h"
 #include "DepotInfo.h"
 #include "PackageFilter.h"
 #include "PackageFilterSpecification.h"
@@ -39,11 +39,14 @@ class ModelListener : public BReferenceable {
 public:
 	virtual						~ModelListener();
 
+	virtual	void				SelectedPackageChanged() = 0;
 	virtual	void				AuthorizationChanged() = 0;
-	virtual void				CategoryListChanged() = 0;
-	virtual void				ScreenshotCached(const ScreenshotCoordinate& coordinate) = 0;
-	virtual void				IconsChanged() = 0;
-	virtual void				PackageFilterChanged() = 0;
+	virtual	void				CategoryListChanged() = 0;
+	virtual	void				ScreenshotCached(const ScreenshotCoordinate& coordinate) = 0;
+	virtual	void				IconsChanged() = 0;
+	virtual	void				PackageFilterChanged() = 0;
+	virtual	void				PackageListViewModeChanged() = 0;
+	virtual void				CanNicknamePasswordAuthenticateChanged() = 0;
 };
 
 
@@ -92,6 +95,10 @@ public:
 
 			void				Clear();
 
+			PackageInfoRef		SelectedPackage() const;
+			void				SetSelectedPackage(const PackageInfoRef& package);
+			void				ClearSelectedPackage();
+
 			void				AddListener(const ModelListenerRef& listener);
 			void				AddPackageListener(const PackageInfoListenerRef& packageListener);
 
@@ -112,6 +119,8 @@ public:
 			const std::vector<PackageInfoRef>
 								FilteredPackages() const;
 			void				AddPackage(const PackageInfoRef& package);
+			void				AddPackageWithChange(const PackageInfoRef& package,
+									uint32 changeMask);
 			void				AddPackages(const std::vector<PackageInfoRef>& packages);
 			void				AddPackagesWithChange(const std::vector<PackageInfoRef>& packages,
 									uint32 changesMask);
@@ -151,6 +160,9 @@ public:
 			void				SetCanShareAnonymousUsageData(bool value);
 			bool				CanShareAnonymousUsageData() const;
 
+			void				SetCanNicknamePasswordAuthenticate(bool value);
+			bool				CanNicknamePasswordAuthenticate();
+
 			bool				CanPopulatePackage(const PackageInfoRef& package);
 
 			void				SetCredentials(const UserCredentials& credentials);
@@ -171,15 +183,21 @@ private:
 									const BMessage &responsePayload,
 									const char *sourceDescription) const;
 
+			void				_NotifySelectedPackageChanged();
 			void				_NotifyPackageFilterChanged();
 			void				_NotifyIconsChanged();
 			void				_NotifyAuthorizationChanged();
 			void				_NotifyCategoryListChanged();
 			void				_NotifyPackageChange(const PackageChangeEvent& event);
 			void				_NotifyPackageChanges(const PackageChangeEvents& events);
+			void				_NotifyPackageListViewModeChanged();
+			void				_NotifyCanNicknamePasswordAuthenticateChanged();
+
 
 private:
 	mutable	BLocker				fLock;
+
+			BString				fSelectedPackageName;
 
 			LanguageRef			fPreferredLanguage;
 
@@ -197,6 +215,8 @@ private:
 								fPackageListViewMode;
 
 			bool				fCanShareAnonymousUsageData;
+
+			bool				fCanNicknamePasswordAuthenticate;
 
 			WebAppInterfaceRef	fWebApp;
 

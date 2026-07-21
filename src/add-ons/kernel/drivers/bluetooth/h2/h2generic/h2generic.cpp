@@ -15,14 +15,16 @@
 #include <KernelExport.h>
 #include <ByteOrder.h>
 #include <Drivers.h>
+#include <StackOrHeapArray.h>
 
 #include <btModules.h>
 
-#include "snet_buffer.h"
+#include "bluetooth/HCI/btHCI_transport.h"
 #include "h2cfg.h"
 #include "h2debug.h"
 #include "h2transactions.h"
 #include "h2util.h"
+#include "snet_buffer.h"
 
 
 int32 api_version = B_CUR_DRIVER_API_VERSION;
@@ -273,6 +275,19 @@ device_added(usb_device dev, void** cookie)
 		goto bail;
 	}
 
+	// TODO: Do this only when sco is needed
+	if (config->interface_count > 1 && config->interface[1].alt_count > 5) {
+		interface = &config->interface[1].alt[5];
+		err = usb->set_alt_interface(new_bt_dev->dev, interface);
+
+		if (err != B_OK) {
+			ERROR("%s: set_alt_interface() error on interface 1, alt 2.\n", __func__);
+			new_bt_dev->driver_info |= BT_SCO_NOT_WORKING;
+		}
+	} else {
+		new_bt_dev->driver_info |= BT_SCO_NOT_WORKING;
+	}
+
 	// call set_configuration() only after calling set_alt_interface()
 	err = usb->set_configuration(dev, config);
 	if (err != B_OK) {
@@ -316,36 +331,45 @@ device_added(usb_device dev, void** cookie)
 		config->interface_count);
 
 	// Find endpoints that we need
-	uif = config->interface->active;
-	for (e = 0; e < uif->descr->num_endpoints; e++) {
+	for (size_t i = 0; i < config->interface_count; i++) {
+		uif = config->interface[i].active;
+		for (e = 0; e < uif->descr->num_endpoints; e++) {
 
-		ep = &uif->endpoint[e];
-		switch (ep->descr->attributes & USB_ENDPOINT_ATTR_MASK) {
-			case USB_ENDPOINT_ATTR_INTERRUPT:
-				if (ep->descr->endpoint_address & USB_ENDPOINT_ADDR_DIR_IN)
-				{
-					new_bt_dev->intr_in_ep = ep;
-					new_bt_dev->max_packet_size_intr_in
-						= ep->descr->max_packet_size;
-					TRACE("%s: INT in\n", __func__);
-				} else {
-					TRACE("%s: INT out\n", __func__);
-				}
-			break;
+			ep = &uif->endpoint[e];
+			switch (ep->descr->attributes & USB_ENDPOINT_ATTR_MASK) {
+				case USB_ENDPOINT_ATTR_INTERRUPT:
+					if (ep->descr->endpoint_address & USB_ENDPOINT_ADDR_DIR_IN) {
+						new_bt_dev->intr_in_ep = ep;
+						new_bt_dev->max_packet_size_intr_in = ep->descr->max_packet_size;
+						TRACE("%s: INT in\n", __func__);
+					} else {
+						TRACE("%s: INT out\n", __func__);
+					}
+					break;
 
-			case USB_ENDPOINT_ATTR_BULK:
-				if (ep->descr->endpoint_address & USB_ENDPOINT_ADDR_DIR_IN)	{
-					new_bt_dev->bulk_in_ep  = ep;
-					new_bt_dev->max_packet_size_bulk_in
-						= ep->descr->max_packet_size;
-					TRACE("%s: BULK int\n", __func__);
-				} else	{
-					new_bt_dev->bulk_out_ep = ep;
-					new_bt_dev->max_packet_size_bulk_out
-						= ep->descr->max_packet_size;
-					TRACE("%s: BULK out\n", __func__);
-				}
-			break;
+				case USB_ENDPOINT_ATTR_BULK:
+					if (ep->descr->endpoint_address & USB_ENDPOINT_ADDR_DIR_IN) {
+						new_bt_dev->bulk_in_ep = ep;
+						new_bt_dev->max_packet_size_bulk_in = ep->descr->max_packet_size;
+						TRACE("%s: BULK in\n", __func__);
+					} else {
+						new_bt_dev->bulk_out_ep = ep;
+						new_bt_dev->max_packet_size_bulk_out = ep->descr->max_packet_size;
+						TRACE("%s: BULK out\n", __func__);
+					}
+					break;
+				case USB_ENDPOINT_ATTR_ISOCHRONOUS:
+					if (ep->descr->endpoint_address & USB_ENDPOINT_ADDR_DIR_IN) {
+						new_bt_dev->iso_in_ep = ep;
+						new_bt_dev->max_packet_size_iso_in = ep->descr->max_packet_size;
+						TRACE("%s: ISO in found\n", __func__);
+					} else {
+						new_bt_dev->iso_out_ep = ep;
+						new_bt_dev->max_packet_size_iso_out = ep->descr->max_packet_size;
+						TRACE("%s: ISO out found\n", __func__);
+					}
+					break;
+			}
 		}
 	}
 
@@ -355,6 +379,11 @@ device_added(usb_device dev, void** cookie)
 		goto bail;
 	}
 
+
+	if (!new_bt_dev->iso_in_ep || !new_bt_dev->iso_out_ep) {
+		ERROR("%s: Endpoints for BT SCO not found\n", __func__);
+		new_bt_dev->driver_info |= BT_SCO_NOT_WORKING;
+	}
 	// Look into the devices suported to understand this
 	if (new_bt_dev->driver_info & BT_DIGIANSWER)
 		new_bt_dev->ctrl_req = USB_TYPE_VENDOR;
@@ -401,6 +430,10 @@ device_removed(void* cookie)
 		usb->cancel_queued_transfers(bdev->bulk_in_ep->handle);
 	if (bdev->bulk_out_ep != NULL)
 		usb->cancel_queued_transfers(bdev->bulk_out_ep->handle);
+	if (bdev->iso_in_ep != NULL)
+		usb->cancel_queued_transfers(bdev->iso_in_ep->handle);
+	if (bdev->iso_out_ep != NULL)
+		usb->cancel_queued_transfers(bdev->iso_out_ep->handle);
 
 	bdev->connected = false;
 
@@ -409,11 +442,11 @@ device_removed(void* cookie)
 
 
 static bt_hci_transport_hooks bluetooth_hooks = {
-	NULL,
-	&submit_nbuffer,
-	&submit_nbuffer,
-	NULL,
-	NULL,
+	&submit_nbuffer, 
+	&submit_nbuffer, 
+	&submit_nbuffer, 
+	NULL, 
+	NULL, 
 	H2
 };
 
@@ -439,9 +472,29 @@ submit_nbuffer(hci_id hid, net_buffer* nbuf)
 
 	if (bdev != NULL) {
 		switch (nbuf->protocol) {
+			case BT_SCO:
+				if (bdev->driver_info & BT_SCO_NOT_WORKING)
+					return B_NOT_SUPPORTED;
+				return submit_tx_sco(bdev, nbuf);
+				break;
 			case BT_COMMAND:
-				// not issued this way
-			break;
+			{
+				snet_buffer* snbuf = snb_fetch(&bdev->snetBufferRecycleTrash, nbuf->size);
+				if (snbuf == NULL)
+					return B_NO_MEMORY;
+
+				BStackOrHeapArray<uint8, 512> data(nbuf->size);
+				if (!data.IsValid()) {
+					snb_park(&bdev->snetBufferRecycleTrash, snbuf);
+					return B_NO_MEMORY;
+				}
+
+				nb->read(nbuf, 0, data, nbuf->size);
+				snb_put(snbuf, data, nbuf->size);
+
+				return submit_tx_command(bdev, snbuf);
+				break;
+			}
 
 			case BT_ACL:
 				return submit_tx_acl(bdev, nbuf);
@@ -507,7 +560,7 @@ device_open(const char* name, uint32 flags, void **cookie)
 	// dumping the USB frames
 	init_room(&bdev->eventRoom);
 	init_room(&bdev->aclRoom);
-	// init_room(new_bt_dev->scoRoom);
+	init_room(&bdev->scoRoom);
 
 	list_init(&bdev->snetBufferRecycleTrash);
 
@@ -566,6 +619,12 @@ device_close(void* cookie)
 
 		if (bdev->bulk_out_ep!=NULL)
 			usb->cancel_queued_transfers(bdev->bulk_out_ep->handle);
+
+		if (bdev->iso_in_ep != NULL)
+			usb->cancel_queued_transfers(bdev->iso_in_ep->handle);
+
+		if (bdev->iso_out_ep != NULL)
+			usb->cancel_queued_transfers(bdev->iso_out_ep->handle);
 	}
 
 	// TX
@@ -586,6 +645,7 @@ device_close(void* cookie)
 
 	purge_room(&bdev->eventRoom);
 	purge_room(&bdev->aclRoom);
+	purge_room(&bdev->scoRoom);
 
 	// Device no longer in our Stack
 	if (btDevices != NULL)
@@ -688,11 +748,19 @@ device_control(void* cookie, uint32 msg, void* params, size_t size)
 			}
 			#endif
 
-			bdev->state = SET_BIT(bdev->state, RUNNING);
+			// TODO: Do this only when SCO is needed
+			if ((bdev->driver_info & BT_SCO_NOT_WORKING) == 0) {
+				for (i = 0; i < MAX_SCO_IN_WINDOW; i++) {
+					err = submit_rx_sco(bdev);
+					if (err != B_OK && i == 0) {
+						bdev->state = CLEAR_BIT(bdev->state, ANCILLYANT);
+						ERROR("%s: Queuing failed device stops running\n", __func__);
+						break;
+					}
+				}
+			}
 
-			#if BT_DRIVER_SUPPORTS_SCO
-				// TODO:  SCO / eSCO
-			#endif
+			bdev->state = SET_BIT(bdev->state, RUNNING);
 
 			ERROR("%s: Device online\n", __func__);
 		break;
@@ -753,9 +821,9 @@ dump_driver(int argc, char** argv)
 
 		if (bt_usb_devices[i] != NULL) {
 			kprintf("%s : \n", bt_usb_devices[i]->name);
-			kprintf("\taclroom = %d\teventroom = %d\tcommand & events =%d\n",
+			kprintf("\teventroom = %d\taclroom = %d\t\tscoroom = %dcommand & events =%d\n",
 				snb_packets(&bt_usb_devices[i]->eventRoom),
-				snb_packets(&bt_usb_devices[i]->aclRoom),
+				snb_packets(&bt_usb_devices[i]->aclRoom), snb_packets(&bt_usb_devices[i]->scoRoom),
 				snb_packets(&bt_usb_devices[i]->snetBufferRecycleTrash));
 
 			while ((item = (snet_buffer*)list_get_next_item(

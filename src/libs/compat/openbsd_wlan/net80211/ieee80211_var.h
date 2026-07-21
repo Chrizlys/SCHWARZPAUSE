@@ -1,4 +1,4 @@
-/*	$OpenBSD: ieee80211_var.h,v 1.111 2022/03/14 15:07:24 stsp Exp $	*/
+/*	$OpenBSD: ieee80211_var.h,v 1.113 2026/01/05 12:04:45 stsp Exp $	*/
 /*	$NetBSD: ieee80211_var.h,v 1.7 2004/05/06 03:07:10 dyoung Exp $	*/
 
 /*-
@@ -46,7 +46,9 @@
 #include <net80211/ieee80211.h>
 #include <net80211/ieee80211_crypto.h>
 #include <net80211/ieee80211_ioctl.h>		/* for ieee80211_stats */
+#ifndef __cplusplus
 #include <net80211/ieee80211_node.h>
+#endif
 #include <net80211/ieee80211_proto.h>
 
 #define	IEEE80211_CHAN_MAX	255
@@ -94,6 +96,10 @@ enum ieee80211_phymode {
 	IEEE80211_MODE_11AC	= 5,	/* 5GHz, OFDM/VHT */
 };
 #define	IEEE80211_MODE_MAX	(IEEE80211_MODE_11AC+1)
+
+#ifdef __cplusplus
+#include <net80211/ieee80211_node.h>
+#endif
 
 enum ieee80211_opmode {
 	IEEE80211_M_STA		= 1,	/* infrastructure station */
@@ -343,6 +349,8 @@ struct ieee80211com {
 							 */
 	struct ieee80211_edca_ac_params ic_edca_ac[EDCA_NUM_AC];
 	u_int			ic_edca_updtcount;
+	u_int			ic_edca_txop_count[EDCA_NUM_AC];
+	struct timeval		ic_edca_txop_time[EDCA_NUM_AC];
 	u_int16_t		ic_tid_noack;
 	u_int8_t		ic_globalcnt[EAPOL_KEY_NONCE_LEN];
 	u_int8_t		ic_nonce[EAPOL_KEY_NONCE_LEN];
@@ -502,10 +510,8 @@ int	ieee80211_min_basic_rate(struct ieee80211com *);
 int	ieee80211_max_basic_rate(struct ieee80211com *);
 int	ieee80211_setmode(struct ieee80211com *, enum ieee80211_phymode);
 enum ieee80211_phymode ieee80211_next_mode(struct ifnet *);
-enum ieee80211_phymode ieee80211_chan2mode(struct ieee80211com *,
-		const struct ieee80211_channel *);
-void	ieee80211_disable_wep(struct ieee80211com *);
-void	ieee80211_disable_rsn(struct ieee80211com *);
+void	ieee80211_disable_wep(struct ieee80211com *); 
+void	ieee80211_disable_rsn(struct ieee80211com *); 
 int	ieee80211_add_ess(struct ieee80211com *, struct ieee80211_join *);
 void	ieee80211_del_ess(struct ieee80211com *, char *, int, int);
 void	ieee80211_set_ess(struct ieee80211com *, struct ieee80211_ess *,

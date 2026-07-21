@@ -21,14 +21,6 @@ struct hci_event_header {
 #define HCI_EVENT_INQUIRY_COMPLETE					0x01
 
 #define HCI_EVENT_INQUIRY_RESULT					0x02
-struct inquiry_info {
-	bdaddr_t	bdaddr;
-	uint8		pscan_rep_mode;
-	uint8		pscan_period_mode;
-	uint8		pscan_mode;
-	uint8		dev_class[3];
-	uint16		clock_offset;
-} __attribute__ ((packed));
 
 #define HCI_EVENT_CONN_COMPLETE						0x03
 struct hci_ev_conn_complete {
@@ -248,14 +240,7 @@ struct hci_ev_flow_specification {
 } __attribute__ ((packed));
 
 #define HCI_EVENT_INQUIRY_RESULT_WITH_RSSI			0x22
-struct hci_ev_inquiry_info_with_rssi {
-	bdaddr_t bdaddr;
-	uint8		pscan_rep_mode;
-	uint8		pscan_period_mode;
-	uint8		dev_class[3];
-	uint16		clock_offset;
-	int8		rssi;
-} __attribute__ ((packed));
+#define HCI_RSSI_INVALID 127
 
 #define HCI_EVENT_REMOTE_EXTENDED_FEATURES			0x23
 struct hci_ev_remote_extended_features {
@@ -291,20 +276,75 @@ struct hci_ev_sychronous_connection_changed {
 
 // TODO: Define remaining Bluetooth 2.1 events structures
 #define HCI_EVENT_EXTENDED_INQUIRY_RESULT			0x2F
+#define HCI_MAX_EIR_LENGTH 240
+struct hci_ev_extended_inquiry_info {
+    bdaddr_t bdaddr;
+    uint8    page_repetition_mode;
+    uint8    scan_period_mode;
+    uint8    dev_class[3];
+    uint16   clock_offset;
+    int8     rssi;
+    uint8    eir[HCI_MAX_EIR_LENGTH];
+} __attribute__((packed));
+
+#define EIR_FLAGS 0x01
+#define EIR_UUID16_INCOMPLETE 0x02
+#define EIR_UUID16_COMPLETE 0x03
+#define EIR_UUID32_INCOMPLETE 0x04
+#define EIR_UUID32_COMPLETE 0x05
+#define EIR_UUID128_INCOMPLETE 0x06
+#define EIR_UUID128_COMPLETE 0x07
+#define EIR_NAME_SHORT 0x08
+#define EIR_NAME_COMPLETE 0x09
+#define EIR_TX_POWER 0x0A
+#define EIR_CLASS_OF_DEVICE 0x0D
+#define EIR_MANUFACTURER_DATA 0xFF
 
 #define HCI_EVENT_ENCRYPTION_KEY_REFRESH_COMPLETE	0x30
 
 #define HCI_EVENT_IO_CAPABILITY_REQUEST				0x31
+struct hci_ev_io_capability_request {
+    bdaddr_t    bdaddr;
+} __attribute__((packed));
 
 #define HCI_EVENT_IO_CAPABILITY_RESPONSE			0x32
+struct hci_ev_io_capability_response {
+    bdaddr_t    bdaddr;
+    uint8       capability;
+    uint8       oob_data;
+    uint8       authentication;
+} __attribute__((packed));
 
-#define HCI_EVENT_USER_CONFIRMATION_REQUEST			0x33
+#define HCI_IO_CAP_DISPLAY_ONLY 0x00
+#define HCI_IO_CAP_DISPLAY_YES_NO 0x01
+#define HCI_IO_CAP_KEYBOARD_ONLY 0x02
+#define HCI_IO_CAP_NO_INPUT_NO_OUTPUT 0x03
+
+#define HCI_OOB_DATA_NOT_PRESENT 0x00
+#define HCI_OOB_DATA_PRESENT 0x01
+
+#define HCI_AUTH_REQ_NO_MITM_NO_BOND 0x00
+#define HCI_AUTH_REQ_MITM_NO_BOND 0x01
+#define HCI_AUTH_REQ_NO_MITM_DEDICATED_BOND 0x02
+#define HCI_AUTH_REQ_MITM_DEDICATED_BOND 0x03
+#define HCI_AUTH_REQ_NO_MITM_GENERAL_BOND 0x04
+#define HCI_AUTH_REQ_MITM_GENERAL_BOND 0x05
+
+#define HCI_EVENT_USER_CONFIRMATION_REQUEST 0x33
+struct hci_ev_user_confirmation_request {
+    bdaddr_t    bdaddr;
+    uint32      passkey;
+} __attribute__((packed));
 
 #define HCI_EVENT_USER_PASSKEY_REQUEST				0x34
 
 #define HCI_EVENT_OOB_DATA_REQUEST					0x35
 
 #define HCI_EVENT_SIMPLE_PAIRING_COMPLETE			0x36
+struct hci_ev_simple_pairing_complete {
+    uint8       status;
+    bdaddr_t    bdaddr;
+} __attribute__((packed));
 
 #define HCI_EVENT_LINK_SUPERVISION_TIMEOUT_CHANGED	0x38
 

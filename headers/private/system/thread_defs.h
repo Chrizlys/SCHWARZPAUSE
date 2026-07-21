@@ -14,7 +14,7 @@
 /** Size of the stack given to teams in user space */
 #define USER_STACK_GUARD_SIZE		(4 * B_PAGE_SIZE)		// 16 kB
 #define MIN_USER_STACK_SIZE			(2 * B_PAGE_SIZE)		// 8 kB
-#define MAX_USER_STACK_SIZE			(4096 * B_PAGE_SIZE)	// 16 MB
+#define MAX_USER_STACK_SIZE			(16384 * B_PAGE_SIZE)	// 64 MB
 #define USER_MAIN_THREAD_STACK_SIZE	MAX_USER_STACK_SIZE
 #define USER_STACK_SIZE				(64 * B_PAGE_SIZE)		// 256 kB
 
@@ -43,14 +43,15 @@ enum {
 struct thread_creation_attributes {
 	int32		(*entry)(void*, void*);
 	const char*	name;
-	int32		priority;
 	void*		args1;
 	void*		args2;
 	void*		stack_address;
 	size_t		stack_size;
 	size_t		guard_size;
 	pthread_t	pthread;
+	int32		priority;
 	uint32		flags;
 };
+
 
 #endif	/* _SYSTEM_THREAD_DEFS_H */

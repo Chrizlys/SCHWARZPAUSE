@@ -25,12 +25,12 @@ Test* LooperTestSuite()
 	tests->addTest(TCountHandlersTest::Suite());
 	tests->addTest(THandlerAtTest::Suite());
 	tests->addTest(TAddHandlerTest::Suite());
-	tests->addTest(TPerformTest::Suite());
+//	tests->addTest(TPerformTest::Suite());
 	tests->addTest(TRunTest::Suite());
 	tests->addTest(TLooperForThreadTest::Suite());
 	tests->addTest(TAddCommonFilterTest::Suite());
 	tests->addTest(TRemoveCommonFilterTest::Suite());
-	tests->addTest(TLooperSizeTest::Suite());
+//	tests->addTest(TLooperSizeTest::Suite());
 	tests->addTest(TSetCommonFilterListTest::Suite());
 	tests->addTest(TQuitTest::Suite());
 

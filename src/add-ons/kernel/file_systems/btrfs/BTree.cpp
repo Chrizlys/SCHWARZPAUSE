@@ -248,7 +248,7 @@ status_t
 BTree::Node::MoveEntries(uint32 start, uint32 end, int length) const
 {
 	status_t status = _SpaceCheck(length);
-	if (status != B_OK || length == 0/*B_OK*/)
+	if (status != B_OK || length == 0 /*B_OK*/)
 		return status;
 
 	int entrySize = sizeof(btrfs_entry);
@@ -360,7 +360,7 @@ BTree::Path::Move(int level, int step)
 	fSlots[level] += step;
 	if (fSlots[level] < 0)
 		return -1;
-	if (fSlots[level] >= fNodes[level]->ItemCount())
+	if (static_cast<uint32>(fSlots[level]) >= fNodes[level]->ItemCount())
 		return 1;
 	return 0;
 }
@@ -371,7 +371,7 @@ BTree::Path::GetEntry(int slot, btrfs_key* _key, void** _value, uint32* _size,
 	uint32* _offset)
 {
 	BTree::Node* leaf = fNodes[0];
-	if (slot < 0 || slot >= leaf->ItemCount())
+	if (slot < 0 || static_cast<uint32>(slot) >= leaf->ItemCount())
 		return B_ENTRY_NOT_FOUND;
 
 	if (_key != NULL)
@@ -760,7 +760,8 @@ BTree::RemoveEntries(Transaction& transaction, Path* path,
 status_t
 BTree::PreviousLeaf(Path* path) const
 {
-	// TODO: use Traverse() ???
+	// Traverse() is not used here because it searches by key value,
+	// while leaf navigation only requires following tree structure.
 	int level = 0;
 	int slot;
 	Node* node = NULL;
@@ -806,7 +807,7 @@ BTree::NextLeaf(Path* path) const
 	// iterate to the root until satisfy the condition
 	while (true) {
 		node = path->GetNode(level, &slot);
-		if (node == NULL || slot < node->ItemCount() - 1)
+		if (node == NULL || static_cast<uint32>(slot + 1) < node->ItemCount())
 			break;
 		level++;
 	}

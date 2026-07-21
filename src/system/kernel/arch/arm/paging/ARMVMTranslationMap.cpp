@@ -104,43 +104,22 @@ ARMVMTranslationMap::Flush()
 			fInvalidPagesCount);
 
 		if (fIsKernelMap) {
-			arch_cpu_global_TLB_invalidate();
-			smp_send_broadcast_ici(SMP_MSG_GLOBAL_INVALIDATE_PAGES, 0, 0, 0,
+			smp_broadcast_ici(SMP_MSG_GLOBAL_INVALIDATE_PAGES, 0, 0, 0,
 				NULL, SMP_MSG_FLAG_SYNC);
 		} else {
-			cpu_status state = disable_interrupts();
-			arch_cpu_user_TLB_invalidate();
-			restore_interrupts(state);
-
-			int cpu = smp_get_current_cpu();
-			CPUSet cpuMask = PagingStructures()->active_on_cpus;
-			cpuMask.ClearBit(cpu);
-
-			if (!cpuMask.IsEmpty()) {
-				smp_send_multicast_ici(cpuMask, SMP_MSG_USER_INVALIDATE_PAGES,
-					0, 0, 0, NULL, SMP_MSG_FLAG_SYNC);
-			}
+			InvalidateUserTLB(PagingStructures()->active_on_cpus, 0);
 		}
 	} else {
 		TRACE("flush_tmap: %d pages to invalidate, invalidate list\n",
 			fInvalidPagesCount);
 
-		arch_cpu_invalidate_TLB_list(fInvalidPages, fInvalidPagesCount);
-
 		if (fIsKernelMap) {
-			smp_send_broadcast_ici(SMP_MSG_INVALIDATE_PAGE_LIST,
-				(addr_t)fInvalidPages, fInvalidPagesCount, 0, NULL,
+			smp_broadcast_ici(SMP_MSG_INVALIDATE_PAGE_LIST,
+				0, (addr_t)fInvalidPages, fInvalidPagesCount, NULL,
 				SMP_MSG_FLAG_SYNC);
 		} else {
-			int cpu = smp_get_current_cpu();
-			CPUSet cpuMask = PagingStructures()->active_on_cpus;
-			cpuMask.ClearBit(cpu);
-
-			if (!cpuMask.IsEmpty()) {
-				smp_send_multicast_ici(cpuMask, SMP_MSG_INVALIDATE_PAGE_LIST,
-					(addr_t)fInvalidPages, fInvalidPagesCount, 0, NULL,
-					SMP_MSG_FLAG_SYNC);
-			}
+			InvalidateTLBList(PagingStructures()->active_on_cpus, 0,
+				fInvalidPages, fInvalidPagesCount);
 		}
 	}
 	fInvalidPagesCount = 0;

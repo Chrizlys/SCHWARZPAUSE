@@ -98,6 +98,7 @@ rule DefineDefaultBuildProfiles
 				openssh
 				pdfwriter
 				pe
+				sounds_community_default
 				timgmsoundfont
 				vision
 				wonderbrush
@@ -149,6 +150,7 @@ rule DefineDefaultBuildProfiles
 				openssh
 				openssl3
 				pe
+				sounds_community_default
 				vision
 				wpa_supplicant
 				# xz_utils can't be built with gcc2, so we install it for
@@ -189,16 +191,23 @@ rule DefineDefaultBuildProfiles
 
 		case "test-*" : {
 			Echo Building Haiku UnitTest Target ;
+			HAIKU_ROOT_USER_NAME = user ;
+			HAIKU_ROOT_USER_REAL_NAME = "Tester" ;
 			HAIKU_IMAGE_HOST_NAME ?= shredder ;
 			if $(DEBUG) != 0 {
 				HAIKU_IMAGE_SIZE ?= 450 ;
+			} else {
+				HAIKU_IMAGE_SIZE ?= 300 ;
 			}
 
 			AddHaikuImageSystemPackages
 				openssh
 				openssl3
-				!gcc2 @{ python3.10 }@
-				gcc2 @{ python3.10_x86@secondary_x86 }@
+				!gcc2 @{ python3.10 nano }@
+				gcc2 @{
+					python3.10_x86@secondary_x86 
+					nano_x86@secondary_x86
+				}@
 				;
 		}
 

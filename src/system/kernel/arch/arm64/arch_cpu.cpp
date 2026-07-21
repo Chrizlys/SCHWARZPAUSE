@@ -26,6 +26,21 @@ arch_cpu_preboot_init_percpu(kernel_args *args, int curr_cpu)
 status_t
 arch_cpu_init_percpu(kernel_args *args, int curr_cpu)
 {
+	uint64_t tcr = READ_SPECIALREG(TCR_EL1);
+	uint64_t mmfr1 = READ_SPECIALREG(ID_AA64MMFR1_EL1);
+
+	uint64_t hafdbs = ID_AA64MMFR1_HAFDBS(mmfr1);
+	if (hafdbs == ID_AA64MMFR1_HAFDBS_AF) {
+		tcr |= (1UL << 39);
+	}
+	if (hafdbs == ID_AA64MMFR1_HAFDBS_AF_DBS) {
+		tcr |= (1UL << 40) | (1UL << 39);
+	}
+
+	WRITE_SPECIALREG(TCR_EL1, tcr);
+
+	gCPU[curr_cpu].arch.mpidr = READ_SPECIALREG(MPIDR_EL1);
+
 	return 0;
 }
 
@@ -33,6 +48,13 @@ arch_cpu_init_percpu(kernel_args *args, int curr_cpu)
 status_t
 arch_cpu_init(kernel_args *args)
 {
+	for (uint32 i = 0; i < args->num_cpus; i++) {
+		cpu_ent* cpu = &gCPU[i];
+
+		cpu->topology_id[CPU_TOPOLOGY_PACKAGE] = 0;
+		cpu->topology_id[CPU_TOPOLOGY_CORE] = i;
+		cpu->topology_id[CPU_TOPOLOGY_SMT] = 0;
+	}
 	return B_OK;
 }
 
@@ -87,21 +109,21 @@ arch_cpu_sync_icache(void *address, size_t len)
 
 
 void
-arch_cpu_invalidate_TLB_range(addr_t start, addr_t end)
+arch_cpu_invalidate_tlb_range(intptr_t, addr_t start, addr_t end)
 {
-	arch_cpu_global_TLB_invalidate();
+	arch_cpu_global_tlb_invalidate();
 }
 
 
 void
-arch_cpu_invalidate_TLB_list(addr_t pages[], int num_pages)
+arch_cpu_invalidate_tlb_list(intptr_t, addr_t pages[], int num_pages)
 {
-	arch_cpu_global_TLB_invalidate();
+	arch_cpu_global_tlb_invalidate();
 }
 
 
 void
-arch_cpu_global_TLB_invalidate(void)
+arch_cpu_global_tlb_invalidate()
 {
 	asm(
 		"dsb ishst\n"
@@ -113,7 +135,7 @@ arch_cpu_global_TLB_invalidate(void)
 
 
 void
-arch_cpu_user_TLB_invalidate(void)
+arch_cpu_user_tlb_invalidate(intptr_t)
 {
-	arch_cpu_global_TLB_invalidate();
+	arch_cpu_global_tlb_invalidate();
 }

@@ -8,6 +8,7 @@
 #include <boot/platform.h>
 #include <boot/stage2.h>
 #include <arch_acpi.h>
+#include <arch_smp.h>
 
 #include "serial.h"
 #include "acpi.h"
@@ -48,6 +49,38 @@ arch_handle_acpi()
 
 		dprintf("discovered uart from acpi: base=%lx, irq=%u, clock=%lu\n",
 			uart.regs.start, uart.irq, uart.clock);
+	} else {
+		acpi_dbg2 *dbg2 = (acpi_dbg2*)acpi_find_table(ACPI_DBG2_SIGNATURE);
+		if (dbg2 != NULL) {
+			acpi_dbg2_device_info *info = (acpi_dbg2_device_info*)((char*)dbg2
+				+ dbg2->offset_dbg_device_info);
+			while (info != (acpi_dbg2_device_info*)((char*)dbg2 + dbg2->header.length)) {
+				if (info->port_type == ACPI_DBG2_PORT_TYPE_SERIAL && info->num_addresses > 0) {
+					uart_info &uart = gKernelArgs.arch_args.uart;
+
+					if (info->port_subtype == ACPI_DBG2_PORT_SUBTYPE_PL011)
+						strcpy(uart.kind, UART_KIND_PL011);
+					else if (info->port_subtype == ACPI_DBG2_PORT_SUBTYPE_16550)
+						strcpy(uart.kind, UART_KIND_8250);
+
+					acpi_gas *base_addr = (acpi_gas*)((char*)info + info->base_addr_offset);
+					uint32 *base_size = (uint32*)((char*)info + info->addr_size_offset);
+
+					uart.regs.start = base_addr->address;
+					uart.regs.size = *base_size;
+					uart.irq = 0;
+					uart.clock = 0;
+
+					if (info->port_subtype == ACPI_DBG2_PORT_SUBTYPE_PL011)
+						arch_acpi_get_uart_pl011(uart);
+
+					dprintf("discovered uart from dbg2 acpi: base=%lx\n", uart.regs.start);
+					break;
+				}
+
+				info = (acpi_dbg2_device_info*)((char*)info + info->length);
+			}
+		}
 	}
 
 	acpi_madt *madt = (acpi_madt*)acpi_find_table(ACPI_MADT_SIGNATURE);
@@ -62,6 +95,13 @@ arch_handle_acpi()
 				acpi_gic_interface *acpi_gicc = (acpi_gic_interface*)desc;
 				if (acpi_gicc->cpu_interface_num == 0)
 					gicc_base = acpi_gicc->base_address;
+
+				platform_cpu_info* cpu = NULL;
+				arch_smp_register_cpu(&cpu);
+				if (cpu == NULL)
+					continue;
+				cpu->id = acpi_gicc->cpu_interface_num;
+				cpu->mpidr = acpi_gicc->mpidr;
 			} else if (desc->type == ACPI_MADT_GIC_DISTRIBUTOR) {
 				acpi_gic_distributor *acpi_gicd = (acpi_gic_distributor*)desc;
 				gicd_base = acpi_gicd->base_address;

@@ -101,7 +101,10 @@ mmc_disk_supports_device(device_node* parent)
 		TRACE("SD card found, parent: %p\n", parent);
 	else if (deviceType == CARD_TYPE_SDHC)
 		TRACE("SDHC card found, parent: %p\n", parent);
-	else
+	else if (deviceType == CARD_TYPE_SDIO) {
+		// Ignore silently, since it is not mass storage and should be handled by other drivers
+		return 0.0;
+	} else
 		return 0.0;
 
 	return 0.8;
@@ -152,8 +155,8 @@ mmc_block_get_geometry(mmc_disk_driver_info* info, device_geometry* geometry)
 {
 	struct mmc_disk_csd csd;
 	TRACE("Get geometry\n");
-	status_t error = info->mmc->execute_command(info->parent,
-		info->parentCookie, 0, SD_SEND_CSD, info->rca << 16, (uint32_t*)&csd);
+	status_t error = info->mmc->execute_command(info->parent, info->parentCookie, 0, SEND_CSD,
+		info->rca << 16, (uint32_t*)&csd);
 	if (error != B_OK) {
 		TRACE("Could not get CSD! %s\n", strerror(error));
 		return error;
@@ -178,15 +181,46 @@ mmc_block_get_geometry(mmc_disk_driver_info* info, device_geometry* geometry)
 	// This function will be called before all data transfers, so we use this
 	// opportunity to switch the card to 4-bit data transfers (instead of the
 	// default 1 bit mode)
-	uint32_t cardStatus;
-	const uint32 k4BitMode = 2;
-	info->mmc->execute_command(info->parent, info->parentCookie, info->rca,
-		SD_APP_CMD, info->rca << 16, &cardStatus);
-	info->mmc->execute_command(info->parent, info->parentCookie, info->rca,
-		SD_SET_BUS_WIDTH, k4BitMode, &cardStatus);
+	uint32_t cardStatus = 0;
+	status_t status = B_OK;
 
-	// From now on we use 4 bit mode
-	info->mmc->set_bus_width(info->parent, info->parentCookie, 4);
+	// TODO have the card type at hand instead of using the csd version here
+	if (csd.structure_version() < 3) {
+		const uint32 k4BitMode = 2;
+		info->mmc->execute_command(info->parent, info->parentCookie, info->rca,
+			SD_APP_CMD, info->rca << 16, &cardStatus);
+		status = info->mmc->execute_command(info->parent, info->parentCookie, info->rca,
+			SD_SET_BUS_WIDTH, k4BitMode, &cardStatus);
+	} else {
+		// TODO according to the eMMC spec, we should first run a test with CMD19 and CMD14 to
+		// determine if the 4-bit (and possibly the 8-bit) bus is wired, and also check if we need
+		// to switch to a different POWER_CLASS. See Jedec 84-B50 appendix A.6.3
+		//
+		// Command parameters for CMD6 (SWITCH):
+		// bits 31-26: set to 0
+		// bits 25-24: access (3 = write byte)
+		// bits 23-16: index (B7 = 183 in decimal is the offset of BUS_WIDTH in the EXT_CSD register)
+		// bits 15-8: value (1 = 4 bit mode)
+		// bits 7-3: set to 0
+		// bits 2-0: command set (kee using command set 0)
+		//
+		// See chapter 7.4.61 of the JEDEC spec as well as table 41 in section 6.10.4.
+		//
+		// The application note A.6.3 just gives the "magic" value to use without details as below:
+		const uint32 k4BitMode = 0x3B70100;
+		status = info->mmc->execute_command(info->parent, info->parentCookie, info->rca,
+			MMC_SWITCH, k4BitMode, &cardStatus);
+	}
+
+	TRACE("Card status after switching to 4 bit mode: %08x\n", cardStatus);
+
+	if (status == B_OK) {
+		// From now on we use 4 bit mode
+		TRACE("Switch to 4 bit mode for data transfers\n");
+		info->mmc->set_bus_width(info->parent, info->parentCookie, 4);
+	} else {
+		TRACE("Switching to 4 bit mode failed: %s\n", strerror(status));
+	}
 
 	return B_OK;
 }

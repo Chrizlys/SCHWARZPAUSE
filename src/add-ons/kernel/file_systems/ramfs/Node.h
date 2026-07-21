@@ -129,32 +129,15 @@ protected:
 	DoublyLinkedList<Entry, GetNodeReferrerLink>	fReferrers;
 };
 
-// MarkUnmodified
-inline
-uint32
-Node::MarkUnmodified()
-{
-	uint32 modified = fModified;
-	if (modified) {
-		fCTime = time(NULL);
-		SetMTime(fCTime);
-		fModified = 0;
-	}
-	return modified;
-}
 
-// NodeMTimeUpdater
-class NodeMTimeUpdater {
+class NodeStatChangeNotifier {
 public:
-	NodeMTimeUpdater(Node *node) : fNode(node) {}
-	~NodeMTimeUpdater()
-	{
-		if (fNode && fNode->IsModified())
-			fNode->MarkUnmodified();
-	}
+	NodeStatChangeNotifier(Node *node) : fNode(node) {}
+	~NodeStatChangeNotifier();
 
 private:
 	Node	*fNode;
 };
+
 
 #endif	// NODE_H

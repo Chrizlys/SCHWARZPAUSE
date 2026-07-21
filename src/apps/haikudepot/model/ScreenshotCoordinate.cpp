@@ -2,8 +2,9 @@
  * Copyright 2026, Andrew Lindesay <apl@lindesay.co.nz>.
  * All rights reserved. Distributed under the terms of the MIT License.
  */
-#include "ScreenshotCoordinate.h"
 
+
+#include "ScreenshotCoordinate.h"
 
 #include "Logger.h"
 
@@ -18,6 +19,15 @@ ScreenshotCoordinate::ScreenshotCoordinate()
 	fCode(""),
 	fWidth(0),
 	fHeight(0)
+{
+}
+
+
+ScreenshotCoordinate::ScreenshotCoordinate(const ScreenshotCoordinate& other)
+	:
+	fCode(other.fCode),
+	fWidth(other.fWidth),
+	fHeight(other.fHeight)
 {
 }
 
@@ -75,10 +85,27 @@ ScreenshotCoordinate::IsValid() const
 }
 
 
+ScreenshotCoordinate&
+ScreenshotCoordinate::operator=(const ScreenshotCoordinate& other)
+{
+	fCode = other.fCode;
+	fHeight = other.fHeight;
+	fWidth = other.fWidth;
+	return *this;
+}
+
+
 bool
 ScreenshotCoordinate::operator==(const ScreenshotCoordinate& other) const
 {
 	return fCode == other.fCode && fHeight == other.fHeight && fWidth == other.fWidth;
+}
+
+
+bool
+ScreenshotCoordinate::operator!=(const ScreenshotCoordinate& other) const
+{
+	return !(*this == other);
 }
 
 

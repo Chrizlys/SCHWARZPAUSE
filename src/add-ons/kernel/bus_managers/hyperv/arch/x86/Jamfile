@@ -1,0 +1,15 @@
+SubDir HAIKU_TOP src add-ons kernel bus_managers hyperv arch x86 ;
+
+SubDirHdrs [ FDirName $(SUBDIR) $(DOTDOT) $(DOTDOT) ] ;
+
+UsePrivateKernelHeaders ;
+UsePrivateHeaders hyperv [ FDirName kernel arch x86 ] ;
+
+SubDirHdrs $(HAIKU_TOP) src system kernel device_manager ;
+SubDirHdrs $(HAIKU_TOP) src add-ons kernel bus_managers acpi acpica include ;
+SubDirHdrs $(HAIKU_TOP) src add-ons kernel bus_managers acpi acpica include platform ;
+
+KernelStaticLibrary hyperv_arch_bus_manager :
+	VMBus_x86.cpp
+	VMBusDevice_x86.cpp
+	;

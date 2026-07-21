@@ -1,4 +1,4 @@
-/*	$OpenBSD: if_iwmreg.h,v 1.68 2022/03/19 10:26:52 stsp Exp $	*/
+/*	$OpenBSD: if_iwmreg.h,v 1.70 2024/09/01 03:08:59 jsg Exp $	*/
 
 /******************************************************************************
  *
@@ -1762,7 +1762,7 @@ static inline unsigned int IWM_FH_MEM_CBBC_QUEUE(unsigned int chnl)
 #define IWM_RX_LOW_WATERMARK 8
 
 /**
- * struct iwm_rb_status - reseve buffer status
+ * struct iwm_rb_status - reserve buffer status
  * 	host memory mapped FH registers
  * @closed_rb_num [0:11] - Indicates the index of the RB which was closed
  * @closed_fr_num [0:11] - Indicates the index of the RX Frame which was closed
@@ -3361,7 +3361,7 @@ struct iwm_rx_mpdu_desc_v1 {
 			uint32_t phy_data0;
 			uint32_t phy_data1;
 		};
-	};
+	} __packed;
 } __packed;
 
 #define IWM_RX_REORDER_DATA_INVALID_BAID	0x7f

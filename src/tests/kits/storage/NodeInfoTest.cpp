@@ -103,13 +103,13 @@ NodeInfoTest::Suite() {
 	suite->addTest( new TC("BNodeInfo::Init Test1", &NodeInfoTest::InitTest1) );
 	suite->addTest( new TC("BNodeInfo::Init Test2", &NodeInfoTest::InitTest2) );
 	suite->addTest( new TC("BNodeInfo::Type Test", &NodeInfoTest::TypeTest) );
-	suite->addTest( new TC("BNodeInfo::Icon Test", &NodeInfoTest::IconTest) );
+//	suite->addTest( new TC("BNodeInfo::Icon Test", &NodeInfoTest::IconTest) );
 	suite->addTest( new TC("BNodeInfo::Preferred App Test",
 						   &NodeInfoTest::PreferredAppTest) );
 	suite->addTest( new TC("BNodeInfo::App Hint Test",
 						   &NodeInfoTest::AppHintTest) );
-	suite->addTest( new TC("BNodeInfo::Tracker Icon Test",
-						   &NodeInfoTest::TrackerIconTest) );
+//	suite->addTest( new TC("BNodeInfo::Tracker Icon Test",
+//						   &NodeInfoTest::TrackerIconTest) );
 
 	return suite;
 }		

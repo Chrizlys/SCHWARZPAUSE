@@ -531,6 +531,8 @@ public:
 									{ return mutex_trylock(&fLock) == B_OK; }
 			void				Unlock()
 									{ mutex_unlock(&fLock); }
+			void				AssertLocked()
+									{ ASSERT_LOCKED_MUTEX(&fLock); }
 
 			void				UnlockAndReleaseReference()
 									{ Unlock(); ReleaseReference(); }
@@ -636,8 +638,9 @@ private:
 
 			UserTimerList		fUserTimers;			// protected by fLock
 			TeamTimeUserTimerList fCPUTimeUserTimers;
-									// protected by scheduler lock
+									// protected by time_lock
 			TeamUserTimeUserTimerList fUserTimeUserTimers;
+									// protected by time_lock
 			int32				fUserDefinedTimerCount;	// accessed atomically
 
 			ConditionVariable*	fCoreDumpCondition;

@@ -86,30 +86,7 @@ Protocol::Connect(const BNetworkAddress& address, const char* username,
 	}
 
 	if (Capabilities().Contains("ID")) {
-		// Get the server's ID into our log
-		class IDCommand : public IMAP::Command, public IMAP::Handler {
-		public:
-			BString CommandString()
-			{
-				return "ID NIL";
-			}
-
-			bool HandleUntagged(IMAP::Response& response)
-			{
-				if (response.IsCommand("ID") && response.IsListAt(1)) {
-					puts("Server:");
-					ArgumentList& list = response.ListAt(1);
-					for (int32 i = 0; i < list.CountItems(); i += 2) {
-						printf("  %s: %s\n",
-							list.ItemAt(i)->ToString().String(),
-							list.ItemAt(i + 1)->ToString().String());
-					}
-					return true;
-				}
-
-				return false;
-			}
-		};
+		// Get the server's ID info into our log, and give our own info
 		IDCommand idCommand;
 		ProcessCommand(idCommand);
 	}
@@ -321,6 +298,7 @@ Protocol::HandleResponse(Command* command, bigtime_t timeout,
 	bool done = false;
 	while (!done) {
 		try {
+			TRACE("S: ");
 			status_t status = parser.NextResponse(response, timeout);
 			if (status != B_OK) {
 				// we might have lost the connection, clear the connection state
@@ -339,7 +317,7 @@ Protocol::HandleResponse(Command* command, bigtime_t timeout,
 					}
 				}
 				if (!handled)
-					printf("Unhandled S: %s\n", response.ToString().String());
+					TRACE(" => Unhandled\n");
 			} else {
 				CommandIDMap::iterator found
 					= fOngoingCommands.find(response.Tag());
@@ -350,7 +328,7 @@ Protocol::HandleResponse(Command* command, bigtime_t timeout,
 
 					fOngoingCommands.erase(found);
 				} else
-					printf("Unknown tag S: %s\n", response.ToString().String());
+					TRACE(" => Unknown tag\n");
 			}
 		} catch (ParseException& exception) {
 			printf("Error during parsing: %s\n", exception.Message());

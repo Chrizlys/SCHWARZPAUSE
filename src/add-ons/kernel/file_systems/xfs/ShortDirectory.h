@@ -42,7 +42,7 @@ struct ShortFormEntry {
 				// length of the name, in bytes
 			ShortFormOffset		offset;
 				// offset tag, for directory iteration
-			uint8				name[];
+			char				name[];
 				// name of directory entry
 /*
  * Following will be a single byte file type variable

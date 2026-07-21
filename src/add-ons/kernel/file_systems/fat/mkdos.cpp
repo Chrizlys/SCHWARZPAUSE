@@ -192,7 +192,9 @@ _dosfs_initialize(int fd, partition_id partitionID, const char* name, const char
 #ifndef FS_SHELL
 	if (hasPartitionInfo) {
 		size = partitionInfo.size;
-		sectorSize = partitionInfo.physical_block_size;
+
+		if (partitionInfo.physical_block_size > 0)
+			sectorSize = partitionInfo.physical_block_size;
 #else
 	ASSERT(hasPartitionInfo == false);
 	if (0) {

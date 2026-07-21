@@ -201,7 +201,7 @@ ResourcesTest::setUp()
 	BString unescapedTestDir(BTestShell::GlobalTestDir());
 	unescapedTestDir.CharacterEscape(" \t\n!\"'`$&()?*+{}[]<>|", '\\');
 	string resourcesTestDir(unescapedTestDir.String());
-	resourcesTestDir += "/resources";
+	resourcesTestDir += "/resources/kits/storage";
 	execCommand(string("mkdir ") + testDir
 				+ " ; cp " + resourcesTestDir + "/" + x86ResName + " "
 						   + resourcesTestDir + "/" + ppcResName + " "

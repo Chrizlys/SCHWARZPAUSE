@@ -1837,7 +1837,7 @@ IconCache::MakeTransformedIcon(const BBitmap* source, BSize /*size*/,
 
 		default:
 			memset(dst, 0, result->BitsLength());
-			// unkown colorspace, no tinting for you
+			// unknown colorspace, no tinting for you
 			// "black" should make the problem stand out
 			break;
 	}

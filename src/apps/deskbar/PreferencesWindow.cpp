@@ -23,7 +23,6 @@
 #include <Locale.h>
 #include <OpenWithTracker.h>
 #include <Path.h>
-#include <PopUpMenu.h>
 #include <RadioButton.h>
 #include <Roster.h>
 #include <Screen.h>
@@ -33,8 +32,11 @@
 #include <Spinner.h>
 #include <View.h>
 
+#include <DeskbarPrivate.h>
+
 #include "BarApp.h"
 #include "DeskbarUtils.h"
+#include "ScreenCornerSelector.h"
 #include "StatusView.h"
 
 
@@ -93,6 +95,11 @@ PreferencesWindow::PreferencesWindow(BRect frame)
 	fAppsIconSizeSlider->SetModificationMessage(new BMessage(kResizeTeamIcons));
 
 	// Window controls
+	fWindowLocation = new ScreenCornerSelector(BRect(0, 0, 120, 80), B_TRANSLATE("Location"),
+		new BMessage(kMsgSetLocation), B_FOLLOW_NONE);
+
+	_SetWindowLocation(fSettings.vertical, fSettings.left, fSettings.top, fSettings.state);
+
 	fWindowAlwaysOnTop = new BCheckBox(B_TRANSLATE("Always on top"),
 		new BMessage(kAlwaysTop));
 	fWindowAutoRaise = new BCheckBox(B_TRANSLATE("Auto-raise"),
@@ -139,6 +146,7 @@ PreferencesWindow::PreferencesWindow(BRect frame)
 	fAppsHideLabels->SetTarget(be_app);
 	fAppsIconSizeSlider->SetTarget(be_app);
 
+	fWindowLocation->SetTarget(be_app);
 	fWindowAlwaysOnTop->SetTarget(be_app);
 	fWindowAutoRaise->SetTarget(be_app);
 	fWindowAutoHide->SetTarget(be_app);
@@ -176,6 +184,7 @@ PreferencesWindow::PreferencesWindow(BRect frame)
 					.Add(fMenuRecentFolders)
 					.Add(fMenuRecentApplications)
 					.End()
+				.AddGlue()
 				.AddGroup(B_VERTICAL, 0)
 					.Add(fMenuRecentDocumentCount)
 					.Add(fMenuRecentFolderCount)
@@ -196,14 +205,18 @@ PreferencesWindow::PreferencesWindow(BRect frame)
 	windowSettingsBox->SetLabel(B_TRANSLATE("Window"));
 	windowSettingsBox->AddChild(BLayoutBuilder::Group<>()
 		.SetExplicitMaxSize(BSize(B_SIZE_UNLIMITED, B_SIZE_UNSET))
-		.AddGroup(B_VERTICAL, 0)
-			.Add(fWindowAlwaysOnTop)
-			.Add(fWindowAutoRaise)
-			.Add(fWindowAutoHide)
-			.AddGlue()
-			.SetInsets(B_USE_DEFAULT_SPACING)
+		.AddGroup(B_HORIZONTAL, B_USE_SMALL_SPACING)
+			.Add(fWindowLocation)
+			.AddGroup(B_VERTICAL, 0)
+				.AddGlue()
+				.Add(fWindowAlwaysOnTop)
+				.Add(fWindowAutoRaise)
+				.Add(fWindowAutoHide)
+				.AddGlue()
 			.End()
-		.View());
+			.SetInsets(B_USE_DEFAULT_SPACING)
+		.End()
+	.View());
 
 	// Action Buttons
 	fDefaultsButton = new BButton(B_TRANSLATE("Defaults"),
@@ -228,6 +241,8 @@ PreferencesWindow::PreferencesWindow(BRect frame)
 				.End()
 			.SetInsets(B_USE_WINDOW_SPACING)
 			.End();
+
+	fWindowLocation->Invoke();
 
 	BMessage windowSettings;
 	BPoint where;
@@ -265,8 +280,18 @@ PreferencesWindow::MessageReceived(BMessage* message)
 			break;
 
 		case kStateChanged:
+		{
+			bool vertical, left, top;
+			int32 state;
+			if (message->FindBool("vertical", &vertical) == B_OK
+				&& message->FindBool("left", &left) == B_OK
+				&& message->FindBool("top", &top) == B_OK
+				&& message->FindInt32("state", &state) == B_OK) {
+				_SetWindowLocation(vertical, left, top, state);
+			}
 			_EnableDisableDependentItems();
 			break;
+		}
 
 		case kRevert:
 			_UpdatePreferences(&fSettings);
@@ -303,6 +328,13 @@ PreferencesWindow::Show()
 	if (IsHidden())
 		SetWorkspaces(B_CURRENT_WORKSPACE);
 
+	// refresh window location from settings
+	desk_settings* settings = static_cast<TBarApp*>(be_app)->Settings();
+	if (settings != NULL) {
+		_SetWindowLocation(settings->vertical, settings->left, settings->top, settings->state);
+		fWindowLocation->Invoke();
+	}
+
 	_UpdateButtons();
 
 	BWindow::Show();
@@ -316,24 +348,22 @@ void
 PreferencesWindow::_EnableDisableDependentItems()
 {
 	TBarApp* barApp = static_cast<TBarApp*>(be_app);
-	if (barApp->BarView()->Vertical()
-		&& barApp->BarView()->ExpandoState()) {
-		fAppsShowExpanders->SetEnabled(true);
-		fAppsExpandNew->SetEnabled(fAppsShowExpanders->Value());
-	} else {
-		fAppsShowExpanders->SetEnabled(false);
-		fAppsExpandNew->SetEnabled(false);
+	desk_settings* settings = barApp->Settings();
+	if (settings != NULL) {
+		if (settings->vertical && settings->state == kExpandoState) {
+			fAppsShowExpanders->SetEnabled(true);
+			fAppsExpandNew->SetEnabled(fAppsShowExpanders->Value());
+		} else {
+			fAppsShowExpanders->SetEnabled(false);
+			fAppsExpandNew->SetEnabled(false);
+		}
 	}
 
-	fMenuRecentDocumentCount->SetEnabled(
-		fMenuRecentDocuments->Value() != B_CONTROL_OFF);
-	fMenuRecentFolderCount->SetEnabled(
-		fMenuRecentFolders->Value() != B_CONTROL_OFF);
-	fMenuRecentApplicationCount->SetEnabled(
-		fMenuRecentApplications->Value() != B_CONTROL_OFF);
+	fMenuRecentDocumentCount->SetEnabled(fMenuRecentDocuments->Value() != B_CONTROL_OFF);
+	fMenuRecentFolderCount->SetEnabled(fMenuRecentFolders->Value() != B_CONTROL_OFF);
+	fMenuRecentApplicationCount->SetEnabled(fMenuRecentApplications->Value() != B_CONTROL_OFF);
 
-	fWindowAutoRaise->SetEnabled(
-		fWindowAlwaysOnTop->Value() == B_CONTROL_OFF);
+	fWindowAutoRaise->SetEnabled(fWindowAlwaysOnTop->Value() == B_CONTROL_OFF);
 }
 
 
@@ -429,6 +459,62 @@ PreferencesWindow::_SaveSettings(BMessage* settings)
 		return status;
 
 	return settings->Flatten(&prefsFile);
+}
+
+
+void
+PreferencesWindow::_SetWindowLocation(bool vertical, bool left, bool top, int32 state)
+{
+	if (vertical) {
+		if (state == kExpandoState) {
+			if (top) {
+				if (left)
+					fWindowLocation->SetValue(B_DESKBAR_LEFT_TOP | kExpandBit);
+				else
+					fWindowLocation->SetValue(B_DESKBAR_RIGHT_TOP | kExpandBit);
+#if 0
+			} else {
+				if (left)
+					fWindowLocation->SetValue(B_DESKBAR_LEFT_BOTTOM | kExpandBit);
+				else
+					fWindowLocation->SetValue(B_DESKBAR_RIGHT_BOTTOM | kExpandBit);
+#endif
+			}
+		} else {
+			if (top) {
+				if (left)
+					fWindowLocation->SetValue(B_DESKBAR_LEFT_TOP);
+				else
+					fWindowLocation->SetValue(B_DESKBAR_RIGHT_TOP);
+			} else {
+				if (left)
+					fWindowLocation->SetValue(B_DESKBAR_LEFT_BOTTOM);
+				else
+					fWindowLocation->SetValue(B_DESKBAR_RIGHT_BOTTOM);
+			}
+		}
+	} else {
+		if (state == kExpandoState) {
+			// these are always expanded but don't set the bit
+			if (top)
+				fWindowLocation->SetValue(B_DESKBAR_TOP);
+			else
+				fWindowLocation->SetValue(B_DESKBAR_BOTTOM);
+		} else {
+			// horizontal mini-mode
+			if (top) {
+				if (left)
+					fWindowLocation->SetValue(B_DESKBAR_LEFT_TOP);
+				else
+					fWindowLocation->SetValue(B_DESKBAR_RIGHT_TOP);
+			} else {
+				if (left)
+					fWindowLocation->SetValue(B_DESKBAR_LEFT_BOTTOM);
+				else
+					fWindowLocation->SetValue(B_DESKBAR_RIGHT_BOTTOM);
+			}
+		}
+	}
 }
 
 

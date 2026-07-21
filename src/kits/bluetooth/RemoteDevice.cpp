@@ -21,7 +21,6 @@
 #include <Catalog.h>
 #include <CommandManager.h>
 #include <Locale.h>
-#include <bluetoothserver_p.h>
 
 #include "KitSupport.h"
 
@@ -32,11 +31,6 @@
 
 namespace Bluetooth {
 
-
-// TODO: Check headers for valid/reserved ranges
-static const uint16 invalidConnectionHandle = 0xF000;
-
-
 bool
 RemoteDevice::IsTrustedDevice(void)
 {
@@ -45,14 +39,50 @@ RemoteDevice::IsTrustedDevice(void)
 }
 
 
+BObjectList<RemoteDevice>
+RemoteDevice::GetRemoteDevices(LocalDevice* localDevice)
+{
+	BObjectList<RemoteDevice> rdList;
+
+	if (localDevice == NULL)
+		return rdList;
+
+	BMessage devices;
+	BMessage requestRemoteDevices(BT_MSG_GET_REMOTE_DEVICES);
+	requestRemoteDevices.AddInt32("hci_id", localDevice->ID());
+	if (BMessenger(BLUETOOTH_SIGNATURE).SendMessage(&requestRemoteDevices,
+		&devices) != B_OK)
+		return rdList;
+
+	BMessage device;
+	for (int32 i = 0; devices.FindMessage("remote", i, &device) == B_OK; i++) {
+		bdaddr_t* bdaddr;
+		uint8* classOfDevice;
+		ssize_t size;
+
+		device.FindData("bdaddr", B_ANY_TYPE, (const void**)&bdaddr, &size);
+		device.FindData("cod", B_ANY_TYPE, (const void**)&classOfDevice, &size);
+		RemoteDevice* rd = new RemoteDevice(*bdaddr, classOfDevice);
+
+		rd->fDiscovererLocalDevice = localDevice;
+		device.FindString("name", &rd->fFriendlyName);
+		device.FindUInt16("clock_offset", &rd->fClockOffset);
+		device.FindUInt8("pscan_rep_mode", &rd->fPageRepetitionMode);
+
+		rdList.AddItem(rd);
+	}
+
+	return rdList;
+}
+
+
 BString
 RemoteDevice::GetFriendlyName(bool alwaysAsk)
 {
 	CALLED();
 	if (!alwaysAsk) {
-		// Check if the name is already retrieved
-		// TODO: Check if It is known from a KnownDevicesList
-		return BString(B_TRANSLATE("Not implemented"));
+		if (!fFriendlyName.IsEmpty() && fFriendlyNameIsComplete)
+			return fFriendlyName;
 	}
 
 	if (fDiscovererLocalDevice == NULL)
@@ -85,11 +115,13 @@ RemoteDevice::GetFriendlyName(bool alwaysAsk)
 
 	if (fMessenger->SendMessage(&request, &reply) == B_OK) {
 		BString name;
-		int8 status;
+		uint8 status;
 
-		if ((reply.FindInt8("status", &status) == B_OK) && (status == BT_OK)) {
+		if ((reply.FindUInt8("status", &status) == B_OK) && (status == BT_OK)) {
 
 			if ((reply.FindString("friendlyname", &name) == B_OK )) {
+				fFriendlyName = name;
+				fFriendlyNameIsComplete = true;
 				return name;
 			} else {
 				return BString(""); // should not happen
@@ -97,6 +129,9 @@ RemoteDevice::GetFriendlyName(bool alwaysAsk)
 
 		} else {
 			// seems we got a negative event
+			if (!fFriendlyName.IsEmpty())
+				return fFriendlyName;
+
 			return BString(B_TRANSLATE("#CommandFailed#Not Valid name"));
 		}
 	}
@@ -109,7 +144,15 @@ BString
 RemoteDevice::GetFriendlyName()
 {
 	CALLED();
-	return GetFriendlyName(true);
+	return GetFriendlyName(false);
+}
+
+
+BString
+RemoteDevice::GetCachedFriendlyName()
+{
+	CALLED();
+	return fFriendlyName;
 }
 
 
@@ -121,6 +164,20 @@ RemoteDevice::GetBluetoothAddress()
 }
 
 
+uint16
+RemoteDevice::GetClockOffset()
+{
+	return fClockOffset;
+}
+
+
+uint8
+RemoteDevice::GetPageRepetitionMode()
+{
+	return fPageRepetitionMode;
+}
+
+
 bool
 RemoteDevice::Equals(RemoteDevice* obj)
 {
@@ -129,139 +186,96 @@ RemoteDevice::Equals(RemoteDevice* obj)
 }
 
 
-//  static RemoteDevice* GetRemoteDevice(Connection conn);
-
-
-bool
-RemoteDevice::Authenticate()
+status_t
+RemoteDevice::Connect()
 {
 	CALLED();
-	int8 btStatus = BT_ERROR;
-
-	if (fMessenger == NULL || fDiscovererLocalDevice == NULL)
-		return false;
-
-	BluetoothCommand<typed_command(hci_cp_create_conn)>
-		createConnection(OGF_LINK_CONTROL, OCF_CREATE_CONN);
-
-	bdaddrUtils::Copy(createConnection->bdaddr, fBdaddr);
-	createConnection->pscan_rep_mode = fPageRepetitionMode;
-	createConnection->pscan_mode = fScanMode; // Reserved in spec 2.1
-	createConnection->clock_offset = fClockOffset | 0x8000; // substract!
-
-	uint32 roleSwitch;
-	fDiscovererLocalDevice->GetProperty("role_switch_capable", &roleSwitch);
-	createConnection->role_switch = (uint8)roleSwitch;
-
-	uint32 packetType;
-	fDiscovererLocalDevice->GetProperty("packet_type", &packetType);
-	createConnection->pkt_type = (uint16)packetType;
-
-	BMessage request(BT_MSG_HANDLE_SIMPLE_REQUEST);
-	BMessage reply;
+	BMessage request(BT_REQ_CREATE_CONN);
 
 	request.AddInt32("hci_id", fDiscovererLocalDevice->ID());
-	request.AddData("raw command", B_ANY_TYPE,
-		createConnection.Data(), createConnection.Size());
 
-	// First we get the status about the starting of the connection
-	request.AddInt16("eventExpected",  HCI_EVENT_CMD_STATUS);
-	request.AddInt16("opcodeExpected", PACK_OPCODE(OGF_LINK_CONTROL,
-		OCF_CREATE_CONN));
+	bdaddr_t bdaddr = GetBluetoothAddress();
+	request.AddData("bdaddr", B_ANY_TYPE, &bdaddr, sizeof(bdaddr_t));
 
-	// if authentication needed, we will send any of these commands
-	// to accept or deny the LINK KEY [a]
-	request.AddInt16("eventExpected",  HCI_EVENT_CMD_COMPLETE);
-	request.AddInt16("opcodeExpected", PACK_OPCODE(OGF_LINK_CONTROL,
-		OCF_LINK_KEY_REPLY));
+	request.AddString("name", GetFriendlyName());
+	request.AddUInt32("record", fDeviceClass.Record());
 
-	request.AddInt16("eventExpected",  HCI_EVENT_CMD_COMPLETE);
-	request.AddInt16("opcodeExpected", PACK_OPCODE(OGF_LINK_CONTROL,
-		OCF_LINK_KEY_NEG_REPLY));
+	uint16 packetType;
+	fDiscovererLocalDevice->GetProperty("packet_type", (uint32*)&packetType);
+	request.AddUInt16("packet type", packetType);
 
-	// in negative case, a pincode will be replied [b]
-	// this request will be handled by sepatated by the pincode window
-	// request.AddInt16("eventExpected",  HCI_EVENT_CMD_COMPLETE);
-	// request.AddInt16("opcodeExpected", PACK_OPCODE(OGF_LINK_CONTROL,
-	//	OCF_PIN_CODE_REPLY));
+	request.AddUInt8("pscan_rep_mode", fPageRepetitionMode);
+	request.AddUInt8("pscan_mode", fScanMode);
+	request.AddUInt16("clock_offset", fClockOffset);
 
-	// [a] this is expected of authentication required
-	request.AddInt16("eventExpected", HCI_EVENT_LINK_KEY_REQ);
-	// [b] If we deny the key an authentication will be requested
-	// but this request will be handled by sepatated by the pincode
-	// window
-	// request.AddInt16("eventExpected", HCI_EVENT_PIN_CODE_REQ);
+	uint8 roleSwitch;
+	fDiscovererLocalDevice->GetProperty("role_switch_capable", (uint32*)&roleSwitch);
+	request.AddUInt8("role_switch", roleSwitch);
 
-	// this almost involves already the happy end
-	request.AddInt16("eventExpected",  HCI_EVENT_LINK_KEY_NOTIFY);
-
-	request.AddInt16("eventExpected", HCI_EVENT_CONN_COMPLETE);
-
-	if (fMessenger->SendMessage(&request, &reply) == B_OK)
-		reply.FindInt8("status", &btStatus);
-
-	if (btStatus == BT_OK) {
-		reply.FindInt16("handle", (int16*)&fHandle);
-		return true;
-	} else
-		return false;
-}
-
-
-status_t
-RemoteDevice::Disconnect(int8 reason)
-{
-	CALLED();
-	if (fHandle != invalidConnectionHandle) {
-
-		int8 btStatus = BT_ERROR;
-
-		if (fMessenger == NULL || fDiscovererLocalDevice == NULL)
-			return false;
-
-		BluetoothCommand<typed_command(struct hci_disconnect)>
-			disconnect(OGF_LINK_CONTROL, OCF_DISCONNECT);
-
-		disconnect->reason = reason;
-		disconnect->handle = fHandle;
-
-		BMessage request(BT_MSG_HANDLE_SIMPLE_REQUEST);
-		BMessage reply;
-
-
-		request.AddInt32("hci_id", fDiscovererLocalDevice->ID());
-		request.AddData("raw command", B_ANY_TYPE,
-			disconnect.Data(), disconnect.Size());
-
-		request.AddInt16("eventExpected",  HCI_EVENT_CMD_STATUS);
-		request.AddInt16("opcodeExpected", PACK_OPCODE(OGF_LINK_CONTROL,
-			OCF_DISCONNECT));
-
-		request.AddInt16("eventExpected",  HCI_EVENT_DISCONNECTION_COMPLETE);
-
-		if (fMessenger->SendMessage(&request, &reply) == B_OK)
-			reply.FindInt8("status", &btStatus);
-
-		if (btStatus == BT_OK)
-			fHandle = invalidConnectionHandle;
-
-		return btStatus;
-
-	}
-
+	if (fMessenger->SendMessage(&request) == B_OK)
+		return B_OK;
 	return B_ERROR;
 }
 
 
+status_t
+RemoteDevice::CancelConnection()
+{
+	CALLED();
+	BMessage request(BT_REQ_CANCEL_CONN);
+
+	request.AddInt32("hci_id", fDiscovererLocalDevice->ID());
+
+	bdaddr_t bdaddr = GetBluetoothAddress();
+	request.AddData("bdaddr", B_ANY_TYPE, &bdaddr, sizeof(bdaddr_t));
+
+	if (fMessenger->SendMessage(&request) == B_OK)
+		return B_OK;
+	return B_ERROR;
+}
+
+
+status_t
+RemoteDevice::Disconnect(bool removeDevice)
+{
+	CALLED();
+	BMessage request(BT_REQ_DISCONNECT);
+	if (removeDevice)
+		request.what = BT_REQ_REMOVE_DEVICE;
+
+	request.AddInt32("hci_id", fDiscovererLocalDevice->ID());
+
+	bdaddr_t bdaddr = GetBluetoothAddress();
+	request.AddData("bdaddr", B_ANY_TYPE, &bdaddr, sizeof(bdaddr_t));
+	request.AddUInt8("reason", BT_REMOTE_USER_ENDED_CONNECTION);
+
+	if (fMessenger->SendMessage(&request) == B_OK)
+		return B_OK;
+	return B_ERROR;
+}
+
+
+//  static RemoteDevice* GetRemoteDevice(Connection conn);
 //  bool Authorize(Connection conn);
 //  bool Encrypt(Connection conn, bool on);
 
 
-bool
-RemoteDevice::IsAuthenticated()
+RemoteDevice::ConnectionState
+RemoteDevice::GetConnectionState()
 {
 	CALLED();
-	return true;
+	BMessage request(BT_REQ_CONN_STATE);
+	BMessage reply;
+
+	bdaddr_t bdaddr = GetBluetoothAddress();
+	request.AddData("bdaddr", B_ANY_TYPE, &bdaddr, sizeof(bdaddr_t));
+
+	if (fMessenger->SendMessage(&request, &reply) != B_OK)
+		return RemoteDevice::DISCONNECTED;
+
+	uint8 conn_state;
+	reply.FindUInt8("conn state", &conn_state);
+	return static_cast<RemoteDevice::ConnectionState>(conn_state);
 }
 
 
@@ -298,7 +312,7 @@ RemoteDevice::RemoteDevice(const bdaddr_t address, uint8 record[3])
 	:
 	BluetoothDevice(),
 	fDiscovererLocalDevice(NULL),
-	fHandle(invalidConnectionHandle)
+	fScanMode(0)
 {
 	CALLED();
 	fBdaddr = address;
@@ -311,7 +325,7 @@ RemoteDevice::RemoteDevice(const BString& address)
 	:
 	BluetoothDevice(),
 	fDiscovererLocalDevice(NULL),
-	fHandle(invalidConnectionHandle)
+	fScanMode(0)
 {
 	CALLED();
 	fBdaddr = bdaddrUtils::FromString((const char*)address.String());

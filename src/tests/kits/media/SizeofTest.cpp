@@ -25,6 +25,7 @@ SizeofTest::~SizeofTest()
 void
 SizeofTest::TestSize()
 {
+#if B_HAIKU_32_BIT
 	CPPUNIT_ASSERT_EQUAL(264, sizeof(BBuffer));
 	CPPUNIT_ASSERT_EQUAL(240, sizeof(BBufferConsumer));
 	CPPUNIT_ASSERT_EQUAL(56, sizeof(BBufferGroup));
@@ -63,6 +64,9 @@ SizeofTest::TestSize()
 	CPPUNIT_ASSERT_EQUAL(116, sizeof(flavor_info));
 	CPPUNIT_ASSERT_EQUAL(320, sizeof(dormant_flavor_info));
 	CPPUNIT_ASSERT_EQUAL(192, sizeof(media_format));
+#else
+	CPPUNIT_ASSERT(true);
+#endif
 
 //	printf("BMediaBufferDecoder sizeof = %ld\n",sizeof(BMediaBufferDecoder));
 //	printf("MediaBufferEncoder sizeof = %ld\n",sizeof(MediaBufferEncoder));

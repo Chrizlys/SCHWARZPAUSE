@@ -1,4 +1,4 @@
-/* Copyright (C) 1992, 1995, 1996, 1999 Free Software Foundation, Inc.
+/* Copyright (C) 1992-2014 Free Software Foundation, Inc.
    This file is part of the GNU C Library.
 
    The GNU C Library is free software; you can redistribute it and/or
@@ -12,9 +12,8 @@
    Lesser General Public License for more details.
 
    You should have received a copy of the GNU Lesser General Public
-   License along with the GNU C Library; if not, write to the Free
-   Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-   02111-1307 USA.  */
+   License along with the GNU C Library; if not, see
+   <http://www.gnu.org/licenses/>.  */
 
 #ifndef _IEEE754_H
 
@@ -80,7 +79,7 @@ union ieee754_double
 	unsigned int mantissa1:32;
 #endif				/* Big endian.  */
 #if	__BYTE_ORDER == __LITTLE_ENDIAN
-# if	__FLOAT_WORD_ORDER == BIG_ENDIAN
+# if	__FLOAT_WORD_ORDER == __BIG_ENDIAN
 	unsigned int mantissa0:20;
 	unsigned int exponent:11;
 	unsigned int negative:1;
@@ -106,7 +105,7 @@ union ieee754_double
 	unsigned int mantissa0:19;
 	unsigned int mantissa1:32;
 #else
-# if	__FLOAT_WORD_ORDER == BIG_ENDIAN
+# if	__FLOAT_WORD_ORDER == __BIG_ENDIAN
 	unsigned int mantissa0:19;
 	unsigned int quiet_nan:1;
 	unsigned int exponent:11;
@@ -142,7 +141,7 @@ union ieee854_long_double
 	unsigned int mantissa1:32;
 #endif
 #if	__BYTE_ORDER == __LITTLE_ENDIAN
-# if	__FLOAT_WORD_ORDER == BIG_ENDIAN
+# if	__FLOAT_WORD_ORDER == __BIG_ENDIAN
 	unsigned int exponent:15;
 	unsigned int negative:1;
 	unsigned int empty:16;
@@ -171,7 +170,7 @@ union ieee854_long_double
 	unsigned int mantissa1:32;
 #endif
 #if	__BYTE_ORDER == __LITTLE_ENDIAN
-# if	__FLOAT_WORD_ORDER == BIG_ENDIAN
+# if	__FLOAT_WORD_ORDER == __BIG_ENDIAN
 	unsigned int exponent:15;
 	unsigned int negative:1;
 	unsigned int empty:16;

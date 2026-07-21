@@ -8,55 +8,16 @@
 #ifndef _KERNEL_HEAP_H
 #define _KERNEL_HEAP_H
 
+
 #include <OS.h>
 
 #include "kernel_debug_config.h"
-
-
-#if USE_GUARDED_HEAP_FOR_MALLOC && USE_GUARDED_HEAP_FOR_OBJECT_CACHE
-
-// This requires a lot of up-front memory to boot at all...
-#define INITIAL_HEAP_SIZE			128 * 1024 * 1024
-// ... and a lot of reserves to keep running.
-#define HEAP_GROW_SIZE				128 * 1024 * 1024
-
-#elif USE_GUARDED_HEAP_FOR_MALLOC
-
-#define INITIAL_HEAP_SIZE			32 * 1024 * 1024
-#define HEAP_GROW_SIZE				32 * 1024 * 1024
-
-#else
-
-// allocate 16MB initial heap for the kernel
-#define INITIAL_HEAP_SIZE			16 * 1024 * 1024
-// grow by another 4MB each time the heap runs out of memory
-#define HEAP_GROW_SIZE				4 * 1024 * 1024
-// allocate a dedicated 1MB area for dynamic growing
-#define HEAP_DEDICATED_GROW_SIZE	1 * 1024 * 1024
-// use areas for allocations bigger than 1MB
-#define HEAP_AREA_USE_THRESHOLD		1 * 1024 * 1024
-
-#endif
 
 
 // allocation/deallocation flags for {malloc,free}_etc()
 #define HEAP_DONT_WAIT_FOR_MEMORY		0x01
 #define HEAP_DONT_LOCK_KERNEL_SPACE		0x02
 #define HEAP_PRIORITY_VIP				0x04
-
-
-typedef struct heap_class_s {
-	const char *name;
-	uint32		initial_percentage;
-	size_t		max_allocation_size;
-	size_t		page_size;
-	size_t		min_bin_size;
-	size_t		bin_alignment;
-	uint32		min_count_per_page;
-	size_t		max_waste_per_page;
-} heap_class;
-
-typedef struct heap_allocator_s heap_allocator;
 
 
 #ifdef __cplusplus
@@ -72,21 +33,12 @@ void* memalign(size_t alignment, size_t size) _ALIGNED_BY_ARG(1);
 
 void deferred_free(void* block);
 
-void heap_add_area(heap_allocator* heap, area_id areaID, addr_t base,
-	size_t size);
-heap_allocator*	heap_create_allocator(const char* name, addr_t base,
-	size_t size, const heap_class* heapClass, bool allocateOnHeap);
-void* heap_memalign(heap_allocator* heap, size_t alignment, size_t size) _ALIGNED_BY_ARG(2);
-status_t heap_free(heap_allocator* heap, void* address);
-
-#if KERNEL_HEAP_LEAK_CHECK
-void heap_set_get_caller(heap_allocator* heap, addr_t (*getCaller)());
-#endif
-
-status_t heap_init(addr_t heapBase, size_t heapSize);
+status_t heap_init(struct kernel_args* args);
 status_t heap_init_post_area();
 status_t heap_init_post_sem();
 status_t heap_init_post_thread();
+
+void deferred_free_init();
 
 #ifdef __cplusplus
 }

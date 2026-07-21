@@ -167,10 +167,14 @@ public:
 			void				FinalUpdate(const char* header,
 									const char* detail);
 
+			bool				ShouldCleanUpAdminDirectory()
+									{ return fAutoCleanUpAdminDirectory; }
+
 private:
 			uint32				_WaitForButtonClick();
 			void				_SetState(uint32 state);
 			uint32				_GetState();
+			void				_ShowSettingsDialog();
 			status_t			_WriteSettings();
 			status_t			_ReadSettings(BMessage& settings);
 
@@ -178,20 +182,20 @@ private:
 			BStripeView*		fStripeView;
 			BStringView*		fHeaderView;
 			BStringView*		fDetailView;
+			BButton*			fSettingsButton;
 			BButton*			fUpdateButton;
 			BButton*			fCancelButton;
 			BButton*			fRebootButton;
 			BStatusBar*			fStatusBar;
 			PackageListView*	fListView;
 			BScrollView*		fScrollView;
-			BCheckBox*			fDetailsCheckbox;
 			BLayoutItem*		fDetailsLayoutItem;
 			BLayoutItem*		fPackagesLayoutItem;
 			BLayoutItem*		fProgressLayoutItem;
+			BLayoutItem*		fSettingsButtonLayoutItem;
 			BLayoutItem*		fCancelButtonLayoutItem;
 			BLayoutItem*		fUpdateButtonLayoutItem;
 			BLayoutItem*		fRebootButtonLayoutItem;
-			BLayoutItem*		fDetailsCheckboxLayoutItem;
 
 			uint32				fCurrentState;
 			sem_id				fWaitingSem;
@@ -202,9 +206,12 @@ private:
 			BInvoker			fCancelAlertResponse;
 			int32				fWarningAlertCount;
 			BInvoker			fWarningAlertDismissed;
+			bool				fAutoCleanUpAdminDirectory;
+			bool				fShowMoreDetails;
 			BPath				fSettingsPath;
 			status_t			fSettingsReadStatus;
 			BMessage			fInitialSettings;
+
 			bool				fSaveFrameChanges;
 			BMessageRunner*		fMessageRunner;
 			BMessage			fFrameChangeMessage;

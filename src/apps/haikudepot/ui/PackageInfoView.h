@@ -6,6 +6,7 @@
 #ifndef PACKAGE_INFO_VIEW_H
 #define PACKAGE_INFO_VIEW_H
 
+
 #include <vector>
 
 #include <GroupView.h>
@@ -13,7 +14,6 @@
 #include "Model.h"
 #include "PackageInfo.h"
 #include "PackageInfoListener.h"
-#include "ProcessCoordinator.h"
 
 
 class BCardLayout;
@@ -31,9 +31,7 @@ enum {
 
 class PackageInfoView : public BView {
 public:
-								PackageInfoView(Model* model,
-									ProcessCoordinatorConsumer*
-										processCoordinatorConsumer);
+								PackageInfoView(Model* model);
 	virtual						~PackageInfoView();
 
 	virtual void				AttachedToWindow();
@@ -68,8 +66,6 @@ private:
 			PackageInfoRef		fPackage;
 			OnePackageMessagePackageListener*
 								fPackageListener;
-			ProcessCoordinatorConsumer*
-								fProcessCoordinatorConsumer;
 };
 
 #endif // PACKAGE_INFO_VIEW_H

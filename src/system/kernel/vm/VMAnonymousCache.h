@@ -26,7 +26,6 @@ extern "C" {
 	void swap_init(void);
 	void swap_init_post_modules(void);
 	bool swap_free_page_swap_space(vm_page* page);
-	uint32 swap_available_pages(void);
 	uint32 swap_total_swap_pages(void);
 }
 
@@ -49,8 +48,11 @@ public:
 
 	virtual	ssize_t				Discard(off_t offset, off_t size);
 
+	virtual	off_t				Commitment() const;
 	virtual	bool				CanOvercommit();
 	virtual	status_t			Commit(off_t size, int priority);
+	virtual	void				TakeCommitmentFrom(VMCache* from, off_t commitment);
+
 	virtual	bool				StoreHasPage(off_t offset);
 	virtual	bool				DebugStoreHasPage(off_t offset);
 
@@ -90,7 +92,6 @@ private:
 									swap_addr_t slotIndex, uint32 count);
 			void				_SwapBlockFree(off_t pageIndex, uint32 count);
 			swap_addr_t			_SwapBlockGetAddress(off_t pageIndex);
-			status_t			_Commit(off_t size, int priority);
 
 			void				_MergePagesSmallerConsumer(
 									VMAnonymousCache* source);
@@ -102,12 +103,13 @@ private:
 private:
 	friend bool swap_free_page_swap_space(vm_page* page);
 
+			off_t				fCommittedSize;
 			bool				fCanOvercommit;
 			bool				fHasPrecommitted;
 			uint8				fPrecommittedPages;
 			int32				fGuardedSize;
 			BKernel::Bitmap*	fNoSwapPages;
-			off_t				fCommittedSwapSize;
+			off_t				fReservedSwapSize;
 			off_t				fAllocatedSwapSize;
 };
 

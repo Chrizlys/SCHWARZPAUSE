@@ -7,8 +7,6 @@
 
 #include "App.h"
 
-#include <stdio.h>
-
 #include <Alert.h>
 #include <Catalog.h>
 #include <Entry.h>
@@ -137,7 +135,11 @@ App::MessageReceived(BMessage* message)
 			_AlertSimpleError(message);
 			break;
 
-		case MSG_SERVER_DATA_CHANGED:
+		case MSG_PKG_POPULATE_USER_RATINGS:
+			// This will come from the `RatePackageWindow` when somebody has
+			// modified a user rating in the UI. The main window and trigger
+			// a background process to re-load the user rating data and then
+			// show it.
 			fMainWindow->PostMessage(message);
 			break;
 

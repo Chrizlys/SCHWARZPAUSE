@@ -5,11 +5,12 @@
 #ifndef PROCESS_COORDINATOR_H
 #define PROCESS_COORDINATOR_H
 
+
 #include "ProcessCoordinator.h"
 
+#include <Archivable.h>
 #include <ObjectList.h>
 
-#include "AbstractProcess.h"
 #include "AbstractProcessNode.h"
 #include "ProcessListener.h"
 
@@ -64,16 +65,6 @@ public:
 									ProcessCoordinatorState&
 									processCoordinatorState) = 0;
 
-};
-
-
-/*!	Classes implementing this 'interface' are able to consume process
-	coordinators.  This may be in order to run them.
-*/
-
-class ProcessCoordinatorConsumer {
-public:
-	virtual	void				Consume(ProcessCoordinator *item) = 0;
 };
 
 

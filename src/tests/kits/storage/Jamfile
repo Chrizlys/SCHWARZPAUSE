@@ -3,6 +3,7 @@ SubDir HAIKU_TOP src tests kits storage ;
 AddSubDirSupportedPlatforms libbe_test ;
 
 UsePrivateHeaders storage ;
+SEARCH_SOURCE += [ FDirName $(HAIKU_TOP) src kits storage ] ;
 
 UnitTestLib libstoragetest.so
 	: StorageKitTestAddon.cpp
@@ -30,9 +31,12 @@ UnitTestLib libstoragetest.so
 
 # To run the tests some test files must be around.
 {
-	local sourceDir = [ FDirName $(HAIKU_TOP) src tests kits storage resources ] ;
-	UnitTestResources elf elf-no-res pef pef-no-res : $(sourceDir) : isExec ;
-	UnitTestResources ppc.rsrc x86.rsrc : $(sourceDir) ;
+	local sourceDir = [ FDirName resources ] ;
+	local destDir = [ FDirName kits storage ] ;
+	local execs = elf elf-no-res pef pef-no-res ;
+	local rsrcs = ppc.rsrc x86.rsrc ;
+	UnitTestResources $(execs:D=$(sourceDir)) : $(destDir) : isExec ;
+	UnitTestResources $(rsrcs:D=$(sourceDir)) : $(destDir) ;
 }
 
 SubInclude HAIKU_TOP src tests kits storage disk_device ;

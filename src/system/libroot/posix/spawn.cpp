@@ -430,7 +430,7 @@ process_spawnattr(const posix_spawnattr_t *_attr)
 	}
 
 	if ((attr->flags & POSIX_SPAWN_SETSID) != 0) {
-		if (setsid() != 0)
+		if (setsid() < 0)
 			return errno;
 	}
 

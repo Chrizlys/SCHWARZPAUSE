@@ -23,9 +23,9 @@ struct hci_command_header {
 
 
 /* - Informational Parameters Command definition - */
-#define OGF_INFORMATIONAL_PARAM	0x04
+#define OGF_INFORMATIONAL_PARAM 0x04
 
-	#define OCF_READ_LOCAL_VERSION		0x0001
+	#define OCF_READ_LOCAL_VERSION				0x0001
 	struct hci_rp_read_loc_version {
 		uint8		status;
 		uint8		hci_version;
@@ -35,13 +35,19 @@ struct hci_command_header {
 		uint16		lmp_subversion;
 	} __attribute__ ((packed));
 
-	#define OCF_READ_LOCAL_FEATURES		0x0003
+	#define OCF_READ_LOCAL_SUPPORTED_COMMANDS	0x0002
+	struct hci_rp_read_loc_supported_cmd {
+		uint8		status;
+		uint8		supported_commands[64];
+	} __attribute__ ((packed));
+
+	#define OCF_READ_LOCAL_FEATURES				0x0003
 	struct hci_rp_read_loc_features {
 		uint8		status;
 		uint8		features[8];
 	} __attribute__ ((packed));
 
-	#define OCF_READ_BUFFER_SIZE		0x0005
+	#define OCF_READ_BUFFER_SIZE				0x0005
 	struct hci_rp_read_buffer_size {
 		uint8		status;
 		uint16		acl_mtu;
@@ -50,7 +56,7 @@ struct hci_command_header {
 		uint16		sco_max_pkt;
 	} __attribute__ ((packed));
 
-	#define OCF_READ_BD_ADDR			0x0009
+	#define OCF_READ_BD_ADDR					0x0009
 	struct hci_rp_read_bd_addr {
 		uint8		status;
 		bdaddr_t	bdaddr;
@@ -107,13 +113,23 @@ struct hci_command_header {
 	} __attribute__ ((packed));
 
 	#define OCF_READ_CA_TIMEOUT			0x0015
+	struct hci_rp_read_conn_accept_timeout {
+		uint8		status;
+		uint16		conn_accept_timeout;
+	} __attribute__ ((packed));
 	#define OCF_WRITE_CA_TIMEOUT		0x0016
+	struct hci_cp_write_conn_accept_timeout {
+		uint16		conn_accept_timeout;
+	} __attribute__ ((packed));
 	#define OCF_READ_PG_TIMEOUT			0x0017
 	struct hci_rp_read_page_timeout {
 		uint8		status;
 		uint16		page_timeout;
 	} __attribute__ ((packed));
 	#define OCF_WRITE_PG_TIMEOUT		0x0018
+	struct hci_cp_write_page_timeout {
+		uint16		page_timeout;
+	} __attribute__ ((packed));
 
 	#define OCF_READ_SCAN_ENABLE		0x0019
 	struct hci_read_scan_enable {
@@ -184,7 +200,25 @@ struct hci_command_header {
 		uint16		voice_setting;
 	} __attribute__ ((packed));
 
-	#define OCF_HOST_BUFFER_SIZE		0x0033
+#define OCF_IO_CAPABILITY_REQUEST_REPLY 0x002B
+	struct hci_cp_io_capability_request_reply {
+		bdaddr_t    bdaddr;
+		uint8       capability;
+		uint8       oob_data;
+		uint8       authentication;
+	} __attribute__((packed));
+
+#define OCF_USER_CONFIRM_REPLY 0x002C
+	struct hci_cp_user_confirm_reply {
+		bdaddr_t    bdaddr;
+	} __attribute__((packed));
+
+#define OCF_USER_CONFIRM_NEG_REPLY 0x002D
+	struct hci_cp_user_confirm_neg_reply {
+		bdaddr_t    bdaddr;
+	} __attribute__((packed));
+
+#define OCF_HOST_BUFFER_SIZE 0x0033
 	struct hci_cp_host_buffer_size {
 		uint16		acl_mtu;
 		uint8		sco_mtu;
@@ -226,6 +260,11 @@ struct hci_command_header {
 		uint16		pkt_type;
 	} __attribute__ ((packed));
 
+	#define OCF_CREATE_CONN_CANCEL		0x0008
+	struct hci_cp_create_conn_cancel {
+		bdaddr_t bdaddr;
+	} __attribute__ ((packed));
+
 	#define OCF_ACCEPT_CONN_REQ			0x0009
 	struct hci_cp_accept_conn_req {
 		bdaddr_t	bdaddr;
@@ -241,7 +280,7 @@ struct hci_command_header {
 	#define OCF_LINK_KEY_REPLY			0x000B
 	struct hci_cp_link_key_reply {
 		bdaddr_t	bdaddr;
-		uint8		link_key[16];
+		linkkey_t	link_key;
 	} __attribute__ ((packed));
 
 	#define OCF_LINK_KEY_NEG_REPLY		0x000C

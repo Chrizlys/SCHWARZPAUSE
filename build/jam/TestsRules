@@ -9,11 +9,15 @@ rule UnitTestDependency
 
 rule UnitTestLib
 {
-	# UnitTestLib <lib> : <sources> : <libraries> ;
+	# UnitTestLib <lib> : <sources> : <libraries> : <local_libraries> : <rdefs> ;
 	#
 	local lib = $(1) ;
 	local sources = $(2) ;
 	local libraries = $(3) ;
+	local local_libraries = $(4) ;
+	local rdefs = $(5) ;
+
+	AddResources $(lib) : $(rdefs) ;
 
 	# if TEST_DEBUG is defined, we turn on debugging
 	if $(TEST_DEBUG) {
@@ -34,23 +38,34 @@ rule UnitTestLib
 	UseCppUnitObjectHeaders $(sources) ;
 
 	MakeLocate $(lib) : $(TARGET_UNIT_TEST_LIB_DIR) ;
-	SharedLibrary $(lib) : $(sources) : $(libraries) libcppunit.so ;
+	SharedLibrary $(lib) : $(sources) : $(libraries) $(local_libraries) libcppunit.so ;
 
 	UnitTestDependency $(lib) ;
 	UNIT_TEST_LIBRARIES on unittests += $(lib) ;
+	UNIT_TEST_LIBRARIES on unittests += $(local_libraries) ;
+	for dep in $(local_libraries) {
+		local dep_grist = $(dep:G=unittests) ;
+		MakeLocate $(dep_grist) : [ FDirName $(TARGET_UNIT_TEST_DIR) lib ] ;
+		File $(dep_grist) : $(dep) ;
+		MimeSet $(dep_grist) ;
+		MODE on $(dep_grist) = $(EXEMODE) ;
+		UnitTestDependency $(dep_grist) ;
+	}
 }
 
 
 rule UnitTestResource
 {
-	# UnitTestResource <target> : <source> : <flags> ;
+	# UnitTestResource <target> : <source> : <destDir> : <flags> ;
 	#
 	# <flags> supported values: isExec
-	local target = $(1:G=tests!unittests!resources) ;
+	local grist = [ FGrist tests unittests resources $(3) ] ;
+	local target = $(1:G=$(grist)) ;
 	local source = $(2) ;
-	local flags = $(3) ;
+	local destDir = $(3) ;
+	local flags = $(4) ;
 
-	MakeLocate $(target) : [ FDirName $(TARGET_UNIT_TEST_DIR) resources ] ;
+	MakeLocate $(target) : [ FDirName $(TARGET_UNIT_TEST_DIR) resources $(destDir) ] ;
 	File $(target) : $(source) ;
 	if isExec in $(flags) {
 		MODE on $(target) = $(EXEMODE) ;
@@ -58,20 +73,21 @@ rule UnitTestResource
 	MimeSet $(target) ;
 	UnitTestDependency $(target) ;
 	UNIT_TEST_RESOURCES on unittests += $(target) ;
+	DEST_DIR on $(target) = $(destDir) ;
 }
 
 
 rule UnitTestResources
 {
-	# UnitTestResources <files> : <sourceDir> : <flags> ;
+	# UnitTestResources <files> : <destDir> : <flags> ;
 	#
 	# <flags> supports same values as UnitTestResource
 	local files = $(1) ;
-	local sourceDir = $(2) ;
+	local destDir = $(2) ;
 	local flags = $(3) ;
 	for file in $(files) {
-		LOCATE on $(file) = $(sourceDir) ;
-		UnitTestResource $(file:G=tests!unittests!resources) : $(file) : $(flags) ;
+		local fileName = $(file:BS) ;
+		UnitTestResource $(fileName) : $(file) : $(destDir) : $(flags) ;
 	}
 }
 

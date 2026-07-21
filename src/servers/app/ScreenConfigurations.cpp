@@ -15,7 +15,7 @@
 
 ScreenConfigurations::ScreenConfigurations()
 	:
-	fConfigurations(10)
+	fConfigurations()
 {
 }
 
@@ -26,12 +26,11 @@ ScreenConfigurations::~ScreenConfigurations()
 
 
 screen_configuration*
-ScreenConfigurations::CurrentByID(int32 id) const
+ScreenConfigurations::GetByID(int32 id) const
 {
 	for (int32 i = fConfigurations.CountItems(); i-- > 0;) {
 		screen_configuration* configuration = fConfigurations.ItemAt(i);
-
-		if (configuration->id == id && configuration->is_current)
+		if (configuration->id == id)
 			return configuration;
 	}
 
@@ -49,8 +48,7 @@ ScreenConfigurations::BestFit(int32 id, const monitor_info* info,
 			for (int32 i = fConfigurations.CountItems(); i-- > 0;) {
 				screen_configuration* configuration = fConfigurations.ItemAt(i);
 
-				if ((pass != 0 || !configuration->has_info)
-					&& id == configuration->id)
+				if ((pass != 0 || !configuration->has_info) && id == configuration->id)
 					return configuration;
 			}
 		}
@@ -104,18 +102,30 @@ ScreenConfigurations::BestFit(int32 id, const monitor_info* info,
 
 status_t
 ScreenConfigurations::Set(int32 id, const monitor_info* info,
-	const BRect& frame, const display_mode& mode)
+	const BRect& frame, const display_mode& mode, float brightness)
 {
-	// Find configuration that we can overwrite
+	screen_configuration* configuration = NULL;
 
-	bool exactMatch;
-	screen_configuration* configuration = BestFit(id, info, &exactMatch);
+	if (info == NULL) {
+		// Delete all configurations matching this ID except the first
+		for (int32 i = fConfigurations.CountItems(); i-- > 0;) {
+			screen_configuration* currentConfig = fConfigurations.ItemAt(i);
+			if (currentConfig->id != id)
+				continue;
 
-	if (configuration != NULL && configuration->has_info && !exactMatch) {
-		// only overwrite exact or unspecified configurations
-		configuration->is_current = false;
-			// TODO: provide a more obvious current mechanism...
-		configuration = NULL;
+			if (configuration != NULL)
+				Remove(configuration);
+			configuration = currentConfig;
+		}
+	} else {
+		// Find configuration that we can overwrite
+		bool exactMatch;
+		configuration = BestFit(id, info, &exactMatch);
+
+		if (configuration != NULL && configuration->has_info && !exactMatch) {
+			// only overwrite exact or unspecified configurations
+			configuration = NULL;
+		}
 	}
 
 	if (configuration == NULL) {
@@ -129,7 +139,7 @@ ScreenConfigurations::Set(int32 id, const monitor_info* info,
 
 	configuration->id = id;
 	configuration->frame = frame;
-	configuration->is_current = true;
+	configuration->brightness = brightness;
 
 	if (info != NULL) {
 		memcpy(&configuration->info, info, sizeof(monitor_info));
@@ -140,28 +150,6 @@ ScreenConfigurations::Set(int32 id, const monitor_info* info,
 	memcpy(&configuration->mode, &mode, sizeof(display_mode));
 
 	return B_OK;
-}
-
-
-void
-ScreenConfigurations::SetBrightness(int32 id, float brightness)
-{
-	for (int32 i = fConfigurations.CountItems(); i-- > 0;) {
-		screen_configuration* configuration = fConfigurations.ItemAt(i);
-		configuration->brightness = brightness;
-	}
-}
-
-
-float
-ScreenConfigurations::Brightness(int32 id)
-{
-	screen_configuration* configuration = fConfigurations.ItemAt(0);
-
-	if (configuration == NULL)
-		return -1;
-
-	return configuration->brightness;
 }
 
 
@@ -237,7 +225,6 @@ ScreenConfigurations::Restore(const BMessage& settings)
 			return B_NO_MEMORY;
 
 		configuration->id = id;
-		configuration->is_current = false;
 
 		const char* vendor;
 		const char* name;

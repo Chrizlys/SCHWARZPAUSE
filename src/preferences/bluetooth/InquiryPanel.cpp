@@ -10,15 +10,17 @@
 #include <Alert.h>
 #include <Button.h>
 #include <Catalog.h>
+#include <DurationFormat.h>
 #include <LayoutBuilder.h>
-#include <ListView.h>
 #include <ListItem.h>
+#include <ListView.h>
 #include <MessageRunner.h>
 #include <ScrollView.h>
-#include <StatusBar.h>
 #include <SpaceLayoutItem.h>
-#include <TextView.h>
+#include <StatusBar.h>
+#include <StringFormat.h>
 #include <TabView.h>
+#include <TextView.h>
 
 #include <bluetooth/bdaddrUtils.h>
 #include <bluetooth/DiscoveryAgent.h>
@@ -40,6 +42,7 @@ extern uint8 GetInquiryTime();
 
 static const uint32 kMsgStart = 'InSt';
 static const uint32 kMsgFinish = 'InFn';
+static const uint32 kMsgCancel = 'InCl';
 static const uint32 kMsgShowDebug = 'ShDG';
 
 static const uint32 kMsgInquiry = 'iQbt';
@@ -73,10 +76,23 @@ public:
 
 
 	void
-	InquiryCompleted(int discType)
+	InquiryResponse(int discType)
 	{
-		BMessage* message = new BMessage(kMsgFinish);
-		fInquiryPanel->PostMessage(message);
+		BMessage* message;
+		switch (discType) {
+			case BT_INQUIRY_COMPLETED:
+				message = new BMessage(kMsgFinish);
+				fInquiryPanel->PostMessage(message);
+				break;
+
+			case BT_INQUIRY_TERMINATED:
+				message = new BMessage(kMsgCancel);
+				fInquiryPanel->PostMessage(message);
+				break;
+
+			case BT_INQUIRY_ERROR:
+				break;
+		}
 	}
 
 
@@ -103,8 +119,7 @@ InquiryPanel::InquiryPanel(BRect frame, LocalDevice* lDevice)
 	fLocalDevice(lDevice)
 
 {
-	fScanProgress = new BStatusBar("status",
-		B_TRANSLATE("Scanning progress"), "");
+	fScanProgress = new BStatusBar("status", B_TRANSLATE("Scanning progress:"), "");
 	activeColor = fScanProgress->BarColor();
 
 	if (fLocalDevice == NULL)
@@ -116,8 +131,11 @@ InquiryPanel::InquiryPanel(BRect frame, LocalDevice* lDevice)
 	fMessage->MakeEditable(false);
 	fMessage->MakeSelectable(false);
 
-	fInquiryButton = new BButton("Inquiry", B_TRANSLATE("Inquiry"),
-		new BMessage(kMsgInquiry), B_WILL_DRAW);
+	fScanButton = new BButton("Scan", B_TRANSLATE("Scan"), new BMessage(kMsgInquiry), B_WILL_DRAW);
+
+	fCancelButton = new BButton("cancel", B_TRANSLATE("Cancel"),
+		new BMessage(kMsgCancel), B_WILL_DRAW);
+	fCancelButton->SetEnabled(false);
 
 	fAddButton = new BButton("add", B_TRANSLATE("Add device to list"),
 		new BMessage(kMsgAddToRemoteList), B_WILL_DRAW);
@@ -131,27 +149,22 @@ InquiryPanel::InquiryPanel(BRect frame, LocalDevice* lDevice)
 
 	if (fLocalDevice != NULL) {
 		fMessage->SetText(B_TRANSLATE(
-			"Check that the Bluetooth capabilities of your"
-			" remote device are activated. Press 'Inquiry' to start scanning."
-			" The needed time for the retrieval of the names is unknown, "
-			"although should not take more than 3 seconds per device. "
-			"Afterwards you will be able to add them to your main list,"
-			" where you will be able to pair with them."));
-		fInquiryButton->SetEnabled(true);
+			"Make sure Bluetooth capabilities of the remote device are activated before "
+			"starting the scan."));
+		fScanButton->SetEnabled(true);
 		fDiscoveryAgent = fLocalDevice->GetDiscoveryAgent();
 		fDiscoveryListener = new PanelDiscoveryListener(this);
 
 		SetTitle((const char*)(fLocalDevice->GetFriendlyName().String()));
 	} else {
-		fMessage->SetText(B_TRANSLATE("There isn't any Bluetooth LocalDevice "
-			"registered on the system."));
-		fInquiryButton->SetEnabled(false);
+		fMessage->SetText(B_TRANSLATE("This computer doesn't seem to have Bluetooth support."));
+		fScanButton->SetEnabled(false);
 	}
 
 	fRetrieveMessage = new BMessage(kMsgRetrieve);
 	fSecondsMessage = new BMessage(kMsgSecond);
 
-	BLayoutBuilder::Group<>(this, B_VERTICAL, 0)
+	BLayoutBuilder::Group<>(this, B_VERTICAL, B_USE_SMALL_SPACING)
 		.SetInsets(B_USE_SMALL_SPACING)
 		.Add(fMessage, 0)
 		.Add(fScanProgress, 10)
@@ -159,7 +172,8 @@ InquiryPanel::InquiryPanel(BRect frame, LocalDevice* lDevice)
 		.AddGroup(B_HORIZONTAL, 10)
 			.Add(fAddButton)
 			.AddGlue()
-			.Add(fInquiryButton)
+			.Add(fCancelButton)
+			.Add(fScanButton)
 		.End()
 	.End();
 }
@@ -214,14 +228,14 @@ InquiryPanel::MessageReceived(BMessage* message)
 
 		case kMsgStart:
 			fRemoteList->MakeEmpty();
-			fScanProgress->Reset();
+			fScanProgress->Reset(B_TRANSLATE("Scanning progress:"));
 			fScanProgress->SetTo(1);
-			fScanProgress->SetTrailingText(B_TRANSLATE("Starting scan"
-				B_UTF8_ELLIPSIS));
+			fScanProgress->SetTrailingText(B_TRANSLATE("Starting scan" B_UTF8_ELLIPSIS));
 			fScanProgress->SetBarColor(activeColor);
 
 			fAddButton->SetEnabled(false);
-			fInquiryButton->SetEnabled(false);
+			fScanButton->SetEnabled(false);
+			fCancelButton->SetEnabled(true);
 
 			BMessageRunner::StartSending(fMessenger, fSecondsMessage, 1000000, timer);
 
@@ -236,26 +250,38 @@ InquiryPanel::MessageReceived(BMessage* message)
 			fScanning = false;
 			fRetrieving = true;
 			labelPlaced = false;
+			fCancelButton->SetEnabled(false);
 			fScanProgress->SetTo(100);
-			fScanProgress->SetTrailingText(B_TRANSLATE("Retrieving names"
-				B_UTF8_ELLIPSIS));
+			fScanProgress->SetTrailingText(B_TRANSLATE("Retrieving names" B_UTF8_ELLIPSIS));
+			BMessageRunner::StartSending(fMessenger, fRetrieveMessage, 1000000, 1);
+
+		break;
+
+		case kMsgCancel:
+
+			fDiscoveryAgent->CancelInquiry(fDiscoveryListener);
+			retrievalIndex = 0;
+			fScanning = false;
+			fRetrieving = true;
+			labelPlaced = false;
+			fCancelButton->SetEnabled(false);
+			fScanProgress->SetTo(100);
+			fScanProgress->SetTrailingText(B_TRANSLATE("Canceling scan" B_UTF8_ELLIPSIS));
 			BMessageRunner::StartSending(fMessenger, fRetrieveMessage, 1000000, 1);
 
 		break;
 
 		case kMsgSecond:
 			if (fScanning && scanningTime < timer) {
-				// TODO time formatting could use Locale Kit
-
 				// TODO should not be needed if SetMaxValue works...
 				fScanProgress->SetTo(scanningTime * 100 / timer);
-				BString elapsedTime = B_TRANSLATE("Remaining %1 seconds");
 
-				BString seconds("");
-				seconds << (int)(timer - scanningTime);
-
-				elapsedTime.ReplaceFirst("%1", seconds.String());
-				fScanProgress->SetTrailingText(elapsedTime.String());
+				BString text(B_TRANSLATE("%secs% remaining"));
+				BString elapsedTime;
+				BDurationFormat format;
+				format.Format(elapsedTime, 0, (int)(timer - scanningTime) * 1000000LL);
+				text.ReplaceFirst("%secs%", elapsedTime);
+				fScanProgress->SetTrailingText(text);
 
 				scanningTime = scanningTime + 1;
 			}
@@ -270,7 +296,7 @@ InquiryPanel::MessageReceived(BMessage* message)
 					if (!labelPlaced) {
 
 						labelPlaced = true;
-						BString progressText(B_TRANSLATE("Retrieving name of %1"));
+						BString progressText(B_TRANSLATE("Retrieving name of '%1'"));
 
 						BString namestr;
 						namestr << bdaddrUtils::ToString(fDiscoveryAgent
@@ -283,8 +309,7 @@ InquiryPanel::MessageReceived(BMessage* message)
 						// Really erally expensive operation should be done in a separate thread
 						// once Haiku gets a BarberPole in API replacing the progress bar
 						((DeviceListItem*)fRemoteList->ItemAt(retrievalIndex))
-							->SetDevice((BluetoothDevice*) fDiscoveryAgent
-							->RetrieveDevices(0).ItemAt(retrievalIndex));
+							->SetDevice(fDiscoveryAgent->RetrieveDevices(0).ItemAt(retrievalIndex));
 						fRemoteList->InvalidateItem(retrievalIndex);
 
 						retrievalIndex++;
@@ -298,11 +323,9 @@ InquiryPanel::MessageReceived(BMessage* message)
 					fRetrieving = false;
 					retrievalIndex = 0;
 
-					fScanProgress->SetBarColor(
-						ui_color(B_PANEL_BACKGROUND_COLOR));
-					fScanProgress->SetTrailingText(
-						B_TRANSLATE("Scanning completed."));
-					fInquiryButton->SetEnabled(true);
+					fScanProgress->SetBarColor(ui_color(B_PANEL_BACKGROUND_COLOR));
+					fScanProgress->SetTrailingText(B_TRANSLATE("Scan finished"));
+					fScanButton->SetEnabled(true);
 					UpdateListStatus();
 				}
 			}
@@ -329,6 +352,11 @@ InquiryPanel::UpdateListStatus(void)
 bool
 InquiryPanel::QuitRequested(void)
 {
+	if (fScanning)
+		fDiscoveryAgent->CancelInquiry(fDiscoveryListener);
+
+	if (fDiscoveryListener->Lock())
+		fDiscoveryListener->Quit();
 
 	return true;
 }

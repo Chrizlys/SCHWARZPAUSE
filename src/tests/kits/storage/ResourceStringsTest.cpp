@@ -184,7 +184,7 @@ ResourceStringsTest::setUp()
 {
 	BasicTest::setUp();
 	string resourcesTestDir(BTestShell::GlobalTestDir());
-	resourcesTestDir += "/resources";
+	resourcesTestDir += "/resources/kits/storage";
 	execCommand(string("mkdir ") + testDir
 				+ " ; cp " + resourcesTestDir + "/" + x86ResName + " "
 						   + resourcesTestDir + "/" + ppcResName + " "

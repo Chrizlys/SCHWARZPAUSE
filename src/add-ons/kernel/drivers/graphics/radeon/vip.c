@@ -97,7 +97,8 @@ bool Radeon_VIPRead(
 static bool do_VIPFifoRead(device_info *di, uint8 channel, uint32 address, uint32 count, uint8 *buffer)
 {
    	vuint8 *regs = di->regs;
-	uint32 status, tmp;
+	status_t status;
+	uint32 tmp;
 
 	if(count!=1)
 	{
@@ -229,7 +230,7 @@ static bool do_VIPFifoWrite(device_info *di, uint8 channel, uint32 address,
 {
 	vuint8 *regs = di->regs;
 
-	uint32 status;
+	status_t status;
 	uint32 i;
 
 	SHOW_FLOW( 2, "address=%" B_PRIx32 ", count=%" B_PRIu32 ", ",

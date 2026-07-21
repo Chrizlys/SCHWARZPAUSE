@@ -6,6 +6,7 @@
 
 #include <safemode.h>
 
+#define _DEFAULT_SOURCE
 #include <ctype.h>
 #include <string.h>
 #include <strings.h>
@@ -43,20 +44,21 @@ get_option_from_kernel_args(kernel_args* args, const char* settingsName,
 	// Unfortunately we can't just use parse_driver_settings_string(), since
 	// we might not have a working heap yet. So we do very limited parsing
 	// ourselves.
-	const char* settingsEnd = settings + strlen(settings);
 	int32 parameterLevel = 0;
 
 	while (*settings != '\0') {
 		// find end of line
-		const char* lineEnd = strchr(settings, '\n');
+		const char* lineEnd = strchrnul(settings, '\n');
 		const char* nextLine;
-		if (lineEnd != NULL)
+		if (*lineEnd != '\0')
 			nextLine = lineEnd + 1;
 		else
-			nextLine = lineEnd = settingsEnd;
+			nextLine = lineEnd;
 
 		// ignore any trailing comments
-		lineEnd = std::find(settings, lineEnd, '#');
+		const char* commentStart = (const char*)memchr(settings, '#', lineEnd - settings);
+		if (commentStart != NULL)
+			lineEnd = commentStart;
 
 		const char* nameStart = NULL;
 		const char* nameEnd = NULL;
@@ -102,6 +104,13 @@ get_option_from_kernel_args(kernel_args* args, const char* settingsName,
 					} else if (valueStart == NULL) {
 						valueStart = settings;
 						elementEnd = &valueEnd;
+					}
+
+					if (*settings == '"' || *settings == '\'') {
+						// Just take everything until the end of the line, and let
+						// the caller deal with the quotations.
+						settings = lineEnd;
+						sawSeparator = true;
 					}
 					break;
 			}

@@ -7,6 +7,8 @@
  *		Adrien Destugues, pulkomandy@pulkomandy.tk
  *		Ron Ben Aroya, sed4906birdie@gmail.com
  */
+
+
 #include <algorithm>
 #include <new>
 #include <stdio.h>
@@ -52,7 +54,8 @@ sdhci_generic_interrupt(void* data)
 SdhciBus::SdhciBus(struct registers* registers, uint8_t irq, bool poll)
 	:
 	fRegisters(registers),
-	fIrq(irq)
+	fIrq(irq),
+	fCardType(CARD_TYPE_UNKNOWN)
 {
 	if (irq == 0 || irq == 0xff) {
 		ERROR("IRQ not assigned\n");
@@ -131,7 +134,7 @@ SdhciBus::SdhciBus(struct registers* registers, uint8_t irq, bool poll)
 
 	// Finally, configure some useful interrupts
 	EnableInterrupts(SDHCI_INT_CMD_CMP | SDHCI_INT_CARD_REM
-		| SDHCI_INT_TRANS_CMP | SDHCI_INT_COMMAND_TIMEOUT);
+		| SDHCI_INT_TRANS_CMP | SDHCI_INT_DATA_TIMEOUT | SDHCI_INT_COMMAND_TIMEOUT);
 
 	// We want to see the other bits in the status register, but not have an
 	// interrupt trigger on them (we get a "command complete" interrupt on
@@ -149,7 +152,7 @@ SdhciBus::SdhciBus(struct registers* registers, uint8_t irq, bool poll)
 
 SdhciBus::~SdhciBus()
 {
-	DisableInterrupts();
+	TerminateBus();
 
 	if (fIrq != 0)
 		remove_io_interrupt_handler(fIrq, sdhci_generic_interrupt, this);
@@ -219,23 +222,49 @@ SdhciBus::ExecuteCommand(uint8_t command, uint32_t argument, uint32_t* response)
 	uint16 transferMode = 0;
 
 	switch (command) {
-		case SD_GO_IDLE_STATE:
+		// Basic reply types
+		case GO_IDLE_STATE:
 			replyType = Command::kNoReplyType;
 			break;
-		case SD_ALL_SEND_CID:
-		case SD_SEND_CSD:
-			replyType = Command::kR2Type;
+		case SD_APP_CMD:
+		case SD_ERASE_WR_BLK_START:
+		case SD_ERASE_WR_BLK_END:
+			replyType = Command::kR1Type;
 			break;
-		case SD_SEND_RELATIVE_ADDR:
-			replyType = Command::kR6Type;
-			break;
-		case SD_SELECT_DESELECT_CARD:
+		case SELECT_DESELECT_CARD:
 		case SD_ERASE:
 			replyType = Command::kR1bType;
 			break;
-		case SD_SEND_IF_COND:
-			replyType = Command::kR7Type;
+		case ALL_SEND_CID:
+		case SEND_CSD:
+			replyType = Command::kR2Type;
 			break;
+		case MMC_SEND_OP_COND:
+		case SD_SEND_OP_COND: // SD Application command
+			replyType = Command::kR3Type;
+			break;
+
+		// Commands defined with different reply types in SD and MMC specifications
+		case SD_SET_BUS_WIDTH: // SD application command. Also MMC_SWITCH, which is not.
+			if (fCardType == CARD_TYPE_MMC)
+				replyType = Command::kR1bType;
+			else
+				replyType = Command::kR1Type;
+			break;
+		case SD_SEND_RELATIVE_ADDR: // also MMC_SET_RELATIVE_ADDR
+			if (fCardType == CARD_TYPE_MMC)
+				replyType = Command::kR1Type;
+			else
+				replyType = Command::kR6Type;
+			break;
+		case SD_SEND_IF_COND: // also MMC_SEND_EXT_CSD
+			if (fCardType == CARD_TYPE_MMC)
+				replyType = Command::kR1Type;
+			else
+				replyType = Command::kR7Type;
+			break;
+
+		// Commands with data transfer replies, also set transferMode
 		case SD_READ_SINGLE_BLOCK:
 			transferMode = TransferMode::kRead | TransferMode::kDmaEnable;
 			replyType = Command::kR1Type | Command::kDataPresent;
@@ -255,15 +284,6 @@ SdhciBus::ExecuteCommand(uint8_t command, uint32_t argument, uint32_t* response)
 				| TransferMode::kAutoCmd12Enable | TransferMode::kBlockCountEnable
 				| TransferMode::kDmaEnable;
 			replyType = Command::kR1Type | Command::kDataPresent;
-			break;
-		case SD_APP_CMD:
-		case SD_ERASE_WR_BLK_START:
-		case SD_ERASE_WR_BLK_END:
-		case SD_SET_BUS_WIDTH: // SD Application command
-			replyType = Command::kR1Type;
-			break;
-		case SD_SEND_OP_COND: // SD Application command
-			replyType = Command::kR3Type;
 			break;
 		default:
 			ERROR("Unknown command %x\n", command);
@@ -314,11 +334,12 @@ SdhciBus::ExecuteCommand(uint8_t command, uint32_t argument, uint32_t* response)
 		fRegisters->interrupt_status |= fCommandResult;
 		if (fCommandResult & SDHCI_INT_COMMAND_TIMEOUT) {
 			ERROR("Command execution timed out\n");
-			if (fRegisters->present_state.CommandInhibit()) {
-				TRACE("Command line is still busy, clearing it\n");
-				// Clear the stall
-				fRegisters->software_reset.ResetCommandLine();
-			}
+			// At this point, the "command inhibit" bit is not set yet, it will be set only after
+			// another command is sent while the controller is in the timeout state.
+			// But resetting the controller state pre-emptively will allow to send another command.
+			//
+			// Clear the data line at the same time if it is busy
+			fRegisters->software_reset.ResetCommandAndDataLines();
 			return B_TIMED_OUT;
 		}
 		if (fCommandResult & SDHCI_INT_COMMAND_CRC) {
@@ -355,7 +376,7 @@ SdhciBus::ExecuteCommand(uint8_t command, uint32_t argument, uint32_t* response)
 	}
 
 	if ((replyType == Command::kR1bType)
-			&& (fCommandResult & SDHCI_INT_TRANS_CMP) == 0) {
+			&& (fCommandResult & SDHCI_INT_TRANSFER_MASK) == 0) {
 		// R1b commands may use the data line so we must wait for the
 		// "transfer complete" interrupt here.
 		TRACE("Waiting for data line...\n");
@@ -523,7 +544,7 @@ SdhciBus::DoIO(uint8_t command, IOOperation* operation, bool offsetAsSectors)
 		// In theory we could go on and send other commands as long as they
 		// don't need the DAT lines, but it's overcomplicating things.
 		TRACE("Wait for transfer complete...");
-		while ((fCommandResult & SDHCI_INT_TRANS_CMP) == 0) {
+		while ((fCommandResult & SDHCI_INT_TRANSFER_MASK) == 0) {
 			status_t result = waiter.Wait(B_RELATIVE_TIMEOUT, 1000000);
 			if (result == B_TIMED_OUT) {
 				TRACE("Transfer complete interrupt did not trigger for a while, status %x\n",
@@ -532,6 +553,13 @@ SdhciBus::DoIO(uint8_t command, IOOperation* operation, bool offsetAsSectors)
 				panic("sdhci: Failed to wait for end of DMA transfer: %s", strerror(result));
 			fInterruptNotifier.Add(&waiter);
 		}
+
+		if (fCommandResult & SDHCI_INT_DATA_TIMEOUT) {
+			TRACE_ALWAYS("Request timed out!\n");
+			fRegisters->software_reset.ResetDataLine();
+			return B_TIMED_OUT;
+		}
+
 		TRACE("transfer complete OK.\n");
 
 		length -= toCopy;
@@ -580,6 +608,13 @@ SdhciBus::SetBusWidth(int width)
 }
 
 
+void
+SdhciBus::SetCardType(card_type type)
+{
+	fCardType = type;
+}
+
+
 bool
 SdhciBus::PowerOn()
 {
@@ -602,6 +637,36 @@ SdhciBus::PowerOn()
 	}
 
 	return true;
+}
+
+
+void
+SdhciBus::PowerOff()
+{
+	fRegisters->power_control.PowerOff();
+}
+
+
+void
+SdhciBus::TerminateBus()
+{
+	CALLED();
+
+	DisableInterrupts();
+	fRegisters->clock_control.DisableSD();
+	PowerOff();
+	/*
+	// Debugging.
+	uint8_t powerBits = fRegisters->power_control.Bits();
+	uint16_t clockBits = fRegisters->clock_control.Bits();
+	if ((powerBits & 0x1) != 0 || (clockBits & (1 << 2)) != 0) {
+		ERROR("TerminateBus: Not killed. "
+			"(power=%#x, clock=%#x)\n", powerBits, clockBits);
+	} else {
+		TRACE("TerminateBus: killed. (power=%#x, "
+			"clock=%#x)\n", powerBits, clockBits);
+	}
+	*/
 }
 
 
@@ -682,9 +747,9 @@ SdhciBus::HandleInterrupt()
 		TRACE("Command complete interrupt handled\n");
 	}
 
-	if (intmask & SDHCI_INT_TRANS_CMP) {
+	if (intmask & SDHCI_INT_TRANSFER_MASK) {
 		fCommandResult |= intmask;
-		fRegisters->interrupt_status |= SDHCI_INT_TRANS_CMP;
+		fRegisters->interrupt_status |= (intmask & SDHCI_INT_TRANSFER_MASK);
 		fInterruptNotifier.NotifyAll();
 		TRACE("Transfer complete interrupt handled\n");
 	}
@@ -901,6 +966,22 @@ set_bus_width(void* controller, int width)
 {
 	SdhciBus* bus = (SdhciBus*)controller;
 	return bus->SetBusWidth(width);
+}
+
+
+void
+set_card_type(void* controller, card_type type)
+{
+	SdhciBus* bus = (SdhciBus*)controller;
+	bus->SetCardType(type);
+}
+
+
+void
+terminate_bus(void* controller)
+{
+	SdhciBus* bus = (SdhciBus*)controller;
+	bus->TerminateBus();
 }
 
 

@@ -4,13 +4,16 @@
  */
 
 
+#define _DEFAULT_SOURCE
 #include "BaseJob.h"
 
 #include <errno.h>
+#include <spawn.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
+#include <AutoDeleter.h>
 #include <Message.h>
 
 #include "Conditions.h"
@@ -201,58 +204,67 @@ BaseJob::_GetSourceFileEnvironment(const char* script, BStringList& environment)
 		return;
 	}
 
-	pid_t child = fork();
-	if (child < 0) {
+	posix_spawn_file_actions_t fileActions;
+	int status = posix_spawn_file_actions_init(&fileActions);
+	if (status != 0) {
+		// TODO: log error
+		return;
+	}
+	CObjectDeleter<posix_spawn_file_actions_t, int, posix_spawn_file_actions_destroy>
+		actionsDeleter(&fileActions);
+
+	// redirect stdout in the child
+	posix_spawn_file_actions_addclose(&fileActions, STDOUT_FILENO);
+	posix_spawn_file_actions_addclose(&fileActions, STDERR_FILENO);
+	posix_spawn_file_actions_adddup2(&fileActions, pipes[1], STDOUT_FILENO);
+	posix_spawn_file_actions_adddup2(&fileActions, pipes[1], STDERR_FILENO);
+
+	for (int32 i = 0; i < 2; i++)
+		posix_spawn_file_actions_addclose(&fileActions, pipes[i]);
+
+	BString command;
+	command.SetToFormat(". \"%s\"; export -p", script);
+
+	const char* argv[] = {"/bin/sh", "-c", command.String(), NULL};
+
+	pid_t child;
+	status = posix_spawn(&child, argv[0], &fileActions, NULL, (char**)argv, NULL);
+
+	if (status != 0) {
 		// TODO: log error
 		debug_printf("could not fork: %s\n", strerror(errno));
-	} else if (child == 0) {
-		// We're the child, redirect stdout
-		close(STDOUT_FILENO);
-		close(STDERR_FILENO);
-		dup2(pipes[1], STDOUT_FILENO);
-		dup2(pipes[1], STDERR_FILENO);
-
-		for (int32 i = 0; i < 2; i++)
-			close(pipes[i]);
-
-		BString command;
-		command.SetToFormat(". \"%s\"; export -p", script);
-		execl("/bin/sh", "/bin/sh", "-c", command.String(), NULL);
-		exit(1);
-	} else {
-		// Retrieve environment from child
-
-		close(pipes[1]);
-
-		BString line;
-		char buffer[4096];
-		while (true) {
-			ssize_t bytesRead = read(pipes[0], buffer, sizeof(buffer) - 1);
-			if (bytesRead <= 0)
-				break;
-
-			// Make sure the buffer is null terminated
-			buffer[bytesRead] = 0;
-
-			const char* chunk = buffer;
-			while (true) {
-				const char* separator = strchr(chunk, '\n');
-				if (separator == NULL) {
-					line.Append(chunk, bytesRead);
-					break;
-				}
-				line.Append(chunk, separator - chunk);
-				chunk = separator + 1;
-
-				_ParseExportVariable(environment, line);
-				line.Truncate(0);
-			}
-		}
-		if (!line.IsEmpty())
-			_ParseExportVariable(environment, line);
-
-		close(pipes[0]);
+		return;
 	}
+
+	// Retrieve environment from child
+
+	close(pipes[1]);
+
+	BString line;
+	char buffer[4096];
+	while (true) {
+		ssize_t bytesRead = read(pipes[0], buffer, sizeof(buffer) - 1);
+		if (bytesRead <= 0)
+			break;
+
+		// Make sure the buffer is null terminated
+		buffer[bytesRead] = 0;
+
+		const char* chunk = buffer;
+		while (true) {
+			const char* separator = strchrnul(chunk, '\n');
+			line.Append(chunk, separator - chunk);
+
+			_ParseExportVariable(environment, line);
+			line.Truncate(0);
+
+			if (*separator == '\0')
+				break;
+			chunk = separator + 1;
+		}
+	}
+
+	close(pipes[0]);
 }
 
 

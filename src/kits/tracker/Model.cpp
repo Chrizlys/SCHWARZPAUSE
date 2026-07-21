@@ -494,13 +494,8 @@ Model::OpenNodeCommon(bool writable)
 #if DEBUG
 			PrintToStream();
 #endif
-			TRESPASS();
-				// this can only happen if GetStat failed before,
-				// in which case we shouldn't be here
-
-			// ToDo: Obviously, we can also be here if the type could not
-			// be determined, for example for block devices (so the TRESPASS()
-			// macro shouldn't be used here)!
+			// Unhandled node type (for example, a device or a fifo pipe)
+			// TODO: handle and display them in some form
 			return fStatus = B_ERROR;
 	}
 
@@ -949,13 +944,8 @@ Model::AttrChanged(const char* attrName)
 	// return true if icon needs updating
 
 	ASSERT(IsNodeOpen());
-	if (attrName != NULL
-		&& (strcmp(attrName, kAttrIcon) == 0
-			|| strcmp(attrName, kAttrMiniIcon) == 0
-			|| strcmp(attrName, kAttrLargeIcon) == 0
-			|| strcmp(attrName, kAttrThumbnail) == 0)) {
+	if (IconAttrChanged(attrName))
 		return true;
-	}
 
 	if (attrName == NULL
 		|| strcmp(attrName, kAttrMIMEType) == 0
@@ -967,10 +957,8 @@ Model::AttrChanged(const char* attrName)
 		else {
 			// node has a specific mime type
 			fMimeType = type;
-			if (!IsVolume() && !IsSymLink()
-				&& info.GetPreferredApp(type) == B_OK) {
+			if (!IsVolume() && !IsSymLink() && info.GetPreferredApp(type) == B_OK)
 				SetPreferredAppSignature(type);
-			}
 		}
 
 #if xDEBUG
@@ -988,6 +976,22 @@ Model::AttrChanged(const char* attrName)
 	}
 
 	return attrName == NULL;
+}
+
+
+bool
+Model::IconAttrChanged(const char* attrName)
+{
+	// called on an icon attribute changed by node monitor
+	// return true if icon needs updating
+
+	ASSERT(IsNodeOpen());
+
+	return attrName != NULL
+		&& (strcmp(attrName, kAttrIcon) == 0
+			|| strcmp(attrName, kAttrLargeIcon) == 0
+			|| strcmp(attrName, kAttrMiniIcon) == 0
+			|| strcmp(attrName, kAttrThumbnail) == 0);
 }
 
 
@@ -1503,8 +1507,14 @@ Model::PrintToStream(int32 level, bool deep)
 		PRINT(("symlink to:\n"));
 		tmp.PrintToStream();
 	}
+
+#if 0
+	// Results in infinite recursion through TrackIconSource -> BModelOpener
+	// -> ModelNodeLatyOpener -> ModelNodeLazyOpener::OpenNode -> OpenNode -> OpenNodeCommon
+	// -> PrintToStream
 	TrackIconSource(B_MINI_ICON);
 	TrackIconSource(B_LARGE_ICON);
+#endif
 }
 
 

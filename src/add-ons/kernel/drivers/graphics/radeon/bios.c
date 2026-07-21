@@ -69,12 +69,12 @@ static const tmds_pll_info default_tmds_pll[14][4] =
 // I have no clue how these values are _written_ into the BIOS, and
 // unfortunately, every BIOS does the detection in a different way,
 // so I'm not sure which is the _right_ way of doing it
-static char *Radeon_FindRom( rom_info *ri )
+static uint8*
+Radeon_FindRom(rom_info* ri)
 {
 	uint32 segstart;
 	uint8 *rom_base;
-	char *rom;
-	int i;
+	size_t i;
 
 	for( segstart = 0x000c0000; segstart < 0x000f0000; segstart += 0x00001000 ) {
 		bool found = false;
@@ -86,13 +86,11 @@ static char *Radeon_FindRom( rom_info *ri )
 			continue;
 
 		// find signature of ATI
-		rom = rom_base;
-
 		found = false;
 
 		for( i = 0; i < 128 - strlen( ati_rom_sig ); i++ ) {
 			if( ati_rom_sig[0] == rom_base[i] ) {
-				if( strncmp(ati_rom_sig, rom_base + i, strlen( ati_rom_sig )) == 0 ) {
+				if (strncmp(ati_rom_sig, (char*)(rom_base + i), strlen(ati_rom_sig)) == 0) {
 					found = true;
 					break;
 				}
@@ -102,7 +100,7 @@ static char *Radeon_FindRom( rom_info *ri )
 		if( !found )
 			continue;
 
-		// EK don't bother looking for signiture now, due to lack of consistancy.
+		// EK don't bother looking for signature now, due to lack of consistency.
 
 		SHOW_INFO( 2, "found ROM @0x%" B_PRIx32, segstart );
 		return rom_base;

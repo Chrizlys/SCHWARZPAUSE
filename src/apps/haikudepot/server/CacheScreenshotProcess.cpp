@@ -1,7 +1,9 @@
 /*
- * Copyright 2023-2025, Andrew Lindesay <apl@lindesay.co.nz>.
+ * Copyright 2023-2026, Andrew Lindesay <apl@lindesay.co.nz>.
  * All rights reserved. Distributed under the terms of the MIT License.
  */
+
+
 #include "CacheScreenshotProcess.h"
 
 #include <Catalog.h>
@@ -15,8 +17,8 @@
 #define B_TRANSLATION_CONTEXT "CacheScreenshotProcess"
 
 
-CacheScreenshotProcess::CacheScreenshotProcess(Model *model,
-	ScreenshotCoordinate& screenshotCoordinate)
+CacheScreenshotProcess::CacheScreenshotProcess(Model* model,
+	const ScreenshotCoordinate& screenshotCoordinate)
 	:
 	fModel(model),
 	fScreenshotCoordinate(screenshotCoordinate)

@@ -465,7 +465,7 @@ status_t SET_DISPLAY_MODE(
 		}
 		
 		vc->fbc.frame_buffer = si->local_mem + vc->fb_offset;
-		vc->fbc.frame_buffer_dma = (void *)((uint8 *)si->framebuffer_pci + vc->fb_offset);
+		vc->fbc.frame_buffer_dma = (void *)((uintptr_t)si->framebuffer_pci + vc->fb_offset);
 		vc->fbc.bytes_per_row = vc->pitch;
 		
 		SHOW_FLOW( 0, "frame buffer CPU-address=%x, phys-address=%x", 

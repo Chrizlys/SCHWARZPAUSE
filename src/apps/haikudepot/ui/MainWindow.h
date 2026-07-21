@@ -8,6 +8,7 @@
 #ifndef MAIN_WINDOW_H
 #define MAIN_WINDOW_H
 
+
 #include <Window.h>
 
 #include <queue>
@@ -46,9 +47,9 @@ extern const char* const kKeyWindowSettings;
 }; // namespace main_window_keys
 
 
-class MainWindow :
-	private ProcessCoordinatorConsumer, public ProcessCoordinatorListener,
-	public UserDetailVerifierListener, public BWindow {
+class MainWindow : public ProcessCoordinatorListener,
+				   public UserDetailVerifierListener,
+				   public BWindow {
 public:
 								MainWindow(const BMessage& settings);
 								MainWindow(const BMessage& settings,
@@ -60,9 +61,6 @@ public:
 	virtual	void				MessageReceived(BMessage* message);
 
 			void				StoreSettings(BMessage& message);
-
-	// ProcessCoordinatorConsumer
-	virtual	void				Consume(ProcessCoordinator *item);
 
 	// ProcessCoordinatorListener
 	virtual void				CoordinatorChanged(
@@ -115,7 +113,6 @@ private:
 			void				_HandleIncrementViewCounter(const BMessage* message);
 			void				_IncrementViewCounter(const BString& packageName);
 
-			void				_PopulatePackageAsync(bool forcePopulate);
 			void				_StartBulkLoad(bool force = false);
 			void				_BulkLoadCompleteReceived(status_t errorStatus);
 
@@ -135,6 +132,8 @@ private:
 			void				_HandleProcessCoordinatorChanged(
 									ProcessCoordinatorState& coordinatorState);
 
+			void				_HandleSelectedPackageChanged();
+
 			void				_HandlePackagesChanged(const BMessage* message);
 			void				_HandlePackagesChanged(const PackageChangeEvents& events);
 
@@ -146,6 +145,7 @@ private:
 									const BMessage& onSuccessMessage);
 			void				_OpenSettingsWindow();
 			void				_StartUserVerify();
+			void				_StartServerRuntimeInformationVerify();
 			void				_UpdateAuthorization();
 			void				_UpdateAvailableRepositories();
 			void				_RatePackage();
@@ -166,6 +166,11 @@ private:
 
 			void				_SetPackageDesktopFilterMode(PackageDesktopFilterMode mode);
 
+			void				_PackageListViewRevokeFocus();
+			bool				_IsPackageListView(BView* view);
+
+			void				_HandleLogout();
+
 private:
 			FilterView*			fFilterView;
 			TabView*			fListTabs;
@@ -183,6 +188,7 @@ private:
 			BMenuItem*			fLogInItem;
 			BMenuItem*			fLogOutItem;
 			BMenuItem*			fUsersUserUsageConditionsMenuItem;
+			BMenuItem*			fLatestUserUsageConditionsMenuItem;
 
 			BMenuItem*			fShowAvailablePackagesItem;
 			BMenuItem*			fShowInstalledPackagesItem;
@@ -211,7 +217,6 @@ private:
 
 			BMessageRunner*		fIncrementViewCounterDelayedRunner;
 };
-
 
 
 #endif // MAIN_WINDOW_H

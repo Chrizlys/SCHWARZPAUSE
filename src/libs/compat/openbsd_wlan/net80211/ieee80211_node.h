@@ -1,4 +1,4 @@
-/*	$OpenBSD: ieee80211_node.h,v 1.94 2022/03/20 12:01:58 stsp Exp $	*/
+/*	$OpenBSD: ieee80211_node.h,v 1.98 2026/02/06 16:27:46 stsp Exp $	*/
 /*	$NetBSD: ieee80211_node.h,v 1.9 2004/04/30 22:57:32 dyoung Exp $	*/
 
 /*-
@@ -52,7 +52,7 @@ extern const struct ieee80211_rateset ieee80211_std_rateset_11a;
 extern const struct ieee80211_rateset ieee80211_std_rateset_11b;
 extern const struct ieee80211_rateset ieee80211_std_rateset_11g;
 
-/* Index into ieee80211_std_rateset_11n[] array. */
+/* Index into ieee80211_std_ratesets_11n[] array. */
 #define IEEE80211_HT_RATESET_SISO	0
 #define IEEE80211_HT_RATESET_SISO_SGI	1
 #define IEEE80211_HT_RATESET_MIMO2	2
@@ -98,7 +98,7 @@ struct ieee80211_ht_rateset {
 
 extern const struct ieee80211_ht_rateset ieee80211_std_ratesets_11n[];
 
-/* Index into ieee80211_std_rateset_11ac[] array. */
+/* Index into ieee80211_std_ratesets_11ac[] array. */
 #define IEEE80211_VHT_RATESET_SISO		0
 #define IEEE80211_VHT_RATESET_SISO_SGI		1
 #define IEEE80211_VHT_RATESET_MIMO2		2
@@ -117,7 +117,7 @@ extern const struct ieee80211_ht_rateset ieee80211_std_ratesets_11n[];
 #define IEEE80211_VHT_RATESET_MAX_NRATES	10
 
 struct ieee80211_vht_rateset {
-	int idx; /* This rateset's index in ieee80211_std_rateset_11ac[]. */
+	int idx; /* This rateset's index in ieee80211_std_ratesets_11ac[]. */
 
 	uint32_t nrates;
 	uint32_t rates[IEEE80211_VHT_RATESET_MAX_NRATES]; /* 500 kbit/s units */
@@ -420,13 +420,13 @@ struct ieee80211_node {
 #define IEEE80211_NODE_SA_QUERY		0x0800	/* SA Query in progress */
 #define IEEE80211_NODE_SA_QUERY_FAILED	0x1000	/* last SA Query failed */
 #define IEEE80211_NODE_RSN_NEW_PTK	0x2000	/* expecting a new PTK */
-#define IEEE80211_NODE_HT_SGI20		0x4000	/* SGI on 20 MHz negotiated */
-#define IEEE80211_NODE_HT_SGI40		0x8000	/* SGI on 40 MHz negotiated */
+#define IEEE80211_NODE_HT_SGI20		0x4000	/* SGI on 20 MHz negotiated */ 
+#define IEEE80211_NODE_HT_SGI40		0x8000	/* SGI on 40 MHz negotiated */ 
 #define IEEE80211_NODE_VHT		0x10000	/* VHT negotiated */
 #define IEEE80211_NODE_HTCAP		0x20000	/* claims to support HT */
 #define IEEE80211_NODE_VHTCAP		0x40000	/* claims to support VHT */
-#define IEEE80211_NODE_VHT_SGI80	0x80000	/* SGI on 80 MHz negotiated */
-#define IEEE80211_NODE_VHT_SGI160	0x100000 /* SGI on 160 MHz negotiated */
+#define IEEE80211_NODE_VHT_SGI80	0x80000	/* SGI on 80 MHz negotiated */ 
+#define IEEE80211_NODE_VHT_SGI160	0x100000 /* SGI on 160 MHz negotiated */ 
 
 	/* If not NULL, this function gets called when ni_refcnt hits zero. */
 	void			(*ni_unref_cb)(struct ieee80211com *,
@@ -484,7 +484,7 @@ ieee80211_unref_node(struct ieee80211_node **ni)
 	*ni = NULL;			/* guard against use */
 }
 
-/*
+/* 
  * Check if the peer supports HT.
  * Require a HT capabilities IE and at least one of the mandatory MCS.
  * MCS 0-7 are mandatory but some APs have particular MCS disabled.
@@ -521,7 +521,7 @@ ieee80211_node_supports_ht_chan40(struct ieee80211_node *ni)
 	    (ni->ni_htop0 & IEEE80211_HTOP0_CHW));
 }
 
-/*
+/* 
  * Check if the peer supports VHT.
  * Require a VHT capabilities IE and support for VHT MCS with a single
  * spatial stream.
@@ -565,8 +565,8 @@ ieee80211_node_supports_vht_chan80(struct ieee80211_node *ni)
 
 	cap_chan_width = (ni->ni_vhtcaps & IEEE80211_VHTCAP_CHAN_WIDTH_MASK) >>
 	    IEEE80211_VHTCAP_CHAN_WIDTH_SHIFT;
-	if (cap_chan_width != IEEE80211_VHTCAP_CHAN_WIDTH_80 &&
-	    cap_chan_width != IEEE80211_VHTCAP_CHAN_WIDTH_160 &&
+	if (cap_chan_width != IEEE80211_VHTCAP_CHAN_WIDTH_80 &&	 
+	    cap_chan_width != IEEE80211_VHTCAP_CHAN_WIDTH_160 &&	 
 	    cap_chan_width != IEEE80211_VHTCAP_CHAN_WIDTH_160_8080)
 		return 0;
 
@@ -644,8 +644,9 @@ int ieee80211_setup_vhtop(struct ieee80211_node *, const uint8_t *,
     uint8_t, int);
 int ieee80211_setup_rates(struct ieee80211com *,
 	    struct ieee80211_node *, const u_int8_t *, const u_int8_t *, int);
+enum ieee80211_phymode ieee80211_node_abg_mode(struct ieee80211com *,
+	    struct ieee80211_node *);
 void ieee80211_node_trigger_addba_req(struct ieee80211_node *, int);
-int ieee80211_iserp_sta(const struct ieee80211_node *);
 void ieee80211_count_longslotsta(void *, struct ieee80211_node *);
 void ieee80211_count_nonerpsta(void *, struct ieee80211_node *);
 void ieee80211_count_pssta(void *, struct ieee80211_node *);
@@ -655,6 +656,7 @@ void ieee80211_node_join(struct ieee80211com *,
 void ieee80211_node_leave(struct ieee80211com *,
 		struct ieee80211_node *);
 int ieee80211_match_bss(struct ieee80211com *, struct ieee80211_node *, int);
+void ieee80211_node_switch_bss(struct ieee80211com *, struct ieee80211_node *);
 void ieee80211_node_tx_stopped(struct ieee80211com *, struct ieee80211_node *);
 struct ieee80211_node *ieee80211_node_choose_bss(struct ieee80211com *, int,
 		struct ieee80211_node **);

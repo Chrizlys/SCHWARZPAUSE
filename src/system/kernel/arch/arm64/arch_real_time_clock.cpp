@@ -16,7 +16,7 @@ arch_rtc_init(kernel_args *args, struct real_time_data *data)
 }
 
 
-uint32
+uint64
 arch_rtc_get_hw_time(void)
 {
 	return 0;
@@ -24,7 +24,7 @@ arch_rtc_get_hw_time(void)
 
 
 void
-arch_rtc_set_hw_time(uint32 seconds)
+arch_rtc_set_hw_time(uint64 seconds)
 {
 }
 
@@ -32,11 +32,12 @@ arch_rtc_set_hw_time(uint32 seconds)
 void
 arch_rtc_set_system_time_offset(struct real_time_data *data, bigtime_t offset)
 {
+	atomic_set64(&data->arch_data.system_time_offset, offset);
 }
 
 
 bigtime_t
 arch_rtc_get_system_time_offset(struct real_time_data *data)
 {
-	return 0;
+	return atomic_get64(&data->arch_data.system_time_offset);
 }

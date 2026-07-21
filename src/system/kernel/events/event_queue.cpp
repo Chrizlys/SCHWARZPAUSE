@@ -97,7 +97,7 @@ public:
 
 	void				Closed();
 
-	status_t			Select(int32 object, uint16 type, uint32 events, void* userData);
+	status_t			Select(int32 object, uint16 type, int32* events, void* userData);
 	status_t			Query(int32 object, uint16 type, uint32* selectedEvents, void** userData);
 	status_t			Deselect(int32 object, uint16 type);
 
@@ -209,9 +209,11 @@ EventQueue::Closed()
 
 
 status_t
-EventQueue::Select(int32 object, uint16 type, uint32 events, void* userData)
+EventQueue::Select(int32 object, uint16 type, int32* _events, void* userData)
 {
 	MutexLocker locker(&fQueueLock);
+
+	const uint32 events = *_events;
 
 	select_event* event = _GetEvent(object, type);
 	if (event != NULL) {
@@ -267,6 +269,7 @@ EventQueue::Select(int32 object, uint16 type, uint32 events, void* userData)
 
 	eventDeleter.Detach();
 
+	*_events &= event->selected_events | event->behavior;
 	atomic_and(&event->events, ~B_EVENT_SELECTING);
 	fEventCondition.NotifyAll();
 
@@ -450,8 +453,8 @@ EventQueue::_DequeueEvents(event_wait_info* infos, int numInfos)
 			status_t status = Deselect(tmp.object, tmp.type);
 			if (status == B_OK) {
 				event = NULL;
-				status = Select(tmp.object, tmp.type,
-					tmp.selected_events | tmp.behavior, tmp.user_data);
+				int32 tmpEvents = tmp.selected_events | tmp.behavior;
+				status = Select(tmp.object, tmp.type, &tmpEvents, tmp.user_data);
 			}
 			mutex_lock(&fQueueLock);
 
@@ -660,24 +663,25 @@ _user_event_queue_select(int queue, event_wait_info* userInfos, int numInfos)
 		status_t error;
 		if (infos[i].events > 0) {
 			error = eventQueue->Select(infos[i].object, infos[i].type,
-				infos[i].events, infos[i].user_data);
+				&infos[i].events, infos[i].user_data);
 		} else if (infos[i].events < 0) {
 			uint32 selectedEvents = 0;
 			error = eventQueue->Query(infos[i].object, infos[i].type,
 				&selectedEvents, &infos[i].user_data);
-			if (error == B_OK) {
+			if (error == B_OK)
 				infos[i].events = selectedEvents;
-				error = user_memcpy(&userInfos[i], &infos[i], sizeof(event_wait_info));
-			}
 		} else /* == 0 */ {
 			error = eventQueue->Deselect(infos[i].object, infos[i].type);
 		}
 
 		if (error != B_OK) {
-			user_memcpy(&userInfos[i].events, &error, sizeof(userInfos[i].events));
+			infos[i].events = error;
 			result = B_ERROR;
 		}
 	}
+
+	if (user_memcpy(userInfos, infos, sizeof(event_wait_info) * numInfos) != B_OK)
+		return B_BAD_ADDRESS;
 
 	return result;
 }

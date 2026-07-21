@@ -21,6 +21,12 @@
 #include <StringView.h>
 #include <Invoker.h>
 
+#include "DeviceListItem.h"
+
+using namespace Bluetooth;
+
+class DeviceListView;
+
 
 class RemoteDevicesView : public BView
 {
@@ -30,8 +36,11 @@ public:
 	void	AttachedToWindow(void);
 	void	MessageReceived(BMessage *msg);
 
+	void	DeviceSelected();
 	void	LoadSettings(void);
 	bool	IsDefaultable(void);
+
+	void	LoadRemoteDevices();
 
 protected:
 
@@ -43,12 +52,13 @@ protected:
 	BButton*		removeButton;
 	BButton*		pairButton;
 	BButton*		disconnectButton;
+	BButton*		cancelButton;
 //	BButton*		blockButton;
 //	BButton*		availButton;
-	BListView*		fDeviceList;
+	DeviceListView* fDeviceList;
 	BScrollView*	fScrollView;
 
-
+	DeviceListItem* fConnectingDeviceItem;
 };
 
 #endif

@@ -523,7 +523,7 @@ bool Radeon_CardDetect(void)
 done:
 	put_module(B_PCI_MODULE_NAME);
 
-	return (found_one ? B_OK : B_ERROR);
+	return found_one;
 }
 
 

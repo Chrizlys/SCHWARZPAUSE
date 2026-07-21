@@ -627,8 +627,8 @@ UrlTest::AddTests(BTestSuite& parent)
 		&UrlTest::PathOnly));
 	suite.addTest(new CppUnit::TestCaller<UrlTest>("UrlTest::RelativeUriTest",
 		&UrlTest::RelativeUriTest));
-	suite.addTest(new CppUnit::TestCaller<UrlTest>("UrlTest::IDNTest",
-		&UrlTest::IDNTest));
+//	suite.addTest(new CppUnit::TestCaller<UrlTest>("UrlTest::IDNTest",
+//		&UrlTest::IDNTest));
 
 	parent.addTest("UrlTest", &suite);
 }

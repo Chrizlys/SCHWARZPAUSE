@@ -16,19 +16,25 @@
 
 namespace Bluetooth {
 
-DeviceListItem::DeviceListItem(BluetoothDevice* bDevice)
+
+DeviceListItem::DeviceListItem(RemoteDevice* bDevice)
 	:
 	BListItem(),
 	fDevice(bDevice),
-	fName("unknown")
+	fConnectionState(RemoteDevice::DISCONNECTED)
 {
 	fAddress = bDevice->GetBluetoothAddress();
 	fClass = bDevice->GetDeviceClass();
+	// we always use the cached name here as we dont want to fire a query in the middle of an
+	// INQUIRY
+	fName = bDevice->GetCachedFriendlyName();
+	if (fName.IsEmpty())
+		fName = "unknown";
 }
 
 
 void
-DeviceListItem::SetDevice(BluetoothDevice* bDevice)
+DeviceListItem::SetDevice(RemoteDevice* bDevice)
 {
 	fAddress = bDevice->GetBluetoothAddress();
 	fClass = bDevice->GetDeviceClass();
@@ -146,10 +152,24 @@ DeviceListItem::Compare(const void	*firstArg, const void	*secondArg)
 }
 
 
-BluetoothDevice*
+RemoteDevice*
 DeviceListItem::Device() const
 {
 	return fDevice;
+}
+
+
+void
+DeviceListItem::SetConnectionState(RemoteDevice::ConnectionState connectionState)
+{
+	fConnectionState = connectionState;
+}
+
+
+RemoteDevice::ConnectionState
+DeviceListItem::GetConnectionState()
+{
+	return fConnectionState;
 }
 
 

@@ -499,11 +499,16 @@
 /* MAIR_EL1 - Memory Attribute Indirection Register */
 #define	MAIR_ATTR_MASK(idx)	(0xff << ((n)* 8))
 #define	MAIR_ATTR(attr, idx) ((attr) << ((idx) * 8))
-#define	 MAIR_DEVICE_nGnRnE	0x00
-#define	 MAIR_DEVICE_nGnRE	0x04
-#define	 MAIR_NORMAL_NC		0x44
-#define	 MAIR_NORMAL_WT		0xbb
-#define	 MAIR_NORMAL_WB		0xff
+#define	 MAIR_DEVICE_nGnRnE	0x00UL
+#define	 MAIR_DEVICE_nGnRE	0x04UL
+#define	 MAIR_NORMAL_NC		0x44UL
+#define	 MAIR_NORMAL_WT		0xbbUL
+#define	 MAIR_NORMAL_WB		0xffUL
+#define	MAIR_VALUE (MAIR_ATTR(MAIR_DEVICE_nGnRnE, 0) | \
+			MAIR_ATTR(MAIR_DEVICE_nGnRE, 1) | \
+			MAIR_ATTR(MAIR_NORMAL_NC, 2) | \
+			MAIR_ATTR(MAIR_NORMAL_WT, 3) | \
+			MAIR_ATTR(MAIR_NORMAL_WB, 4))
 
 /* PAR_EL1 - Physical Address Register */
 #define	PAR_F_SHIFT		0
@@ -527,41 +532,41 @@
 #define	PAR_S_MASK		(0x1 << PAR_S_SHIFT)
 
 /* SCTLR_EL1 - System Control Register */
-#define	SCTLR_RES0	0xc8222440	/* Reserved ARMv8.0, write 0 */
-#define	SCTLR_RES1	0x30d00800	/* Reserved ARMv8.0, write 1 */
+#define	SCTLR_RES0	0xc8222440UL	/* Reserved ARMv8.0, write 0 */
+#define	SCTLR_RES1	0x30d00800UL	/* Reserved ARMv8.0, write 1 */
 
-#define	SCTLR_M		0x00000001
-#define	SCTLR_A		0x00000002
-#define	SCTLR_C		0x00000004
-#define	SCTLR_SA	0x00000008
-#define	SCTLR_SA0	0x00000010
-#define	SCTLR_CP15BEN	0x00000020
+#define	SCTLR_M		0x00000001UL
+#define	SCTLR_A		0x00000002UL
+#define	SCTLR_C		0x00000004UL
+#define	SCTLR_SA	0x00000008UL
+#define	SCTLR_SA0	0x00000010UL
+#define	SCTLR_CP15BEN	0x00000020UL
 /* Bit 6 is reserved */
-#define	SCTLR_ITD	0x00000080
-#define	SCTLR_SED	0x00000100
-#define	SCTLR_UMA	0x00000200
+#define	SCTLR_ITD	0x00000080UL
+#define	SCTLR_SED	0x00000100UL
+#define	SCTLR_UMA	0x00000200UL
 /* Bit 10 is reserved */
 /* Bit 11 is reserved */
-#define	SCTLR_I		0x00001000
-#define	SCTLR_EnDB	0x00002000 /* ARMv8.3 */
-#define	SCTLR_DZE	0x00004000
-#define	SCTLR_UCT	0x00008000
-#define	SCTLR_nTWI	0x00010000
+#define	SCTLR_I		0x00001000UL
+#define	SCTLR_EnDB	0x00002000UL /* ARMv8.3 */
+#define	SCTLR_DZE	0x00004000UL
+#define	SCTLR_UCT	0x00008000UL
+#define	SCTLR_nTWI	0x00010000UL
 /* Bit 17 is reserved */
-#define	SCTLR_nTWE	0x00040000
-#define	SCTLR_WXN	0x00080000
+#define	SCTLR_nTWE	0x00040000UL
+#define	SCTLR_WXN	0x00080000UL
 /* Bit 20 is reserved */
-#define	SCTLR_IESB	0x00200000 /* ARMv8.2 */
+#define	SCTLR_IESB	0x00200000UL /* ARMv8.2 */
 /* Bit 22 is reserved */
-#define	SCTLR_SPAN	0x00800000 /* ARMv8.1 */
-#define	SCTLR_EOE	0x01000000
-#define	SCTLR_EE	0x02000000
-#define	SCTLR_UCI	0x04000000
-#define	SCTLR_EnDA	0x08000000 /* ARMv8.3 */
-#define	SCTLR_nTLSMD	0x10000000 /* ARMv8.2 */
-#define	SCTLR_LSMAOE	0x20000000 /* ARMv8.2 */
-#define	SCTLR_EnIB	0x40000000 /* ARMv8.3 */
-#define	SCTLR_EnIA	0x80000000 /* ARMv8.3 */
+#define	SCTLR_SPAN	0x00800000UL /* ARMv8.1 */
+#define	SCTLR_EOE	0x01000000UL
+#define	SCTLR_EE	0x02000000UL
+#define	SCTLR_UCI	0x04000000UL
+#define	SCTLR_EnDA	0x08000000UL /* ARMv8.3 */
+#define	SCTLR_nTLSMD	0x10000000UL /* ARMv8.2 */
+#define	SCTLR_LSMAOE	0x20000000UL /* ARMv8.2 */
+#define	SCTLR_EnIB	0x40000000UL /* ARMv8.3 */
+#define	SCTLR_EnIA	0x80000000UL /* ARMv8.3 */
 
 /* SPSR_EL1 */
 /*
@@ -597,27 +602,27 @@
 #define	PSR_FLAGS	0xf0000000
 
 /* TCR_EL1 - Translation Control Register */
-#define	TCR_ASID_16	(1 << 36)
+#define	TCR_ASID_16	(1UL << 36)
 
 #define	TCR_IPS_SHIFT	32
-#define	TCR_IPS_32BIT	(0 << TCR_IPS_SHIFT)
-#define	TCR_IPS_36BIT	(1 << TCR_IPS_SHIFT)
-#define	TCR_IPS_40BIT	(2 << TCR_IPS_SHIFT)
-#define	TCR_IPS_42BIT	(3 << TCR_IPS_SHIFT)
-#define	TCR_IPS_44BIT	(4 << TCR_IPS_SHIFT)
-#define	TCR_IPS_48BIT	(5 << TCR_IPS_SHIFT)
+#define	TCR_IPS_32BIT	(0UL << TCR_IPS_SHIFT)
+#define	TCR_IPS_36BIT	(1UL << TCR_IPS_SHIFT)
+#define	TCR_IPS_40BIT	(2UL << TCR_IPS_SHIFT)
+#define	TCR_IPS_42BIT	(3UL << TCR_IPS_SHIFT)
+#define	TCR_IPS_44BIT	(4UL << TCR_IPS_SHIFT)
+#define	TCR_IPS_48BIT	(5UL << TCR_IPS_SHIFT)
 
 #define	TCR_TG0_SHIFT	14
-#define	TCR_TG0_4K	(0 << TCR_TG0_SHIFT)
-#define	TCR_TG0_64K	(1 << TCR_TG0_SHIFT)
-#define	TCR_TG0_16K	(2 << TCR_TG0_SHIFT)
-#define	TCR_TG0_MASK	(3 << TCR_TG0_SHIFT)
+#define	TCR_TG0_4K	(0UL << TCR_TG0_SHIFT)
+#define	TCR_TG0_64K	(1UL << TCR_TG0_SHIFT)
+#define	TCR_TG0_16K	(2UL << TCR_TG0_SHIFT)
+#define	TCR_TG0_MASK	(3UL << TCR_TG0_SHIFT)
 
 #define	TCR_TG1_SHIFT	30
-#define	TCR_TG1_16K	(1 << TCR_TG1_SHIFT)
-#define	TCR_TG1_4K	(2 << TCR_TG1_SHIFT)
-#define	TCR_TG1_64K	(3 << TCR_TG1_SHIFT)
-#define	TCR_TG1_MASK	(3 << TCR_TG1_SHIFT)
+#define	TCR_TG1_16K	(1UL << TCR_TG1_SHIFT)
+#define	TCR_TG1_4K	(2UL << TCR_TG1_SHIFT)
+#define	TCR_TG1_64K	(3UL << TCR_TG1_SHIFT)
+#define	TCR_TG1_MASK	(3UL << TCR_TG1_SHIFT)
 
 #define	TCR_SH1_SHIFT	28
 #define	TCR_SH1_IS	(0x3UL << TCR_SH1_SHIFT)

@@ -22,6 +22,7 @@
 
 struct kernel_args;
 struct ObjectCache;
+class ModifiedPageQueue;
 
 
 enum {
@@ -99,6 +100,13 @@ public:
 	inline	void				ReleaseRef();
 	inline	void				ReleaseRefAndUnlock(
 									bool consumerLocked = false);
+			int32				RefCount() const
+									{ return fRefCount; }
+
+			void*				UserData()	{ return fUserData; }
+			void				SetUserData(void* data)	{ fUserData = data; }
+									// Settable by the lock owner and valid as
+									// long as the lock is owned.
 
 	inline	VMCacheRef*			CacheRef() const	{ return fCacheRef; }
 
@@ -108,6 +116,7 @@ public:
 									{ if (fPageEventWaiters != NULL)
 										_NotifyPageEvents(page, events); }
 	inline	void				MarkPageUnbusy(vm_page* page);
+			void				FreeRemovedPage(vm_page* page);
 
 			vm_page*			LookupPage(off_t offset);
 			void				InsertPage(vm_page* page, off_t offset);
@@ -124,14 +133,11 @@ public:
 
 			void				AddConsumer(VMCache* consumer);
 
-			status_t			InsertAreaLocked(VMArea* area);
-			status_t			RemoveArea(VMArea* area);
-			void				TransferAreas(VMCache* fromCache);
+			void				InsertAreaLocked(VMArea* area);
+			void				RemoveArea(VMArea* area);
+			void				TakeAreasFrom(VMCache* fromCache);
 			uint32				CountWritableAreas(VMArea* ignoreArea) const;
 
-			status_t			WriteModified();
-			status_t			SetMinimalCommitment(off_t commitment,
-									int priority);
 	virtual	status_t			Resize(off_t newSize, int priority);
 	virtual	status_t			Rebase(off_t newBase, int priority);
 	virtual	status_t			Adopt(VMCache* source, off_t offset, off_t size,
@@ -141,20 +147,15 @@ public:
 
 			status_t			FlushAndRemoveAllPages();
 
-			void*				UserData()	{ return fUserData; }
-			void				SetUserData(void* data)	{ fUserData = data; }
-									// Settable by the lock owner and valid as
-									// long as the lock is owned.
-
-			// for debugging only
-			int32				RefCount() const
-									{ return fRefCount; }
-
-	// backing store operations
+			status_t			SetMinimalCommitment(off_t commitment,
+									int priority);
+	virtual	off_t				Commitment() const;
 	virtual	bool				CanOvercommit();
 	virtual	status_t			Commit(off_t size, int priority);
-	virtual	bool				StoreHasPage(off_t offset);
+	virtual	void				TakeCommitmentFrom(VMCache* from, off_t commitment);
 
+	// backing store operations
+	virtual	bool				StoreHasPage(off_t offset);
 	virtual	status_t			Read(off_t offset, const generic_io_vec *vecs,
 									size_t count, uint32 flags,
 									generic_size_t *_numBytes);
@@ -166,6 +167,8 @@ public:
 									generic_size_t numBytes, uint32 flags,
 									AsyncIOCallback* callback);
 	virtual	bool				CanWritePage(off_t offset);
+	virtual	ModifiedPageQueue*	ModifiedQueue();
+			status_t			WriteModified();
 
 	virtual	int32				MaxPagesPerWrite() const
 									{ return -1; } // no restriction
@@ -207,8 +210,6 @@ public:
 			VMCache*			source;
 			off_t				virtual_base;
 			off_t				virtual_end;
-			off_t				committed_size;
-				// TODO: Remove!
 			uint32				page_count;
 			uint32				temporary : 1;
 			uint32				type : 6;
@@ -234,11 +235,16 @@ private:
 									page_num_t* toPage, page_num_t* freedPages);
 
 private:
+	typedef DoublyLinkedQueue<vm_page, DoublyLinkedListCLink<vm_page,
+		SplayTreeLink<vm_page>, &vm_page::cache_link> > RemovedPagesQueue;
+
+private:
 			int32				fRefCount;
 			mutex				fLock;
 			PageEventWaiter*	fPageEventWaiters;
 			void*				fUserData;
 			VMCacheRef*			fCacheRef;
+			RemovedPagesQueue	fRemovedBusyPages;
 
 			page_num_t			fWiredPagesCount;
 			uint64				fFaultCount;
@@ -258,7 +264,7 @@ public:
 								int32 numGuardPages, bool swappable,
 								int priority);
 	static	status_t		CreateVnodeCache(VMCache*& cache,
-								struct vnode* vnode);
+								struct vnode* vnode, ModifiedPageQueue* queue);
 	static	status_t		CreateDeviceCache(VMCache*& cache,
 								addr_t baseAddress);
 	static	status_t		CreateNullCache(int priority, VMCache*& cache);
@@ -349,6 +355,8 @@ void
 VMCache::MarkPageUnbusy(vm_page* page)
 {
 	ASSERT(page->busy);
+	ASSERT(page->Cache() == this);
+
 	page->busy = false;
 	NotifyPageEvents(page, PAGE_EVENT_NOT_BUSY);
 }

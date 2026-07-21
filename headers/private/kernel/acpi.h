@@ -12,6 +12,7 @@
 #define ACPI_MADT_SIGNATURE		"APIC"
 #define ACPI_MCFG_SIGNATURE		"MCFG"
 #define ACPI_SPCR_SIGNATURE		"SPCR"
+#define ACPI_DBG2_SIGNATURE		"DBG2"
 
 #define ACPI_LOCAL_APIC_ENABLED	0x01
 
@@ -264,6 +265,8 @@ typedef struct acpi_mcfg_allocation
 	uint32 reserved;
 } _PACKED acpi_mcfg_allocation;
 
+// SPCR table specified by Microsoft at
+// https://learn.microsoft.com/en-us/windows-hardware/drivers/bringup/serial-port-console-redirection-table
 typedef struct acpi_spcr {
 	acpi_descriptor_header header;
 	uint32 interface_type;
@@ -290,6 +293,38 @@ typedef struct acpi_spcr {
 enum {
 	ACPI_SPCR_INTERFACE_TYPE_16550 = 0,
 	ACPI_SPCR_INTERFACE_TYPE_PL011 = 3,
+};
+
+// DBG2 table specified by Microsoft at
+// https://learn.microsoft.com/en-us/windows-hardware/drivers/bringup/acpi-debug-port-table
+typedef struct acpi_dbg2 {
+	acpi_descriptor_header header;
+	uint32 offset_dbg_device_info;
+	uint32 number_dbg_device_info;
+} _PACKED acpi_dbg2;
+
+typedef struct acpi_dbg2_device_info {
+	uint8 revision;
+	uint16 length;
+	uint8 num_addresses;
+	uint16 namespace_str_length;
+	uint16 namespace_str_offset;
+	uint16 oem_data_length;
+	uint16 oem_data_offset;
+	uint16 port_type;
+	uint16 port_subtype;
+	uint16 reserved;
+	uint16 base_addr_offset;
+	uint16 addr_size_offset;
+} _PACKED acpi_dbg2_device_info;
+
+enum {
+	ACPI_DBG2_PORT_TYPE_SERIAL = 0x8000,
+};
+
+enum {
+	ACPI_DBG2_PORT_SUBTYPE_16550 = 0,
+	ACPI_DBG2_PORT_SUBTYPE_PL011 = 3,
 };
 
 

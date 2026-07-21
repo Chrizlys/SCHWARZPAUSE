@@ -3,17 +3,16 @@
  * Copyright 2018-2026, Andrew Lindesay <apl@lindesay.co.nz>.
  * All rights reserved. Distributed under the terms of the MIT License.
  */
+
+
 #include "PackageInfoView.h"
 
 #include <algorithm>
 
-#include <Alert.h>
-#include <Autolock.h>
 #include <Bitmap.h>
 #include <Button.h>
 #include <CardLayout.h>
 #include <Catalog.h>
-#include <ColumnListView.h>
 #include <ControlLook.h>
 #include <Font.h>
 #include <GridView.h>
@@ -21,7 +20,6 @@
 #include <LayoutUtils.h>
 #include <LocaleRoster.h>
 #include <Message.h>
-#include <OutlineListView.h>
 #include <ScrollView.h>
 #include <SpaceLayoutItem.h>
 #include <StatusBar.h>
@@ -29,23 +27,19 @@
 #include <TabView.h>
 #include <Url.h>
 
-#include <package/hpkg/NoErrorOutput.h>
-#include <package/hpkg/PackageContentHandler.h>
-#include <package/hpkg/PackageEntry.h>
-#include <package/hpkg/PackageReader.h>
-
 #include "BitmapView.h"
 #include "GeneralContentScrollView.h"
+#include "InterfaceDefs.h"
 #include "LinkView.h"
 #include "LinkedBitmapView.h"
 #include "LocaleUtils.h"
 #include "Logger.h"
 #include "MarkupTextView.h"
+#include "NotAvailableView.h"
 #include "PackageContentsView.h"
 #include "PackageInfo.h"
 #include "PackageManager.h"
 #include "PackageUtils.h"
-#include "ProcessCoordinatorFactory.h"
 #include "RatingView.h"
 #include "ScrollableGroupView.h"
 #include "ServerHelper.h"
@@ -58,10 +52,16 @@
 
 
 enum {
-	TAB_ABOUT		= 0,
-	TAB_RATINGS		= 1,
-	TAB_CHANGELOG	= 2,
-	TAB_CONTENTS	= 3
+	TAB_ABOUT = 0,
+	TAB_RATINGS = 1,
+	TAB_CHANGELOG = 2,
+	TAB_CONTENTS = 3
+};
+
+
+enum {
+	CARD_AVAILABLE = 0,
+	CARD_NOT_AVAILABLE = 1
 };
 
 
@@ -160,8 +160,8 @@ private:
 
 
 enum {
-	MSG_MOUSE_ENTERED_RATING	= 'menr',
-	MSG_MOUSE_EXITED_RATING		= 'mexr',
+	MSG_MOUSE_ENTERED_RATING = 'menr',
+	MSG_MOUSE_EXITED_RATING = 'mexr',
 };
 
 
@@ -441,6 +441,17 @@ public:
 
 		fRatingLayout->SetVisible(_PackageCanHaveRatings(package));
 
+		{
+			// TODO (apl) it would be ideal if the button were enabled disabled dynamically as the
+			// user logged in/out and the `canAuth` changed. This would require more additional
+			// plumbing and event handling.
+
+			bool networking = ServerHelper::IsNetworkAvailable();
+			bool hasUser = !fModel->Nickname().IsEmpty();
+			bool canAuth = fModel->CanNicknamePasswordAuthenticate();
+			fRateButton->SetEnabled(networking && (hasUser || canAuth));
+		}
+
 		InvalidateLayout();
 		Invalidate();
 	}
@@ -663,7 +674,7 @@ private:
 
 
 enum {
-	MSG_VISIT_PUBLISHER_WEBSITE		= 'vpws',
+	MSG_VISIT_PUBLISHER_WEBSITE = 'vpws',
 };
 
 
@@ -673,6 +684,9 @@ public:
 		:
 		BView("about view", 0)
 	{
+		fPackageName = "";
+		fIsPopulatingScreenshot = false;
+
 		SetViewUIColor(B_PANEL_BACKGROUND_COLOR, kContentTint);
 
 		fDescriptionView = new MarkupTextView("description view");
@@ -692,6 +706,15 @@ public:
 		fScreenshotView->SetExplicitMaxSize(BSize(B_SIZE_UNLIMITED, B_SIZE_UNLIMITED));
 		fScreenshotView->SetExplicitAlignment(BAlignment(B_ALIGN_CENTER, B_ALIGN_TOP));
 
+		fScreenshotNotAvailableView = new NotAvailableView("screenshot not available", "XYZ", true);
+		fScreenshotView->SetExplicitMinSize(BSize(64.0f, 64.0f));
+		fScreenshotView->SetExplicitMaxSize(BSize(B_SIZE_UNLIMITED, B_SIZE_UNLIMITED));
+
+		// This allows for switching between the "no screenshot" and the actual screenshot.
+		fScreenshotCardView = new BCardView();
+		fScreenshotCardView->AddChild(fScreenshotView);
+		fScreenshotCardView->AddChild(fScreenshotNotAvailableView);
+
 		fWebsiteIconView = new BitmapView("website icon view");
 		fWebsiteLinkView
 			= new LinkView("website link view", "", new BMessage(MSG_VISIT_PUBLISHER_WEBSITE));
@@ -700,11 +723,12 @@ public:
 		BGroupView* leftGroup = new BGroupView(B_VERTICAL, B_USE_DEFAULT_SPACING);
 
 		fScreenshotView->SetViewUIColor(ViewUIColor(), kContentTint);
+		fScreenshotNotAvailableView->SetViewUIColor(ViewUIColor(), kContentTint);
 		fWebsiteLinkView->SetViewUIColor(ViewUIColor(), kContentTint);
 
 		BLayoutBuilder::Group<>(this, B_HORIZONTAL, 0.0f)
 			.AddGroup(leftGroup, 1.0f)
-				.Add(fScreenshotView)
+				.Add(fScreenshotCardView)
 				.AddGroup(B_HORIZONTAL)
 					.AddGrid(B_USE_HALF_ITEM_SPACING, B_USE_HALF_ITEM_SPACING)
 						.Add(fWebsiteIconView, 0, 1)
@@ -765,21 +789,29 @@ public:
 	void SetScreenshotThumbnail(BitmapHolderRef bitmapHolderRef)
 	{
 		if (bitmapHolderRef.IsSet()) {
+			fIsPopulatingScreenshot = false;
 			fScreenshotView->SetBitmap(bitmapHolderRef);
 			fScreenshotView->SetEnabled(true);
+			fScreenshotNotAvailableView->SetText("");
+			fScreenshotCardView->CardLayout()->SetVisibleItem(CARD_AVAILABLE);
 		} else {
 			fScreenshotView->UnsetBitmap();
 			fScreenshotView->SetEnabled(false);
+			fScreenshotNotAvailableView->SetText(_NotAvailableScreenshotText());
+			fScreenshotCardView->CardLayout()->SetVisibleItem(CARD_NOT_AVAILABLE);
 		}
 	}
 
 	void SetPackage(const PackageInfoRef package)
 	{
+		BString packageName = "";
 		BString summary = "";
 		BString description = "";
 		BString publisherWebsite = "";
 
 		if (package.IsSet()) {
+			packageName = package->Name();
+
 			PackageLocalizedTextRef localizedText = package->LocalizedText();
 
 			if (localizedText.IsSet()) {
@@ -800,6 +832,9 @@ public:
 		fDescriptionView->SetText(summary, description);
 		fWebsiteIconView->SetBitmap(SharedIcons::IconHTMLPackage16Scaled());
 		_SetContactInfo(fWebsiteLinkView, publisherWebsite);
+
+		fIsPopulatingScreenshot = fIsPopulatingScreenshot && (packageName == fPackageName);
+		fPackageName = packageName;
 	}
 
 	void Clear()
@@ -807,11 +842,23 @@ public:
 		fDescriptionView->SetText("");
 		fWebsiteIconView->UnsetBitmap();
 		fWebsiteLinkView->SetText("");
-		fScreenshotView->UnsetBitmap();
-		fScreenshotView->SetEnabled(false);
+		SetScreenshotThumbnail(BitmapHolderRef());
+		fIsPopulatingScreenshot = false;
+	}
+
+	// TODO; need some way to signal failure.
+	void SetIsPopulatingScreenshot() {
+		fIsPopulatingScreenshot = true;
+		fScreenshotNotAvailableView->SetText(_NotAvailableScreenshotText());
 	}
 
 private:
+	const char* _NotAvailableScreenshotText() {
+		if (fIsPopulatingScreenshot)
+			return B_TRANSLATE("Screenshot loading" B_UTF8_ELLIPSIS);
+		return B_TRANSLATE("No screenshot available.");
+	}
+
 	void _SetContactInfo(LinkView* view, const BString& string)
 	{
 		if (string.Length() > 0) {
@@ -824,9 +871,14 @@ private:
 	}
 
 private:
+	BString				fPackageName;
+
 	MarkupTextView*		fDescriptionView;
 
+	BCardView*			fScreenshotCardView;
+	NotAvailableView*	fScreenshotNotAvailableView;
 	LinkedBitmapView*	fScreenshotView;
+	bool				fIsPopulatingScreenshot;
 
 	BitmapView*			fWebsiteIconView;
 	LinkView*			fWebsiteLinkView;
@@ -908,10 +960,12 @@ public:
 		SetHighColor(color);
 		StrokeLine(Bounds().LeftBottom(), Bounds().RightBottom());
 	}
-
 };
 
 
+/*!	This class will draw a little graphic of the relative count of the ratings
+	that have been assigned to the package.
+*/
 class RatingSummaryView : public BGridView {
 public:
 	RatingSummaryView()
@@ -990,24 +1044,39 @@ private:
 };
 
 
+/*!	This view renders the ratings information for the package. It will appear
+	when the user chooses the "ratings" tab.
+*/
 class UserRatingsView : public BGroupView {
 public:
 	UserRatingsView()
 		:
 		BGroupView("package ratings view", B_HORIZONTAL)
 	{
+		fPackageName = "";
+		fIsPopulating = false;
+
 		SetViewUIColor(B_PANEL_BACKGROUND_COLOR, kContentTint);
 
 		fRatingSummaryView = new RatingSummaryView();
 
 		ScrollableGroupView* ratingsContainerView = new ScrollableGroupView();
-		ratingsContainerView->SetViewUIColor(B_PANEL_BACKGROUND_COLOR,
-												kContentTint);
+		ratingsContainerView->SetViewUIColor(B_PANEL_BACKGROUND_COLOR, kContentTint);
 		fRatingContainerLayout = ratingsContainerView->GroupLayout();
 
 		BScrollView* scrollView
 			= new RatingsScrollView("ratings scroll view", ratingsContainerView);
 		scrollView->SetExplicitMaxSize(BSize(B_SIZE_UNLIMITED, B_SIZE_UNLIMITED));
+
+		fNoRatingsView = new NotAvailableView(
+			"no ratings",B_TRANSLATE("No user ratings available."), false);
+		fNoRatingsView->SetViewUIColor(B_PANEL_BACKGROUND_COLOR, kContentTint);
+
+		// This allows for switching between the "no ratings" and the
+		// list of ratings views if there are any.
+		fRatingContainerCardView = new BCardView();
+		fRatingContainerCardView->AddChild(scrollView);
+		fRatingContainerCardView->AddChild(fNoRatingsView);
 
 		BLayoutBuilder::Group<>(this)
 			.AddGroup(B_VERTICAL)
@@ -1016,7 +1085,7 @@ public:
 				.SetInsets(0.0f, B_USE_DEFAULT_SPACING, 0.0f, 0.0f)
 			.End()
 			.AddStrut(64.0)
-			.Add(scrollView, 1.0f)
+			.Add(fRatingContainerCardView, 1.0f)
 			.SetInsets(B_USE_DEFAULT_SPACING, -1.0f, -1.0f, -1.0f);
 	}
 
@@ -1042,14 +1111,13 @@ public:
 		if (userRatingInfo.IsSet())
 			count = userRatingInfo->CountUserRatings();
 
+		BString packageName;
+		if (package.IsSet())
+			packageName = package->Name();
+		fIsPopulating = fIsPopulating && (packageName == fPackageName) && count == 0;
+
 		if (count == 0) {
-			BStringView* noRatingsView
-				= new BStringView("no ratings", B_TRANSLATE("No user ratings available."));
-			noRatingsView->SetViewUIColor(ViewUIColor(), kContentTint);
-			noRatingsView->SetAlignment(B_ALIGN_CENTER);
-			noRatingsView->SetHighColor(disable_color(ui_color(B_PANEL_TEXT_COLOR), ViewColor()));
-			noRatingsView->SetExplicitMaxSize(BSize(B_SIZE_UNLIMITED, B_SIZE_UNLIMITED));
-			fRatingContainerLayout->AddView(0, noRatingsView);
+			_SetNotAvailable();
 		} else {
 			for (int i = count - 1; i >= 0; i--) {
 				UserRatingRef rating = userRatingInfo->UserRatingAtIndex(i);
@@ -1059,15 +1127,18 @@ public:
 				RatingItemView* view = new RatingItemView(rating);
 				fRatingContainerLayout->AddView(0, view);
 			}
+			fRatingContainerCardView->CardLayout()->SetVisibleItem(CARD_AVAILABLE);
 		}
 
 		InvalidateLayout();
+
+		fPackageName = packageName;
 	}
 
 	void Clear()
 	{
-		fRatingSummaryView->Clear();
-		ClearRatings();
+		fIsPopulating = false;
+		_SetNotAvailable();
 	}
 
 	void ClearRatings()
@@ -1075,8 +1146,6 @@ public:
 		for (int32 i = fRatingContainerLayout->CountItems() - 1;
 			BLayoutItem* item = fRatingContainerLayout->ItemAt(i); i--) {
 			BView* view = dynamic_cast<RatingItemView*>(item->View());
-			if (view == NULL)
-				view = dynamic_cast<BStringView*>(item->View());
 			if (view != NULL) {
 				view->RemoveSelf();
 				delete view;
@@ -1084,9 +1153,32 @@ public:
 		}
 	}
 
+	void _SetNotAvailable() {
+		fNoRatingsView->SetText(_NotAvailableText());
+		fRatingContainerCardView->CardLayout()->SetVisibleItem(CARD_NOT_AVAILABLE);
+		fRatingSummaryView->Clear();
+		ClearRatings();
+	}
+
+	// TODO; need some way to signal failure.
+	void SetIsPopulating() {
+		fIsPopulating = true;
+		_SetNotAvailable();
+	}
+
+	const char* _NotAvailableText() {
+		if (fIsPopulating)
+			return B_TRANSLATE("User ratings loading" B_UTF8_ELLIPSIS);
+		return B_TRANSLATE("No user ratings available.");
+	}
+
 private:
-	BGroupLayout*			fRatingContainerLayout;
-	RatingSummaryView*		fRatingSummaryView;
+	BString fPackageName;
+	bool fIsPopulating;
+	NotAvailableView* fNoRatingsView;
+	BGroupLayout* fRatingContainerLayout;
+	RatingSummaryView* fRatingSummaryView;
+	BCardView* fRatingContainerCardView;
 };
 
 
@@ -1102,8 +1194,15 @@ public:
 		SetViewUIColor(B_PANEL_BACKGROUND_COLOR, kContentTint);
 
 		fPackageContents = new PackageContentsView("contents_list");
-		AddChild(fPackageContents);
 
+		fNotAvailableView = new NotAvailableView("no contents",
+			B_TRANSLATE("No contents available."), false);
+
+		fCardView = new BCardView();
+		fCardView->AddChild(fPackageContents);
+		fCardView->AddChild(fNotAvailableView);
+
+		AddChild(fCardView);
 	}
 
 	virtual ~ContentsView()
@@ -1116,40 +1215,64 @@ public:
 
 	void SetPackage(const PackageInfoRef package)
 	{
-		fPackageContents->SetPackage(package);
+		// if the package is not installed and is not a local file on disk then
+		// there is no point in attempting to populate data for it.
+
+		if (PackageUtils::IsActivatedOrLocalFile(package)) {
+			fPackageContents->SetPackage(package);
+			fCardView->CardLayout()->SetVisibleItem(CARD_AVAILABLE);
+		} else {
+			Clear();
+		}
 	}
 
 	void Clear()
 	{
 		fPackageContents->Clear();
+		fCardView->CardLayout()->SetVisibleItem(CARD_NOT_AVAILABLE);
 	}
 
 private:
-	PackageContentsView*	fPackageContents;
+	BCardView* fCardView;
+	NotAvailableView* fNotAvailableView;
+	PackageContentsView* fPackageContents;
 };
 
 
 // #pragma mark - ChangelogView
 
 
+/*!	This view appears to show the Changelog when the user chooses the
+	changelog tab.
+*/
 class ChangelogView : public BGroupView {
 public:
 	ChangelogView()
 		:
 		BGroupView("package changelog view", B_HORIZONTAL)
 	{
+		fIsPopulating = false;
+		fPackageName = "";
+
 		SetViewUIColor(B_PANEL_BACKGROUND_COLOR, kContentTint);
 
 		fTextView = new MarkupTextView("changelog view");
 		fTextView->SetLowUIColor(ViewUIColor());
 		fTextView->SetInsets(be_plain_font->Size());
+		fTextScrollView = new GeneralContentScrollView("changelog scroll view", fTextView);
 
-		BScrollView* scrollView = new GeneralContentScrollView("changelog scroll view", fTextView);
+		fNotAvailableView = new NotAvailableView("no changelog", _NotAvailableText(), false);
+
+		fCardView = new BCardView();
+		fCardView->AddChild(fTextScrollView);
+		fCardView->AddChild(fNotAvailableView);
 
 		BLayoutBuilder::Group<>(this)
 			.Add(BSpaceLayoutItem::CreateHorizontalStrut(32.0f))
-			.Add(scrollView, 1.0f)
+			.Add(fCardView, 1.0f)
 			.SetInsets(B_USE_DEFAULT_SPACING, -1.0f, -1.0f, -1.0f);
+
+		Clear();
 	}
 
 	virtual ~ChangelogView()
@@ -1162,6 +1285,11 @@ public:
 
 	void SetPackage(const PackageInfoRef package)
 	{
+		if (package.IsSet())
+			HDDEBUG("setting package on changelog view [%s]", package->Name().String());
+		else
+			HDDEBUG("setting package on changelog view to empty package");
+
 		PackageLocalizedTextRef localizedText = package->LocalizedText();
 		BString changelog;
 
@@ -1170,19 +1298,54 @@ public:
 				changelog = localizedText->Changelog();
 		}
 
-		if (changelog.Length() > 0)
+		BString packageName;
+		if (package.IsSet())
+			packageName = package->Name();
+		fIsPopulating = fIsPopulating && (packageName == fPackageName) && changelog.Length() == 0;
+
+		if (changelog.Length() > 0) {
 			fTextView->SetText(changelog);
-		else
-			fTextView->SetDisabledText(B_TRANSLATE("No changelog available."));
+			fCardView->CardLayout()->SetVisibleItem(CARD_AVAILABLE);
+		} else {
+			_SetNotAvailable();
+		}
+
+		fPackageName = packageName;
+	}
+
+	// TODO; need some way to signal failure.
+	void SetIsPopulating() {
+		HDDEBUG("set am populating changelog view");
+		fIsPopulating = true;
+		_SetNotAvailable();
 	}
 
 	void Clear()
 	{
+		HDDEBUG("clearing changelog view");
+		fIsPopulating = false;
+		_SetNotAvailable();
+	}
+
+	void _SetNotAvailable() {
+		fNotAvailableView->SetText(_NotAvailableText());
+		fCardView->CardLayout()->SetVisibleItem(CARD_NOT_AVAILABLE);
 		fTextView->SetText("");
 	}
 
+	const char* _NotAvailableText() {
+		if (fIsPopulating)
+			return B_TRANSLATE("Changelog loading" B_UTF8_ELLIPSIS);
+		return B_TRANSLATE("No changelog available.");
+	}
+
 private:
-	MarkupTextView*		fTextView;
+	BString fPackageName;
+	MarkupTextView* fTextView;
+	BCardView* fCardView;
+	NotAvailableView* fNotAvailableView;
+	BScrollView* fTextScrollView;
+	bool fIsPopulating;
 };
 
 
@@ -1226,35 +1389,89 @@ public:
 		fAboutView->SetScreenshotThumbnail(bitmap);
 	}
 
-	void SetPackage(const PackageInfoRef package, bool switchToDefaultTab)
+	void SetIsPopulatingScreenshot()
 	{
-		if (switchToDefaultTab)
-			Select(TAB_ABOUT);
+		fAboutView->SetIsPopulatingScreenshot();
+	}
+
+	void PopulateDataForTab(int32 index)
+	{
+		switch (index) {
+			case TAB_ABOUT:
+				break;
+			case TAB_RATINGS:
+				_MaybePopulateUserRatings(fPackage);
+				break;
+			case TAB_CHANGELOG:
+				_MaybePopulateChangelog(fPackage);
+				break;
+			case TAB_CONTENTS:
+				break;
+			default:
+				HDERROR("unhandled tab index for data population");
+				break;
+		}
+	}
+
+	void SetPackage(const PackageInfoRef package)
+	{
+		fPackage = package;
 
 		bool enableUserRatingsTab = false;
 		bool enableChangelogTab = false;
 		bool enableContentsTab = false;
 
 		if (package.IsSet()) {
-			PackageLocalizedTextRef localizedText = package->LocalizedText();
-
-			if (localizedText.IsSet())
-				enableChangelogTab = localizedText->HasChangelog();
-
+			enableChangelogTab = _ShowChangelog(package);
 			enableContentsTab = PackageUtils::IsActivatedOrLocalFile(package);
-			enableUserRatingsTab = _PackageCanHaveRatings(package);
+			enableUserRatingsTab = _ShowUserRatings(package);
 		}
 
 		TabAt(TAB_CHANGELOG)->SetEnabled(enableChangelogTab);
 		TabAt(TAB_CONTENTS)->SetEnabled(enableContentsTab);
 		TabAt(TAB_RATINGS)->SetEnabled(enableUserRatingsTab);
-		Invalidate(TabFrame(TAB_CHANGELOG));
-		Invalidate(TabFrame(TAB_CONTENTS));
 
 		fAboutView->SetPackage(package);
 		fUserRatingsView->SetPackage(package);
 		fChangelogView->SetPackage(package);
 		fContentsView->SetPackage(package);
+
+		int32 currentTab = Selection();
+		int32 futureTab = currentTab;
+
+		switch (futureTab) {
+			case TAB_ABOUT:
+				break;
+			case TAB_RATINGS:
+				if (!enableUserRatingsTab)
+					futureTab = TAB_ABOUT;
+				break;
+			case TAB_CHANGELOG:
+				if (!enableChangelogTab)
+					futureTab = TAB_ABOUT;
+				break;
+			case TAB_CONTENTS:
+				if (!enableContentsTab)
+					futureTab = TAB_ABOUT;
+				break;
+			default:
+				HDERROR("unhandled tab index");
+				futureTab = TAB_ABOUT;
+				break;
+		}
+
+		if (currentTab != futureTab)
+			Select(futureTab);
+		else
+			PopulateDataForTab(currentTab);
+	}
+
+	/*!	This is overridden so that data can be loaded as the tab is selected
+		on-demand rather than load all the data anyway.
+	*/
+	virtual void Select(int32 index) {
+		BTabView::Select(index);
+		PopulateDataForTab(index);
 	}
 
 	void Clear()
@@ -1266,22 +1483,82 @@ public:
 	}
 
 private:
-	/*!	It is only possible for a package to have ratings if it is associated with a server-side
-		repository (depot). Otherwise there will be no means to display ratings.
-	*/
-	bool _PackageCanHaveRatings(const PackageInfoRef package)
+
+	bool _ShowUserRatings(const PackageInfoRef package)
 	{
-		BString depotName = PackageUtils::DepotName(package);
+		if (!package.IsSet())
+    		return false;
+		return PackageUtils::IsPopulatedUserRatings(package)
+			|| (fModel->CanPopulatePackage(package) && ServerHelper::IsNetworkAvailable()
+				&& PackageUtils::HasUserRatings(package));
+	}
 
-		if (depotName == SINGLE_PACKAGE_DEPOT_NAME)
-			return false;
+	bool _ShowChangelog(const PackageInfoRef package) {
+		if (!package.IsSet())
+    		return false;
+		return PackageUtils::IsPopulatedChangelog(package)
+			|| (fModel->CanPopulatePackage(package) && ServerHelper::IsNetworkAvailable()
+				&& PackageUtils::HasChangelog(package));
+	}
 
-		const DepotInfoRef depotInfo = fModel->DepotForName(depotName);
+	/*!	Returns true if the changelog should be available.
+	*/
+	void _MaybePopulateChangelog(const PackageInfoRef package) {
+		if (!package.IsSet())
+			return;
 
-		if (depotInfo.IsSet())
-			return !depotInfo->WebAppRepositoryCode().IsEmpty();
+		if (PackageUtils::IsPopulatedChangelog(package))
+			return;
 
-		return false;
+		if (!fModel->CanPopulatePackage(package))
+			return;
+
+		if (!ServerHelper::IsNetworkAvailable()) {
+			HDINFO("will skip populating changelog for [%s] as no network is available",
+            	package->Name().String());
+			return;
+		}
+
+		if (!PackageUtils::HasChangelog(package))
+			return;
+
+		// This will case a background task to start which will fetch the changelog
+		// from the server and populate it into the package data stored in the model.
+		// The correct view will be updated when the data arrives to present.
+		PopulateChangelogPackageAction action(package->Name());
+		BMessage message = action.Message();
+		Window()->PostMessage(&message);
+
+		fChangelogView->SetIsPopulating();
+	}
+
+	void _MaybePopulateUserRatings(const PackageInfoRef package) {
+		if (!package.IsSet())
+			return;
+
+		if (PackageUtils::IsPopulatedUserRatings(package))
+			return;
+
+		if (!fModel->CanPopulatePackage(package))
+			return;
+
+		if (!ServerHelper::IsNetworkAvailable()) {
+			HDINFO("will skip populating user ratings for [%s] as no network is available",
+            	package->Name().String());
+			return;
+		}
+
+		if (!PackageUtils::HasUserRatings(package))
+			return;
+
+		// This will case a background task to start which will fetch the user ratings
+		// from the server and populate it into the package data stored in the model.
+		// The correct view will be updated when the data arrives to present.
+		PopulateUserRatingsPackageAction action(package->Name());
+		BMessage message = action.Message();
+		Window()->PostMessage(&message);
+
+		fUserRatingsView->SetIsPopulating();
 	}
 
 private:
@@ -1290,18 +1567,17 @@ private:
 	UserRatingsView*	fUserRatingsView;
 	ChangelogView*		fChangelogView;
 	ContentsView* 		fContentsView;
+	PackageInfoRef		fPackage;
 };
 
 
 // #pragma mark - PackageInfoView
 
 
-PackageInfoView::PackageInfoView(Model* model,
-	ProcessCoordinatorConsumer* processCoordinatorConsumer)
+PackageInfoView::PackageInfoView(Model* model)
 	:
 	BView("package info view", 0),
-	fModel(model),
-	fProcessCoordinatorConsumer(processCoordinatorConsumer)
+	fModel(model)
 {
 	fCardLayout = new BCardLayout();
 	SetLayout(fCardLayout);
@@ -1333,10 +1609,8 @@ PackageInfoView::PackageInfoView(Model* model,
 		.AddGroup(B_HORIZONTAL, 0.0f)
 			.Add(fTitleView, 6.0f)
 			.Add(fPackageActionView, 1.0f)
-			.SetInsets(
-				B_USE_DEFAULT_SPACING, 0.0f,
-				B_USE_DEFAULT_SPACING, 0.0f)
-		.End()
+			.SetInsets(B_USE_DEFAULT_SPACING, 0.0f, B_USE_DEFAULT_SPACING, 0.0f)
+			.End()
 		.Add(fPagesView);
 
 	Clear();
@@ -1362,23 +1636,9 @@ PackageInfoView::SetPackage(const PackageInfoRef& packageRef)
 		return;
 	}
 
-	bool switchToDefaultTab = true;
-	if (fPackage == packageRef) {
-		// When asked to display the already showing package ref,
-		// don't switch to the default tab.
-		switchToDefaultTab = false;
-	} else if (fPackage.IsSet() && packageRef.IsSet() && fPackage->Name() == packageRef->Name()) {
-		// When asked to display a different PackageInfo instance,
-		// but it has the same package title as the already showing
-		// instance, this probably means there was a repository
-		// refresh and we are in fact still requested to show the
-		// same package as before the refresh.
-		switchToDefaultTab = false;
-	}
-
 	fTitleView->SetPackage(packageRef);
 	fPackageActionView->SetPackage(packageRef);
-	fPagesView->SetPackage(packageRef, switchToDefaultTab);
+	fPagesView->SetPackage(packageRef);
 
 	_SetPackageScreenshotThumb(packageRef);
 
@@ -1411,7 +1671,7 @@ PackageInfoView::_HandlePackageChanged(const PackageInfoChangeEvent& event)
 
 		if ((changes & PKG_CHANGED_LOCALIZED_TEXT) != 0 || (changes & PKG_CHANGED_SCREENSHOTS) != 0
 			|| (changes & PKG_CHANGED_RATINGS) != 0 || (changes & PKG_CHANGED_LOCAL_INFO) != 0) {
-			fPagesView->SetPackage(package, false);
+			fPagesView->SetPackage(package);
 		}
 
 		if ((changes & PKG_CHANGED_LOCALIZED_TEXT) != 0 || (changes & PKG_CHANGED_RATINGS) != 0)
@@ -1443,7 +1703,6 @@ PackageInfoView::HandlePackagesChanged(const std::vector<PackageInfoChangeEvent>
 	the background. A message will come through later once it is
 	cached and ready to load.
 */
-
 void
 PackageInfoView::_SetPackageScreenshotThumb(const PackageInfoRef& package)
 {
@@ -1467,9 +1726,10 @@ PackageInfoView::_SetPackageScreenshotThumb(const PackageInfoRef& package)
 			HDINFO("screenshot won't be cached [%s] -- network unavailable", packageNameCStr);
 		} else {
 			HDDEBUG("screenshot is not cached [%s] -- will cache it", packageNameCStr);
-			ProcessCoordinator* processCoordinator
-				= ProcessCoordinatorFactory::CacheScreenshotCoordinator(fModel, desiredCoordinate);
-			fProcessCoordinatorConsumer->Consume(processCoordinator);
+			CacheScreenshotPackageAction action(package->Name(), desiredCoordinate);
+			BMessage message = action.Message();
+			Window()->PostMessage(&message);
+			fPagesView->SetIsPopulatingScreenshot();
 		}
 	} else {
 		HDDEBUG("no screenshot for pkg [%s]", packageNameCStr);
@@ -1521,7 +1781,7 @@ PackageInfoView::HandleIconsChanged()
 void
 PackageInfoView::HandleScreenshotCached(const ScreenshotCoordinate& coordinate)
 {
-	HDINFO("handle screenshot cached [%s] %" B_PRIu16 " x %" B_PRIu16, coordinate.Code().String(),
+	HDINFO("handle screenshot cached [%s] %" B_PRIu32 " x %" B_PRIu32, coordinate.Code().String(),
 		coordinate.Width(), coordinate.Height());
 	_HandleScreenshotCached(fPackage, coordinate);
 }

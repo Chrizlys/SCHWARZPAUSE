@@ -231,6 +231,14 @@ rule KernelArchitectureSetup architecture
 			# offset in floppy image (>= sizeof(haiku_loader))
 			HAIKU_BOOT_ARCHIVE_IMAGE_OFFSET = 384 ; # in kB
 
+		case ppc64 :
+			HAIKU_KERNEL_PLATFORM ?= openfirmware ;
+			HAIKU_BOOT_TARGETS += openfirmware ;
+
+			HAIKU_BOOT_FLOPPY_IMAGE_SIZE = 1440 ; # in kB
+			# offset in floppy image (>= sizeof(haiku_loader))
+			HAIKU_BOOT_ARCHIVE_IMAGE_OFFSET = 384 ; # in kB
+
 		case sparc :
 			HAIKU_KERNEL_PLATFORM ?= openfirmware ;
 			HAIKU_BOOT_TARGETS += openfirmware ;
@@ -662,25 +670,10 @@ rule ArchitectureSetupWarnings architecture
 	EnableWerror src add-ons kernel drivers bus ;
 	EnableWerror src add-ons kernel drivers common ;
 	EnableWerror src add-ons kernel drivers disk ;
-#	EnableWerror src add-ons kernel drivers display ;
+	EnableWerror src add-ons kernel drivers display ;
 	EnableWerror src add-ons kernel drivers dvb ;
-#	EnableWerror src add-ons kernel drivers graphics ;
-	EnableWerror src add-ons kernel drivers graphics 3dfx ;
-	EnableWerror src add-ons kernel drivers graphics ati ;
-	EnableWerror src add-ons kernel drivers graphics et6x00 ;
-	EnableWerror src add-ons kernel drivers graphics framebuffer ;
-	EnableWerror src add-ons kernel drivers graphics intel_i810 ;
-	EnableWerror src add-ons kernel drivers graphics intel_extreme ;
-	EnableWerror src add-ons kernel drivers graphics matrox ;
-	EnableWerror src add-ons kernel drivers graphics neomagic ;
-#	EnableWerror src add-ons kernel drivers graphics nvidia ;
-#	EnableWerror src add-ons kernel drivers graphics radeon ;
-	EnableWerror src add-ons kernel drivers graphics radeon_hd ;
-#	EnableWerror src add-ons kernel drivers graphics s3 ;
-	EnableWerror src add-ons kernel drivers graphics skeleton ;
-	EnableWerror src add-ons kernel drivers graphics vesa ;
-	EnableWerror src add-ons kernel drivers graphics via ;
-	EnableWerror src add-ons kernel drivers graphics virtio ;
+	EnableWerror src add-ons kernel drivers graphics ;
+	EnableWerror src add-ons kernel drivers hyperv ;
 	EnableWerror src add-ons kernel drivers input ;
 	EnableWerror src add-ons kernel drivers joystick ;
 	EnableWerror src add-ons kernel drivers midi ;
@@ -720,11 +713,11 @@ rule ArchitectureSetupWarnings architecture
 	EnableWerror src add-ons kernel drivers network wwan ;
 	EnableWerror src add-ons kernel drivers ports ;
 	EnableWerror src add-ons kernel drivers power ;
-#	EnableWerror src add-ons kernel drivers pty ;
-#	EnableWerror src add-ons kernel drivers sensor ;
-#	EnableWerror src add-ons kernel drivers timer ;
+	EnableWerror src add-ons kernel drivers pty ;
+	EnableWerror src add-ons kernel drivers sensor ;
+	EnableWerror src add-ons kernel drivers timer ;
 	EnableWerror src add-ons kernel drivers video ;
-#	EnableWerror src add-ons kernel drivers wmi ;
+	EnableWerror src add-ons kernel drivers wmi ;
 	EnableWerror src add-ons kernel file_systems bfs ;
 	EnableWerror src add-ons kernel file_systems cdda ;
 	EnableWerror src add-ons kernel file_systems ext2 ;

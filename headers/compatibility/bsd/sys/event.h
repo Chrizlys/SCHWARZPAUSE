@@ -41,6 +41,10 @@
 #define EVFILT_WRITE		(-2)
 #define EVFILT_PROC			(-5)
 
+#define EVFILT_HAIKU_SEM			(-11)
+#define EVFILT_HAIKU_PORT_READ		(-12)
+
+
 #if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L
 #define	EV_SET(kevp_, a, b, c, d, e, f) do {	\
 	*(kevp_) = (struct kevent){		\
@@ -86,10 +90,12 @@ struct kevent {
 /* actions */
 #define EV_ADD		0x0001		/* add event to kq (implies enable) */
 #define EV_DELETE	0x0002		/* delete event from kq */
+#define EV_ENABLE	(0)			/* (not needed) */
 
 /* flags */
 #define EV_ONESHOT	0x0010		/* only report one occurrence */
 #define EV_CLEAR	0x0020		/* clear event state after reporting */
+#define EV_RECEIPT	0x0040		/* force EV_ERROR on success, data=0 */
 
 /* returned values */
 #define EV_EOF		0x8000		/* EOF detected */

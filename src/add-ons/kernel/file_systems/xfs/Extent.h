@@ -122,7 +122,7 @@ private:
 struct ExtentDataEntry {
 			xfs_ino_t			inumber;
 			uint8				namelen;
-			uint8				name[];
+			char				name[];
 
 // Followed by a file type (8bit) if applicable and a 16bit tag
 // tag is the offset from start of the block

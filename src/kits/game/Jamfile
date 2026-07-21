@@ -2,9 +2,7 @@ SubDir HAIKU_TOP src kits game ;
 
 AddSubDirSupportedPlatforms libbe_test ;
 
-UsePrivateHeaders app ;
-UsePrivateHeaders interface ;
-UsePrivateHeaders input ;
+UsePrivateHeaders app interface input shared ;
 
 SubDirSysHdrs $(SUBDIR) ;
 

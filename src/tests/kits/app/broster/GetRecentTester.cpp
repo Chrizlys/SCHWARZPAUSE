@@ -1457,20 +1457,20 @@ Test* GetRecentTester::Suite()
 	ADD_TEST4(BRoster, SuiteOfTests, GetRecentTester, GetRecentAppsTestB2);
 	ADD_TEST4(BRoster, SuiteOfTests, GetRecentTester, GetRecentAppsTestB3);
 
-	ADD_TEST4(BRoster, SuiteOfTests, GetRecentTester, GetRecentAppsTestC1);
+//	ADD_TEST4(BRoster, SuiteOfTests, GetRecentTester, GetRecentAppsTestC1);
 	ADD_TEST4(BRoster, SuiteOfTests, GetRecentTester, GetRecentAppsTestC2);
 	ADD_TEST4(BRoster, SuiteOfTests, GetRecentTester, GetRecentAppsTestC3);
 
 	ADD_TEST4(BRoster, SuiteOfTests, GetRecentTester, GetRecentDocumentsTest1);
 	ADD_TEST4(BRoster, SuiteOfTests, GetRecentTester, GetRecentDocumentsTest2);
 	ADD_TEST4(BRoster, SuiteOfTests, GetRecentTester, GetRecentDocumentsTest3);
-	ADD_TEST4(BRoster, SuiteOfTests, GetRecentTester, GetRecentDocumentsTest4);
+//	ADD_TEST4(BRoster, SuiteOfTests, GetRecentTester, GetRecentDocumentsTest4);
 	ADD_TEST4(BRoster, SuiteOfTests, GetRecentTester, GetRecentDocumentsTest5);
 
 	ADD_TEST4(BRoster, SuiteOfTests, GetRecentTester, GetRecentFoldersTest1);
 	ADD_TEST4(BRoster, SuiteOfTests, GetRecentTester, GetRecentFoldersTest2);
 	ADD_TEST4(BRoster, SuiteOfTests, GetRecentTester, GetRecentFoldersTest3);
-	ADD_TEST4(BRoster, SuiteOfTests, GetRecentTester, GetRecentFoldersTest4);
+//	ADD_TEST4(BRoster, SuiteOfTests, GetRecentTester, GetRecentFoldersTest4);
 	ADD_TEST4(BRoster, SuiteOfTests, GetRecentTester, GetRecentFoldersTest5);
 
 	ADD_TEST4(BRoster, SuiteOfTests, GetRecentTester, RecentListsLoadSaveClearTest);

@@ -338,7 +338,7 @@ LargeMemoryTranslationMapPhysicalPageMapper
 	fSlotCount(sizeof(fSlots) / sizeof(page_slot)),
 	fNextSlot(0)
 {
-	memset(fSlots, 0, sizeof(fSlots));
+	memset((void*)fSlots, 0, sizeof(fSlots));
 }
 
 
@@ -503,8 +503,8 @@ LargeMemoryPhysicalPageMapper::GetPage(phys_addr_t physicalAddress,
 	*handle = slot;
 	*virtualAddress = slot->address + physicalAddress % B_PAGE_SIZE;
 
-	smp_send_broadcast_ici(SMP_MSG_INVALIDATE_PAGE_RANGE, *virtualAddress,
-		*virtualAddress, 0, NULL, SMP_MSG_FLAG_SYNC);
+	smp_broadcast_ici(SMP_MSG_INVALIDATE_PAGE_RANGE, 0,
+		*virtualAddress, *virtualAddress, NULL, SMP_MSG_FLAG_SYNC);
 
 	return B_OK;
 }

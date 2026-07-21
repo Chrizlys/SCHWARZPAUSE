@@ -54,6 +54,7 @@ public:
 	inline	void		ClearBitAtomic(int32 cpu);
 
 	inline	bool		GetBit(int32 cpu) const;
+	inline	bool		GetBitAtomic(int32 cpu) const;
 
 	inline	bool		Matches(const CPUSet& mask) const;
 	inline	CPUSet		And(const CPUSet& mask) const;
@@ -81,14 +82,15 @@ status_t smp_init_post_generic_syscalls(void);
 bool smp_trap_non_boot_cpus(int32 cpu, uint32* rendezVous);
 void smp_wake_up_non_boot_cpus(void);
 void smp_cpu_rendezvous(uint32* var);
+
 void smp_send_ici(int32 targetCPU, int32 message, addr_t data, addr_t data2, addr_t data3,
 		void *data_ptr, uint32 flags);
-void smp_send_multicast_ici(CPUSet& cpuMask, int32 message, addr_t data,
-		addr_t data2, addr_t data3, void *data_ptr, uint32 flags);
-void smp_send_broadcast_ici(int32 message, addr_t data, addr_t data2, addr_t data3,
+void smp_broadcast_ici(int32 message, addr_t data, addr_t data2, addr_t data3,
 		void *data_ptr, uint32 flags);
-void smp_send_broadcast_ici_interrupts_disabled(int32 currentCPU, int32 message,
-		addr_t data, addr_t data2, addr_t data3, void *data_ptr, uint32 flags);
+void smp_multicast_ici(const CPUSet& cpuMask, int32 message, addr_t data,
+		addr_t data2, addr_t data3, void *data_ptr, uint32 flags);
+void smp_multicast_ici_interrupts_disabled(int32 currentCPU, const CPUSet& cpuMask,
+		int32 message, addr_t data, addr_t data2, addr_t data3, void *data_ptr, uint32 flags);
 
 int32 smp_get_num_cpus(void);
 void smp_set_num_cpus(int32 numCPUs);
@@ -161,6 +163,14 @@ CPUSet::ClearBitAtomic(int32 cpu)
 
 inline bool
 CPUSet::GetBit(int32 cpu) const
+{
+	int32* element = (int32*)&fBitmap[cpu / kArrayBits];
+	return ((uint32)*element & (1u << (cpu % kArrayBits))) != 0;
+}
+
+
+inline bool
+CPUSet::GetBitAtomic(int32 cpu) const
 {
 	int32* element = (int32*)&fBitmap[cpu / kArrayBits];
 	return ((uint32)atomic_get(element) & (1u << (cpu % kArrayBits))) != 0;
@@ -291,7 +301,8 @@ release_read_spinlock_inline(rw_spinlock* lock)
 
 
 static inline bool
-try_acquire_write_seqlock_inline(seqlock* lock) {
+try_acquire_write_seqlock_inline(seqlock* lock)
+{
 	bool succeed = try_acquire_spinlock(&lock->lock);
 	if (succeed)
 		atomic_add((int32*)&lock->count, 1);
@@ -300,14 +311,16 @@ try_acquire_write_seqlock_inline(seqlock* lock) {
 
 
 static inline void
-acquire_write_seqlock_inline(seqlock* lock) {
+acquire_write_seqlock_inline(seqlock* lock)
+{
 	acquire_spinlock(&lock->lock);
 	atomic_add((int32*)&lock->count, 1);
 }
 
 
 static inline void
-release_write_seqlock_inline(seqlock* lock) {
+release_write_seqlock_inline(seqlock* lock)
+{
 	atomic_add((int32*)&lock->count, 1);
 	release_spinlock(&lock->lock);
 }
@@ -324,7 +337,6 @@ static inline bool
 release_read_seqlock_inline(seqlock* lock, uint32 count)
 {
 	uint32 current = (uint32)atomic_get((int32*)&lock->count);
-
 	return count % 2 == 0 && current == count;
 }
 

@@ -45,9 +45,11 @@ All rights reserved.
 
 #include <Autolock.h>
 #include <Clipboard.h>
+#include <Collator.h>
 #include <Debug.h>
 #include <E-mail.h>
 #include <InterfaceKit.h>
+#include <Locale.h>
 #include <Roster.h>
 #include <Screen.h>
 #include <StorageKit.h>
@@ -90,6 +92,8 @@ const char* kMailFolder = "mail";
 const char* kMailboxSymlink = "Mail/mailbox";
 	// relative to B_USER_SETTINGS_DIRECTORY
 
+BCollator collator;
+
 
 int32
 header_len(BFile *file)
@@ -116,6 +120,103 @@ header_len(BFile *file)
 		}
 	}
 	return result;
+}
+
+
+static int
+compare_menu_items(const BMenuItem* a, const BMenuItem* b)
+{
+	return collator.Compare(a->Label(), b->Label());
+}
+
+status_t
+create_label_file(const char* label)
+{
+	status_t result;
+	BPath path;
+
+	find_directory(B_USER_SETTINGS_DIRECTORY, &path, true);
+	path.Append("Mail");
+	path.Append("labels");
+	if (create_directory(path.Path(), 777) != B_OK)
+		return B_ERROR;
+	path.Append(label);
+
+	BFile file(path.Path(), B_READ_WRITE | B_CREATE_FILE);
+	if (file.InitCheck() != B_OK)
+		return B_ERROR;
+
+	BString string;
+	string.SetToFormat(B_MAIL_ATTR_LABEL "==\"%s\"", label);
+	file.WriteAttrString("_trk/qrystr", &string);
+	string = "E-mail";
+	file.WriteAttrString("_trk/qryinitmime", &string);
+	result = BNodeInfo(&file).SetType("application/x-vnd.Be-query");
+
+	return result;
+}
+
+
+int32
+add_folder_menu_items(BMenu* menu, const char* folder, uint32 what)
+{
+	BPath path;
+	BPath label_path;
+	BDirectory directory;
+	BEntry entry;
+
+	if (find_directory(B_USER_SETTINGS_DIRECTORY, &path, true) != B_OK)
+		return B_ERROR;
+	path.Append("Mail");
+	path.Append(folder);
+	directory.SetTo(path.Path());
+	if (directory.InitCheck() != B_OK)
+		return B_ERROR;
+
+	BObjectList<BMenuItem> items;
+	while (directory.GetNextEntry(&entry, true) == B_OK) {
+		if (entry.InitCheck() != B_OK)
+			break;
+
+		entry.GetPath(&label_path);
+		const char* label = label_path.Leaf();
+
+		// Make sure the label file has the correct query formula,
+		// in case it wasn't created with the Mail app
+		BFile file(label_path.Path(), B_READ_WRITE);
+		if (file.InitCheck() != B_OK)
+			continue;
+		BString string;
+		BString formula;
+		formula.SetToFormat(B_MAIL_ATTR_LABEL "==\"%s\"", label);
+		file.ReadAttrString("_trk/qrystr", &string);
+		if (string != formula) {
+			file.WriteAttrString("_trk/qrystr", &formula);
+			string = "E-mail";
+			file.WriteAttrString("_trk/qryinitmime", &string);
+			BNodeInfo(&file).SetType("application/x-vnd.Be-query");
+		}
+
+		BMessage* message = new BMessage(what);
+		message->AddString("label", label);
+		items.AddItem(new BMenuItem(label, message));
+	}
+
+	if (!items.IsEmpty()) {
+		if (BLocale::Default()->GetCollator(&collator) == B_OK) {
+			collator.SetNumericSorting(true);
+			items.SortItems(compare_menu_items);
+		}
+	}
+	int32 itemCount = items.CountItems();
+	for (int32 i = 0; i < itemCount; i++) {
+		BMenuItem* item = items.ItemAt(i);
+		if (i < 9)
+			item->SetShortcut('1' + i, B_COMMAND_KEY);
+		menu->AddItem(item);
+	}
+
+	return itemCount;
 }
 
 

@@ -16,6 +16,8 @@
 
 #include <KernelExport.h>
 
+#include "mmc.h"
+
 
 class SdhciBus {
 	public:
@@ -34,9 +36,12 @@ class SdhciBus {
 									bool offsetAsSectors);
 			void				SetScanSemaphore(sem_id sem);
 			void				SetBusWidth(int width);
+			void				SetCardType(card_type type);
+			void				TerminateBus();
 
 	private:
 			bool				PowerOn();
+			void				PowerOff();
 			void				RecoverError();
 	static	status_t			_WorkerThread(void*);
 
@@ -48,6 +53,7 @@ class SdhciBus {
 			sem_id				fScanSemaphore;
 			status_t			fStatus;
 			thread_id			fWorkerThread;
+			card_type			fCardType;
 };
 
 
@@ -231,9 +237,19 @@ class SoftwareReset {
 			return i < 10;
 		}
 
+		void ResetCommandAndDataLines() {
+			fBits |= 6;
+			while(fBits & 6);
+		}
+
 		void ResetCommandLine() {
 			fBits |= 2;
 			while(fBits & 2);
+		}
+
+		void ResetDataLine() {
+			fBits |= 4;
+			while(fBits & 4);
 		}
 
 	private:
@@ -273,6 +289,7 @@ class SoftwareReset {
 		| SDHCI_INT_COMMAND_CRC | SDHCI_INT_COMMAND_END_BIT | SDHCI_INT_COMMAND_INDEX)
 
 #define SDHCI_INT_CMD_MASK 			(SDHCI_INT_CMD_CMP | SDHCI_INT_CMD_ERROR_MASK)
+#define SDHCI_INT_TRANSFER_MASK 	(SDHCI_INT_TRANS_CMP | SDHCI_INT_DATA_TIMEOUT)
 
 #define SDHCI_INT_ERROR_MASK		(SDHCI_INT_VENDOR_ERRORS | SDHCI_INT_TUNING_ERROR \
 	| SDHCI_INT_ADMA_ERROR | SDHCI_INT_AUTO_CMD_ERROR | SDHCI_INT_BUS_POWER | SDHCI_INT_DATA_END \
@@ -516,6 +533,8 @@ status_t do_io(void* controller, uint8_t command,
 	IOOperation* operation, bool offsetAsSectors);
 void set_scan_semaphore(void* controller, sem_id sem);
 void set_bus_width(void* controller, int width);
+void set_card_type(void* controller, card_type type);
+void terminate_bus(void* controller);
 
 extern mmc_bus_interface gSDHCIACPIDeviceModule;
 extern mmc_bus_interface gSDHCIPCIDeviceModule;

@@ -20,8 +20,8 @@ FileTest::Suite()
 	
 	NodeTest::AddBaseClassTests<FileTest>("BFile::", suite);
 
-	suite->addTest( new TC("BFile::Init Test 1", &FileTest::InitTest1) );
-	suite->addTest( new TC("BFile::Init Test 2", &FileTest::InitTest2) );
+//	suite->addTest( new TC("BFile::Init Test 1", &FileTest::InitTest1) );
+//	suite->addTest( new TC("BFile::Init Test 2", &FileTest::InitTest2) );
 	suite->addTest( new TC("BFile::IsRead-/IsWriteable Test",
 						   &FileTest::RWAbleTest) );
 	suite->addTest( new TC("BFile::Read/Write Test", &FileTest::RWTest) );

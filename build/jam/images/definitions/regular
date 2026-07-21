@@ -129,6 +129,7 @@ rule HaikuImageGetSystemLibs
 			libmidi.so
 			libmidi2.so
 			libnetwork.so
+			#libnvmm.so@x86_64
 			libpackage.so
 			libscreensaver.so
 			libtextencoding.so
@@ -162,7 +163,8 @@ SYSTEM_SERVERS += [ FFilterByBuildFeatures
 
 # Bluetooth stack + drivers
 SYSTEM_NETWORK_PROTOCOLS +=
-#	l2cap
+	bluetooth
+	l2cap
 ;
 SYSTEM_BT_STACK =
 	hci
@@ -181,14 +183,13 @@ SYSTEM_ADD_ONS_ACCELERANTS += [ FFilterByBuildFeatures
 		nvidia.accelerant
 		radeon.accelerant
 		radeon_hd.accelerant
+		s3.accelerant
 		via.accelerant
 	}@ # x86,x86_64
 	x86 @{
 		3dfx.accelerant
 		neomagic.accelerant
-		s3.accelerant
 	}@ # x86
-	virtio_gpu.accelerant
 ] ;
 
 SYSTEM_ADD_ONS_TRANSLATORS += [ FFilterByBuildFeatures
@@ -297,12 +298,12 @@ SYSTEM_ADD_ONS_DRIVERS_GRAPHICS += [ FFilterByBuildFeatures
 		nvidia
 		radeon
 		radeon_hd
+		s3
 		via
 	}@ # x86,x86_64
 	x86 @{
 		3dfx
 		neomagic
-		s3
 	}@ # x86
 ] ;
 
@@ -328,6 +329,8 @@ SYSTEM_ADD_ONS_DRIVERS_NET += [ FFilterByBuildFeatures
 		marvell88w8335
 		ralinkwifi
 		realtekwifi
+		realtekwifi8187
+		zydwifi1211
 	}@ # x86,x86_64,riscv64
 ] ;
 
@@ -374,8 +377,6 @@ AddFilesToHaikuImage home config settings Tracker "Tracker New Templates"
 # printers
 AddDirectoryToHaikuImage home config settings printers Preview
 	: home-config-settings-printers-preview.rdef ;
-AddDirectoryToHaikuImage home config settings printers "Save as PDF"
-	: home-config-settings-printers-save-as-pdf.rdef ;
 
 # padblocker
 AddDirectoryToHaikuImage home config settings touchpad ;

@@ -111,11 +111,13 @@ area_id vm_copy_area(team_id team, const char *name, void **_address,
 area_id vm_clone_area(team_id team, const char *name, void **address,
 			uint32 addressSpec, uint32 protection, uint32 mapping,
 			area_id sourceArea, bool kernel);
+status_t vm_change_clones_to_null_areas(area_id area);
 status_t vm_delete_area(team_id teamID, area_id areaID, bool kernel);
-status_t vm_create_vnode_cache(struct vnode *vnode, struct VMCache **_cache);
+status_t vm_create_vnode_cache(struct vnode *vnode, struct ModifiedPageQueue* queue,
+			struct VMCache **_cache);
 status_t vm_set_area_memory_type(area_id id, phys_addr_t physicalBase,
 			uint32 type);
-status_t vm_set_area_protection(team_id team, area_id areaID,
+status_t vm_set_area_protection(area_id areaID,
 			uint32 newProtection, bool kernel);
 status_t vm_get_page_mapping(team_id team, addr_t vaddr, phys_addr_t *paddr);
 bool vm_test_map_modification(struct vm_page *page);

@@ -384,14 +384,14 @@ bfs_remove_vnode(fs_volume* _volume, fs_vnode* _node, bool reenter)
 	ASSERT((inode->Flags() & INODE_DELETED) != 0);
 
 	status_t status = inode->Free(transaction);
+	volume->RemovedInodes().Remove(inode);
+
 	if (status == B_OK) {
 		status = transaction.Done();
 	} else if (transaction.HasParent()) {
 		// TODO: for now, we don't let sub-transactions fail
 		status = transaction.Done();
 	}
-
-	volume->RemovedInodes().Remove(inode);
 
 	// TODO: the VFS currently does not allow this to fail
 	delete inode;
@@ -885,7 +885,7 @@ bfs_write_stat(fs_volume* _volume, fs_vnode* _node, const struct stat* stat,
 	//	valid - or even better, the VFS should check this before calling us
 
 	bfs_inode& node = inode->Node();
-	bool updateTime = false;
+	bool updateChangeTime = false, updateModificationTime = false;
 
 	Transaction transaction(volume, inode->BlockNumber());
 	inode->WriteLockInTransaction(transaction);
@@ -894,7 +894,7 @@ bfs_write_stat(fs_volume* _volume, fs_vnode* _node, const struct stat* stat,
 			mask, stat) != B_OK)
 		RETURN_ERROR(B_NOT_ALLOWED);
 
-	if ((mask & B_STAT_SIZE) != 0 && inode->Size() != stat->st_size) {
+	if ((mask & B_STAT_SIZE) != 0) {
 		// Since B_STAT_SIZE is the only thing that can fail directly, we
 		// do it first, so that the inode state will still be consistent
 		// with the on-disk version
@@ -922,18 +922,18 @@ bfs_write_stat(fs_volume* _volume, fs_vnode* _node, const struct stat* stat,
 			Index index(volume);
 			index.UpdateSize(transaction, inode);
 
-			updateTime = true;
+			updateChangeTime = updateModificationTime = true;
 		}
 	}
 
 	if ((mask & B_STAT_UID) != 0) {
 		node.uid = HOST_ENDIAN_TO_BFS_INT32(stat->st_uid);
-		updateTime = true;
+		updateChangeTime = true;
 	}
 
 	if ((mask & B_STAT_GID) != 0) {
 		node.gid = HOST_ENDIAN_TO_BFS_INT32(stat->st_gid);
-		updateTime = true;
+		updateChangeTime = true;
 	}
 
 	if ((mask & B_STAT_MODE) != 0) {
@@ -941,7 +941,7 @@ bfs_write_stat(fs_volume* _volume, fs_vnode* _node, const struct stat* stat,
 			(unsigned int)node.Mode(), (unsigned int)stat->st_mode));
 		node.mode = HOST_ENDIAN_TO_BFS_INT32((node.Mode() & ~S_IUMSK)
 			| (stat->st_mode & S_IUMSK));
-		updateTime = true;
+		updateChangeTime = true;
 	}
 
 	if ((mask & B_STAT_CREATION_TIME) != 0) {
@@ -949,21 +949,26 @@ bfs_write_stat(fs_volume* _volume, fs_vnode* _node, const struct stat* stat,
 			= HOST_ENDIAN_TO_BFS_INT64(bfs_inode::ToInode(stat->st_crtim));
 	}
 
-	if ((mask & B_STAT_MODIFICATION_TIME) != 0) {
+	if ((mask & B_STAT_MODIFICATION_TIME) != 0 || updateModificationTime) {
+		int64 newTime;
+		if ((mask & B_STAT_MODIFICATION_TIME) == 0)
+			newTime = bfs_inode::ToInode(real_time_clock_usecs());
+		else
+			newTime = bfs_inode::ToInode(stat->st_mtim);
+
 		if (!inode->InLastModifiedIndex()) {
 			// directory modification times are not part of the index
 			node.last_modified_time
-				= HOST_ENDIAN_TO_BFS_INT64(bfs_inode::ToInode(stat->st_mtim));
+				= HOST_ENDIAN_TO_BFS_INT64(newTime);
 		} else if (!inode->IsDeleted()) {
 			// Index::UpdateLastModified() will set the new time in the inode
 			Index index(volume);
-			index.UpdateLastModified(transaction, inode,
-				bfs_inode::ToInode(stat->st_mtim));
+			index.UpdateLastModified(transaction, inode, newTime);
 		}
 	}
 
-	if ((mask & B_STAT_CHANGE_TIME) != 0 || updateTime) {
-		bigtime_t newTime;
+	if ((mask & B_STAT_CHANGE_TIME) != 0 || updateChangeTime) {
+		int64 newTime;
 		if ((mask & B_STAT_CHANGE_TIME) == 0)
 			newTime = bfs_inode::ToInode(real_time_clock_usecs());
 		else
@@ -1271,16 +1276,13 @@ bfs_rename(fs_volume* _volume, fs_vnode* _oldDir, const char* oldName,
 
 	inode->WriteLockInTransaction(transaction);
 
-	volume->UpdateLiveQueriesRenameMove(inode, oldDirectory->ID(), oldName,
-		newDirectory->ID(), newName);
-
 	// update the name only when they differ
 	if (strcmp(oldName, newName)) {
 		status = inode->SetName(transaction, newName);
 		if (status == B_OK) {
 			Index index(volume);
 			index.UpdateName(transaction, oldName, newName, inode,
-				false /* we already updated live queries, above */);
+				false /* we'll notify live queries when finished */);
 		}
 	}
 
@@ -1321,6 +1323,8 @@ bfs_rename(fs_volume* _volume, fs_vnode* _oldDir, const char* oldName,
 				if (status == B_OK) {
 					notify_entry_moved(volume->ID(), oldDirectory->ID(),
 						oldName, newDirectory->ID(), newName, id);
+					volume->UpdateLiveQueriesRenameMove(inode, oldDirectory->ID(), oldName,
+						newDirectory->ID(), newName);
 					return B_OK;
 				}
 
@@ -1379,12 +1383,20 @@ bfs_open(fs_volume* _volume, fs_vnode* _node, int openMode, void** _cookie)
 		inode->WriteLockInTransaction(transaction);
 
 		status_t status = inode->SetFileSize(transaction, 0);
-		if (status == B_OK)
+		if (status == B_OK) {
+			inode->Node().last_modified_time = HOST_ENDIAN_TO_BFS_INT64(
+				bfs_inode::ToInode(real_time_clock_usecs()));
 			status = inode->WriteBack(transaction);
+		}
 		if (status == B_OK)
 			status = transaction.Done();
 		if (status != B_OK)
 			return status;
+
+		if (cookie->last_size != 0) {
+			cookie->last_size = inode->Size();
+			notify_stat_changed(volume->ID(), inode->ParentID(), inode->ID(), B_STAT_SIZE);
+		}
 	}
 
 	fileCacheEnabler.Detach();
@@ -2167,6 +2179,10 @@ bfs_create_index(fs_volume* _volume, const char* name, uint32 type,
 	// only root users are allowed to create indices
 	if (geteuid() != 0)
 		return B_NOT_ALLOWED;
+
+	Inode* indices = volume->IndicesNode();
+	if (indices == NULL)
+		return B_UNSUPPORTED;
 
 	Transaction transaction(volume, volume->Indices());
 

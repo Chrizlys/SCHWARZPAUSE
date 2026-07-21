@@ -1,7 +1,8 @@
 /*
- * Copyright 2023, Haiku, Inc. All rights reserved.
+ * Copyright 2023-2026, Haiku, Inc. All rights reserved.
  * Distributed under the terms of the MIT License.
  */
+
 #include <sys/event.h>
 
 #include <StackOrHeapArray.h>
@@ -35,6 +36,12 @@ filter_from_info(const event_wait_info& info)
 
 		case B_OBJECT_TYPE_THREAD:
 			return EVFILT_PROC;
+
+		case B_OBJECT_TYPE_SEMAPHORE:
+			return EVFILT_HAIKU_SEM;
+
+		case B_OBJECT_TYPE_PORT:
+			return EVFILT_HAIKU_PORT_READ;
 	}
 
 	return 0;
@@ -48,9 +55,11 @@ kevent(int kq,
 	const struct timespec *tspec)
 {
 	BStackOrHeapArray<event_wait_info, 16> waitInfos(max_c(nchanges, nevents));
+	BStackOrHeapArray<int32, 16> requestedEvents(nchanges);
 
 	event_wait_info* waitInfo = waitInfos;
-	int changedInfos = 0;
+	int32* requestedEvent = requestedEvents;
+	int changedInfos = 0, receiptCount = 0;
 
 	for (int i = 0; i < nchanges; i++) {
 		waitInfo->object = changelist[i].ident;
@@ -75,8 +84,19 @@ kevent(int kq,
 					events |= B_EVENT_INVALID;
 				break;
 
+			case EVFILT_HAIKU_SEM:
+				waitInfo->type = B_OBJECT_TYPE_SEMAPHORE;
+				events = B_EVENT_ACQUIRE_SEMAPHORE;
+				break;
+
+			case EVFILT_HAIKU_PORT_READ:
+				waitInfo->type = B_OBJECT_TYPE_PORT;
+				events = B_EVENT_READ;
+				break;
+
 			default:
-				return EINVAL;
+				__set_errno(EINVAL);
+				return -1;
 		}
 
 		if ((changelist[i].flags & EV_ONESHOT) != 0)
@@ -146,39 +166,82 @@ kevent(int kq,
 		if (waitInfo->events != 0)
 			waitInfo->events |= behavior;
 
+		*requestedEvent = waitInfo->events;
+
+		if ((changelist[i].flags & EV_RECEIPT) != 0) {
+			receiptCount++;
+
+			// Use sign bit to indicate EV_RECEIPT.
+			*requestedEvent |= (1 << 31);
+		}
+
 		changedInfos++;
 		waitInfo++;
+		requestedEvent++;
+
+		if (receiptCount >= nevents)
+			break;
 	}
 	if (changedInfos != 0) {
 		status_t status = _kern_event_queue_select(kq, waitInfos, changedInfos);
-		if (status != B_OK) {
-			if (nchanges == 1 && nevents == 0) {
-				// Special case: return the lone error directly.
-				__set_errno(waitInfos[0].events);
-				return -1;
+		if (status != B_OK && nchanges == 1 && nevents == 0) {
+			// Special case: return the lone error directly.
+			__set_errno(waitInfos[0].events);
+			return -1;
+		}
+
+		// Report problems (or successes, if EV_RECEIPT is set) as error events.
+		int errors = 0;
+		for (int i = 0; i < changedInfos; i++) {
+			int64_t data = waitInfos[i].events;
+			if (data > 0) {
+				if (requestedEvents[i] > 0)
+					continue;
+
+				// Always generate an "error" event for EV_RECEIPT.
+				data = 0;
 			}
 
-			// Report problems as error events.
-			int errors = 0;
-			for (int i = 0; i < changedInfos; i++) {
-				if (waitInfos[i].events > 0)
-					continue;
-				if (nevents == 0) {
-					errors = -1;
-					break;
-				}
+			if (nevents == 0) {
+				errors = -1;
+				break;
+			}
 
-				short filter = filter_from_info(waitInfos[i]);
-				int64_t data = waitInfos[i].events;
+			short filter = filter_from_info(waitInfos[i]);
+			if ((requestedEvents[i] & (B_EVENT_READ | B_EVENT_WRITE))
+					== (B_EVENT_READ | B_EVENT_WRITE)) {
+				// We need to generate two errors for this case.
+				filter = EVFILT_READ;
+				int64_t readData = data;
+				if (data == 0 && (waitInfos[i].events & B_EVENT_READ) == 0)
+					readData = -1;
+
 				EV_SET(eventlist, waitInfos[i].object,
-					filter, EV_ERROR, 0, data, waitInfos[i].user_data);
+					filter, EV_ERROR, 0, readData, waitInfos[i].user_data);
 				eventlist++;
 				nevents--;
 				errors++;
+
+				filter = EVFILT_WRITE;
+				if (data == 0 && (waitInfos[i].events & B_EVENT_WRITE) == 0)
+					data = -1;
 			}
 
-			if (errors > 0)
-				return errors;
+			if (nevents == 0) {
+				errors = -1;
+				break;
+			}
+
+			EV_SET(eventlist, waitInfos[i].object,
+				filter, EV_ERROR, 0, data, waitInfos[i].user_data);
+			eventlist++;
+			nevents--;
+			errors++;
+		}
+
+		if (errors > 0)
+			return errors;
+		if (status != B_OK) {
 			__set_errno(status);
 			return -1;
 		}
@@ -207,11 +270,14 @@ kevent(int kq,
 				if (waitInfos[i].events < 0) {
 					flags |= EV_ERROR;
 					data = waitInfos[i].events;
-				} else if ((waitInfos[i].events & B_EVENT_DISCONNECTED) != 0) {
-					flags |= EV_EOF;
 				} else if ((waitInfos[i].events & B_EVENT_INVALID) != 0) {
 					switch (waitInfos[i].type) {
 						case B_OBJECT_TYPE_FD:
+							// File descriptor was closed. Silently discard the event.
+							continue;
+
+						case B_OBJECT_TYPE_SEMAPHORE:
+						case B_OBJECT_TYPE_PORT:
 							flags |= EV_EOF;
 							break;
 
@@ -227,6 +293,8 @@ kevent(int kq,
 							break;
 						}
 					}
+				} else if ((waitInfos[i].events & B_EVENT_DISCONNECTED) != 0) {
+					flags |= EV_EOF;
 				} else if ((waitInfos[i].events & B_EVENT_ERROR) != 0) {
 					flags |= EV_ERROR;
 					data = EINVAL;

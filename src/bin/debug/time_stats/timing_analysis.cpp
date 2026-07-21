@@ -4,6 +4,7 @@
  */
 
 #include <errno.h>
+#include <spawn.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -57,22 +58,16 @@ get_usage_infos(thread_info* infos)
 static pid_t
 run_child(int argc, const char* const* argv)
 {
-	// fork
-	pid_t child = fork();
-	if (child < 0) {
-		fprintf(stderr, "Error: fork() failed: %s\n", strerror(errno));
-		exit(1);
-	}
-
-	// exec child process
-	if (child == 0) {
-		execvp(argv[0], (char**)argv);
+	pid_t child;
+	int status = posix_spawnp(&child, argv[0], NULL, NULL, (char**)argv, NULL);
+	if (status != 0) {
+		fprintf(stderr, "Error: spawn failed: %s\n", strerror(status));
 		exit(1);
 	}
 
 	// wait for child
 	int childStatus;
-	while (wait(&childStatus) < 0);
+	while (waitpid(child, &childStatus, 0) < 0);
 
 	return child;
 }

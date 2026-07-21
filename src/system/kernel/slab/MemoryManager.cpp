@@ -468,7 +468,7 @@ MemoryManager::Init(kernel_args* args)
 	sFreeAreaCount = 0;
 	sMaintenanceNeeded = false;
 
-#if USE_DEBUG_HEAP_FOR_MALLOC || USE_GUARDED_HEAP_FOR_MALLOC
+#if DEBUG_HEAPS
 	// Allocate one area immediately. Otherwise, we might try to allocate before
 	// post-area initialization but after page initialization, during which time
 	// we can't actually reserve pages.
@@ -1534,12 +1534,13 @@ MemoryManager::_MapChunk(VMArea* vmArea, addr_t address, size_t size,
 
 		page->IncrementWiredCount();
 		atomic_add(&gMappedPagesCount, 1);
-		DEBUG_PAGE_ACCESS_END(page);
 
 		translationMap->Map(vmArea->Base() + offset,
 			page->physical_page_number * B_PAGE_SIZE,
 			B_KERNEL_READ_AREA | B_KERNEL_WRITE_AREA,
 			vmArea->MemoryType(), &reservation);
+
+		DEBUG_PAGE_ACCESS_END(page);
 	}
 
 	translationMap->Unlock();

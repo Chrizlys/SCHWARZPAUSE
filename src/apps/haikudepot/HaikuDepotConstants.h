@@ -5,17 +5,16 @@
 #ifndef HAIKU_DEPOT_CONSTANTS_H
 #define HAIKU_DEPOT_CONSTANTS_H
 
+
 enum {
 	MSG_PACKAGE_ACTION_DONE					= 'mpad',
 	MSG_BULK_LOAD_DONE						= 'mmwd',
 	MSG_MAIN_WINDOW_CLOSED					= 'mwcl',
-	MSG_PACKAGE_SELECTED					= 'pkgs',
 	MSG_PACKAGE_WORKER_BUSY					= 'pkwb',
 	MSG_PACKAGE_WORKER_IDLE					= 'pkwi',
 	MSG_CLIENT_TOO_OLD						= 'oldc',
 	MSG_NETWORK_TRANSPORT_ERROR				= 'nett',
 	MSG_SERVER_ERROR						= 'svre',
-	MSG_SERVER_DATA_CHANGED					= 'svdc',
 	MSG_ALERT_SIMPLE_ERROR					= 'nser',
 	MSG_DID_ADD_USER_RATING					= 'adur',
 	MSG_DID_UPDATE_USER_RATING				= 'upur',
@@ -29,6 +28,9 @@ enum {
 	MSG_PKG_INSTALL							= 'pkgi',
 	MSG_PKG_UNINSTALL						= 'pkgu',
 	MSG_PKG_OPEN							= 'pkgo',
+	MSG_PKG_CACHE_SCREENSHOT				= 'pcsc',
+	MSG_PKG_POPULATE_CHANGELOG				= 'pchl',
+	MSG_PKG_POPULATE_USER_RATINGS			= 'purg',
 	MSG_SHOW_ALL_PACKAGES_TAB				= 'sapt'
 };
 

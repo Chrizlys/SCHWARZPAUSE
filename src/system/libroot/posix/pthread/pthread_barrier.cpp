@@ -37,7 +37,7 @@ pthread_barrier_init(pthread_barrier_t* barrier,
 
 	barrier->flags = attr->process_shared ? BARRIER_FLAG_SHARED : 0;
 	barrier->lock = B_USER_MUTEX_LOCKED;
-	barrier->mutex = 0;
+	barrier->mutex = B_USER_MUTEX_LOCKED | B_USER_MUTEX_DISABLED;
 	barrier->waiter_count = 0;
 	barrier->waiter_max = count;
 
@@ -45,46 +45,25 @@ pthread_barrier_init(pthread_barrier_t* barrier,
 }
 
 
-static status_t
-barrier_lock(__haiku_std_int32* mutex, uint32 flags)
-{
-	const int32 oldValue = atomic_test_and_set((int32*)mutex, B_USER_MUTEX_LOCKED, 0);
-	if (oldValue != 0) {
-		status_t error;
-		do {
-			error = _kern_mutex_lock((int32*)mutex, NULL, flags, 0);
-		} while (error == B_INTERRUPTED);
-
-		if (error != B_OK)
-			return error;
-	}
-	return B_OK;
-}
-
-
 static void
-barrier_unlock(__haiku_std_int32* mutex, uint32 flags)
+barrier_disable_and_unblock(__haiku_std_int32* mutex, uint32 flags)
 {
-	int32 oldValue = atomic_and((int32*)mutex,
-		~(int32)B_USER_MUTEX_LOCKED);
+	int32 oldValue = atomic_or((int32*)mutex, B_USER_MUTEX_DISABLED);
 	if ((oldValue & B_USER_MUTEX_WAITING) != 0)
-		_kern_mutex_unblock((int32*)mutex, flags);
+		_kern_mutex_unblock((int32*)mutex, flags | B_USER_MUTEX_UNBLOCK_ALL);
 }
 
 
 static void
-barrier_ensure_idle(pthread_barrier_t* barrier)
+barrier_ensure_none_exiting(pthread_barrier_t* barrier)
 {
 	const uint32 flags = (barrier->flags & BARRIER_FLAG_SHARED) ? B_USER_MUTEX_SHARED : 0;
 
 	// waiter_count < 0 means other threads are still exiting.
-	// Loop (usually only one iteration needed) until this is no longer the case.
 	while (atomic_get((int32*)&barrier->waiter_count) < 0) {
-		status_t status = barrier_lock(&barrier->mutex, flags);
-		if (status != B_OK)
+		status_t status = _kern_mutex_lock((int32*)&barrier->mutex, NULL, flags, 0);
+		if (status != B_INTERRUPTED)
 			return;
-
-		barrier_unlock(&barrier->mutex, flags);
 	}
 }
 
@@ -99,15 +78,16 @@ pthread_barrier_wait(pthread_barrier_t* barrier)
 		return PTHREAD_BARRIER_SERIAL_THREAD;
 
 	const uint32 mutexFlags = (barrier->flags & BARRIER_FLAG_SHARED) ? B_USER_MUTEX_SHARED : 0;
-	barrier_ensure_idle(barrier);
+	barrier_ensure_none_exiting(barrier);
 
 	if (atomic_add((int32*)&barrier->waiter_count, 1) == (barrier->waiter_max - 1)) {
-		// We are the last one in. Lock the barrier mutex.
-		barrier_lock(&barrier->mutex, mutexFlags);
-
-		// Wake everyone else up.
+		// We are the last one in. Reset the count and set the barrier mutex.
 		barrier->waiter_count = (-barrier->waiter_max) + 1;
-		barrier_unlock(&barrier->lock, mutexFlags | B_USER_MUTEX_UNBLOCK_ALL);
+		barrier->mutex = B_USER_MUTEX_LOCKED;
+
+		// Wake everyone else up. But first, mark the barrier disabled,
+		// so exiting threads don't need to re-unlock.
+		barrier_disable_and_unblock(&barrier->lock, mutexFlags);
 
 		// Return with the barrier mutex still locked, as waiter_count < 0.
 		// The last thread out will take care of unlocking it and resetting state.
@@ -119,13 +99,10 @@ pthread_barrier_wait(pthread_barrier_t* barrier)
 		_kern_mutex_lock((int32*)&barrier->lock, "barrier wait", mutexFlags, 0);
 	} while (barrier->waiter_count > 0);
 
-	// Release the barrier, so that any later threads trying to acquire it wake up.
-	barrier_unlock(&barrier->lock, mutexFlags);
-
 	if (atomic_add((int32*)&barrier->waiter_count, 1) == -1) {
-		// We are the last one out. Reset state and unlock.
-		barrier->lock = B_USER_MUTEX_LOCKED;
-		barrier_unlock(&barrier->mutex, mutexFlags);
+		// We are the last one out. Reset state and unblock.
+		atomic_and((int32*)&barrier->lock, ~(int32)B_USER_MUTEX_DISABLED);
+		barrier_disable_and_unblock(&barrier->mutex, mutexFlags);
 	}
 
 	return 0;
@@ -135,7 +112,12 @@ pthread_barrier_wait(pthread_barrier_t* barrier)
 int
 pthread_barrier_destroy(pthread_barrier_t* barrier)
 {
-	barrier_ensure_idle(barrier);
+	barrier_ensure_none_exiting(barrier);
+
+	// Wait (if necessary) for the last thread to finish unblocking.
+	while (atomic_get((int32*)&barrier->mutex) != (B_USER_MUTEX_LOCKED | B_USER_MUTEX_DISABLED))
+		sched_yield();
+
 	return B_OK;
 }
 

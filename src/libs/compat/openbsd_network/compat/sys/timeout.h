@@ -23,6 +23,13 @@ timeout_set(struct timeout *to, void (*fn)(void *), void *arg)
 
 
 static inline int
+timeout_initialized(struct timeout *to)
+{
+	return to->c.c_due >= 0;
+}
+
+
+static inline int
 timeout_pending(struct timeout *to)
 {
 	return callout_pending(&to->c);

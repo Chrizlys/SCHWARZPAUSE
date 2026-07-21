@@ -79,7 +79,7 @@ X86PagingMethod64Bit::Init(kernel_args* args,
 		memset(virtualPML4, 0, sizeof(uint64) * 256);
 	}
 	memset(fKernelVirtualPMLTop, 0, sizeof(uint64) * 256);
-	arch_cpu_global_TLB_invalidate();
+	arch_cpu_global_tlb_invalidate();
 
 	*_physicalPageMapper = fPhysicalPageMapper;
 	return B_ERROR;

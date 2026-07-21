@@ -4,35 +4,18 @@
  * Copyright 2016-2026, Andrew Lindesay <apl@lindesay.co.nz>.
  * All rights reserved. Distributed under the terms of the MIT License.
  */
+
+
 #include "Model.h"
 
 #include <algorithm>
-#include <ctime>
-
-#include <stdarg.h>
-#include <stdint.h>
-#include <time.h>
 
 #include <Autolock.h>
-#include <Catalog.h>
-#include <Directory.h>
-#include <Entry.h>
-#include <File.h>
-#include <KeyStore.h>
-#include <Locale.h>
-#include <LocaleRoster.h>
-#include <Message.h>
-#include <Path.h>
 
 #include "HaikuDepotConstants.h"
 #include "LocaleUtils.h"
 #include "Logger.h"
 #include "PackageUtils.h"
-#include "StorageUtils.h"
-
-
-#undef B_TRANSLATION_CONTEXT
-#define B_TRANSLATION_CONTEXT "Model"
 
 
 static const uint32 kChangeMaskAll = UINT32_MAX;
@@ -111,6 +94,7 @@ Model::Model()
 	fCategories(),
 	fPackageListViewMode(PROMINENT),
 	fCanShareAnonymousUsageData(false),
+	fCanNicknamePasswordAuthenticate(true),
 	fWebApp(WebAppInterfaceRef(new WebAppInterface(UserCredentials()), true)),
 	fLanguages(LocaleUtils::WellKnownLanguages())
 {
@@ -127,6 +111,50 @@ Model::Model()
 Model::~Model()
 {
 	delete fPackageScreenshotRepository;
+}
+
+
+/*!	Returns the currently selected package. If there is no selected package then
+	this will return an empty reference.
+*/
+PackageInfoRef
+Model::SelectedPackage() const
+{
+	BAutolock locker(&fLock);
+	if (fSelectedPackageName.IsEmpty())
+		return PackageInfoRef();
+	return PackageForName(fSelectedPackageName);
+}
+
+
+/*!	Sets the currently selected package. The package can be unset in which case
+	there will be no selected package. If the selected package changes then a
+	notification will be sent to the listeners.
+*/
+void
+Model::SetSelectedPackage(const PackageInfoRef& package)
+{
+	BAutolock locker(&fLock);
+	BString packageName;
+
+	if (package.IsSet())
+		packageName = package->Name();
+
+	if (packageName != fSelectedPackageName) {
+		fSelectedPackageName = packageName;
+		_NotifySelectedPackageChanged();
+	}
+}
+
+
+void
+Model::ClearSelectedPackage()
+{
+	BAutolock locker(&fLock);
+	if (!fSelectedPackageName.IsEmpty()) {
+		fSelectedPackageName = "";
+		_NotifySelectedPackageChanged();
+	}
 }
 
 
@@ -386,6 +414,17 @@ Model::AddPackage(const PackageInfoRef& package)
 
 
 void
+Model::AddPackageWithChange(const PackageInfoRef& package, uint32 changeMask)
+{
+	if (!package.IsSet())
+		HDFATAL("attempt to add an unset package");
+	BAutolock locker(&fLock);
+	fPackages[package->Name()] = package;
+	_NotifyPackageChange(PackageChangeEvent(package, changeMask));
+}
+
+
+void
 Model::AddPackages(const std::vector<PackageInfoRef>& packages)
 {
 	if (packages.empty())
@@ -498,7 +537,10 @@ void
 Model::SetPackageListViewMode(package_list_view_mode mode)
 {
 	BAutolock locker(&fLock);
-	fPackageListViewMode = mode;
+	if (fPackageListViewMode != mode) {
+		fPackageListViewMode = mode;
+		_NotifyPackageListViewModeChanged();
+	}
 }
 
 
@@ -518,6 +560,31 @@ Model::SetCanShareAnonymousUsageData(bool value)
 }
 
 
+void
+Model::SetCanNicknamePasswordAuthenticate(bool value)
+{
+	BAutolock locker(&fLock);
+	if (fCanNicknamePasswordAuthenticate != value) {
+		fCanNicknamePasswordAuthenticate = value;
+		_NotifyCanNicknamePasswordAuthenticateChanged();
+	}
+}
+
+
+/*!	At some point in the future HaikuDepot will support authentication via SSO rather than
+ *	nickname + password. At this time the server will no longer support nickname + password
+ *	as well. To make this transition easier for people using older versions of HaikuDepot,
+ *	this flag will indicate if the server (HDS) has signaled it no longer supports nickname +
+ *	password.
+ */
+bool
+Model::CanNicknamePasswordAuthenticate()
+{
+	BAutolock locker(&fLock);
+	return fCanNicknamePasswordAuthenticate;
+}
+
+
 // #pragma mark - information retrieval
 
 /*!	It may transpire that the package has no corresponding record on the
@@ -530,6 +597,10 @@ bool
 Model::CanPopulatePackage(const PackageInfoRef& package)
 {
 	const BString depotName = PackageUtils::DepotName(package);
+
+	if (depotName == SINGLE_PACKAGE_DEPOT_NAME)
+		return false;
+
 	const DepotInfoRef& depot = DepotForName(depotName);
 
 	if (!depot.IsSet())
@@ -572,6 +643,20 @@ Model::SetCredentials(const UserCredentials& credentials)
 /*!	Assumes that the class is locked.
  */
 void
+Model::_NotifySelectedPackageChanged()
+{
+	std::vector<ModelListenerRef>::const_iterator it;
+	for (it = fListeners.begin(); it != fListeners.end(); it++) {
+		const ModelListenerRef& listener = *it;
+		if (listener.IsSet())
+			listener->SelectedPackageChanged();
+	}
+}
+
+
+/*!	Assumes that the class is locked.
+ */
+void
 Model::_NotifyPackageFilterChanged()
 {
 	std::vector<ModelListenerRef>::const_iterator it;
@@ -605,6 +690,30 @@ Model::_NotifyCategoryListChanged()
 		const ModelListenerRef& listener = *it;
 		if (listener.IsSet())
 			listener->CategoryListChanged();
+	}
+}
+
+
+void
+Model::_NotifyPackageListViewModeChanged()
+{
+	std::vector<ModelListenerRef>::const_iterator it;
+	for (it = fListeners.begin(); it != fListeners.end(); it++) {
+		const ModelListenerRef& listener = *it;
+		if (listener.IsSet())
+			listener->PackageListViewModeChanged();
+	}
+}
+
+
+void
+Model::_NotifyCanNicknamePasswordAuthenticateChanged()
+{
+	std::vector<ModelListenerRef>::const_iterator it;
+	for (it = fListeners.begin(); it != fListeners.end(); it++) {
+		const ModelListenerRef& listener = *it;
+		if (listener.IsSet())
+			listener->CanNicknamePasswordAuthenticateChanged();
 	}
 }
 

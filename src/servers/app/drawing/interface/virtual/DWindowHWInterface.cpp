@@ -757,20 +757,6 @@ DWindowHWInterface::GetDeviceInfo(accelerant_device_info* info)
 
 
 status_t
-DWindowHWInterface::GetFrameBufferConfig(frame_buffer_config& config)
-{
-	if (!fFrontBuffer.IsSet())
-		return B_ERROR;
-
-	config.frame_buffer = fFrontBuffer->Bits();
-	config.frame_buffer_dma = NULL;
-	config.bytes_per_row = fFrontBuffer->BytesPerRow();
-
-	return B_OK;
-}
-
-
-status_t
 DWindowHWInterface::GetModeList(display_mode** _modes, uint32* _count)
 {
 	AutoReadLocker _(this);
@@ -848,7 +834,7 @@ DWindowHWInterface::ProposeMode(display_mode* candidate,
 {
 	// We should be able to get away with this because we're not dealing with
 	// any specific hardware. This is a Good Thing(TM) because we can support
-	// any hardware we wish within reasonable expectaions and programmer
+	// any hardware we wish within reasonable expectations and programmer
 	// laziness. :P
 	return B_OK;
 }

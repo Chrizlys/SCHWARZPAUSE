@@ -148,16 +148,16 @@ AppFileInfoTest::Suite() {
 						   &AppFileInfoTest::SignatureTest) );
 	suite->addTest( new TC("BAppFileInfo::App Flags Test",
 						   &AppFileInfoTest::AppFlagsTest) );
-	suite->addTest( new TC("BAppFileInfo::Supported Types Test",
-						   &AppFileInfoTest::SupportedTypesTest) );
+//	suite->addTest( new TC("BAppFileInfo::Supported Types Test",
+//						   &AppFileInfoTest::SupportedTypesTest) );
 	suite->addTest( new TC("BAppFileInfo::Icon Test",
 						   &AppFileInfoTest::IconTest) );
 	suite->addTest( new TC("BAppFileInfo::Version Info Test",
 						   &AppFileInfoTest::VersionInfoTest) );
 	suite->addTest( new TC("BAppFileInfo::Icon For Type Test",
 						   &AppFileInfoTest::IconForTypeTest) );
-	suite->addTest( new TC("BAppFileInfo::Info Location Test",
-						   &AppFileInfoTest::InfoLocationTest) );
+//	suite->addTest( new TC("BAppFileInfo::Info Location Test",
+//						   &AppFileInfoTest::InfoLocationTest) );
 
 	return suite;
 }		

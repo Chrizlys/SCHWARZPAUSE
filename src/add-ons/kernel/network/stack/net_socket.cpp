@@ -284,6 +284,22 @@ process_ancillary_data(net_socket* socket,
 }
 
 
+static size_t
+calculate_total_length(msghdr* header, void* data, size_t length)
+{
+	size_t totalLength = length;
+	if (header != NULL) {
+		ASSERT((header->msg_iovlen == 0 && data == NULL)
+			|| data == header->msg_iov[0].iov_base);
+
+		// calculate the length considering all of the extra buffers
+		for (int i = 1; i < header->msg_iovlen; i++)
+			totalLength += header->msg_iov[i].iov_len;
+	}
+	return totalLength;
+}
+
+
 static ssize_t
 socket_receive_no_buffer(net_socket* socket, msghdr* header, void* data,
 	size_t length, int flags)
@@ -315,11 +331,12 @@ socket_receive_no_buffer(net_socket* socket, msghdr* header, void* data,
 		header->msg_flags = 0;
 	}
 
-	if (length < (size_t)bytesRead) {
+	size_t totalLength = calculate_total_length(header, data, length);
+	if (totalLength < (size_t)bytesRead) {
 		if (header != NULL)
 			header->msg_flags = MSG_TRUNC;
 		if ((flags & MSG_TRUNC) == 0)
-			return length;
+			return totalLength;
 	}
 	return bytesRead;
 }
@@ -832,6 +849,13 @@ socket_request_notification(net_socket* _socket, uint8 event, selectsync* sync)
 			if (socket->error != B_OK)
 				notify_select_event(sync, event);
 			break;
+		case B_SELECT_DISCONNECTED:
+		{
+			ssize_t available = socket_read_avail(socket);
+			if (available < 0)
+				notify_select_event(sync, event);
+			break;
+		}
 	}
 
 	return B_OK;
@@ -858,14 +882,14 @@ socket_notify(net_socket* _socket, uint8 event, int32 value)
 	switch (event) {
 		case B_SELECT_READ:
 			if ((ssize_t)socket->receive.low_water_mark > value
-				&& value >= B_OK && !atomic) {
+					&& value >= B_OK && !atomic) {
 				notify = false;
 			}
 			break;
 
 		case B_SELECT_WRITE:
 			if ((ssize_t)socket->send.low_water_mark > value
-				&& value >= B_OK && !atomic) {
+					&& value >= B_OK && !atomic) {
 				notify = false;
 			}
 			break;
@@ -880,6 +904,8 @@ socket_notify(net_socket* _socket, uint8 event, int32 value)
 	if (notify && socket->select_pool != NULL) {
 		notify_select_event_pool(socket->select_pool, event);
 
+		if (event == B_SELECT_READ && value < 0)
+			notify_select_event_pool(socket->select_pool, B_SELECT_DISCONNECTED);
 		if (event == B_SELECT_ERROR) {
 			// always notify read/write on error
 			notify_select_event_pool(socket->select_pool, B_SELECT_READ);
@@ -1161,15 +1187,7 @@ socket_receive(net_socket* socket, msghdr* header, void* data, size_t length,
 	// Mask off flags handled in this function.
 	flags &= ~(MSG_TRUNC);
 
-	size_t totalLength = length;
-	if (header != NULL) {
-		ASSERT((header->msg_iovlen == 0 && data == NULL)
-			|| data == header->msg_iov[0].iov_base);
-
-		// calculate the length considering all of the extra buffers
-		for (int i = 1; i < header->msg_iovlen; i++)
-			totalLength += header->msg_iov[i].iov_len;
-	}
+	size_t totalLength = calculate_total_length(header, data, length);
 
 	net_buffer* buffer;
 	status_t status = socket->first_info->read_data(
@@ -1722,4 +1740,3 @@ net_socket_module_info gNetSocketModule = {
 	socket_shutdown,
 	socket_socketpair
 };
-

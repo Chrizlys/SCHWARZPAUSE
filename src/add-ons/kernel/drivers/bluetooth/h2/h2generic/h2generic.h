@@ -49,6 +49,7 @@ extern struct bluetooth_core_data_module_info* btCoreData;
 #define MAX_COMMAND_WINDOW 1
 #define MAX_ACL_OUT_WINDOW 4
 #define MAX_ACL_IN_WINDOW  1
+#define MAX_SCO_IN_WINDOW 1
 
 #define MAX_NUM_QUEUED_PACKETS 1
 #define NUM_BUFFERS 1
@@ -84,16 +85,17 @@ struct bt_usb_dev {
 	const	usb_endpoint_info*	intr_in_ep;
 			uint16				max_packet_size_intr_in;
 
-#ifdef BLUETOOTH_SUPPORTS_SCO
-	const usb_endpoint_info	*iso_in_ep;
-	const usb_endpoint_info	*iso_out_ep;
-#endif
+	const usb_endpoint_info*	iso_in_ep;
+		  uint16                max_packet_size_iso_in;
+	const usb_endpoint_info*	iso_out_ep;
+		  uint16                max_packet_size_iso_out;
 
 	/* This so called rooms, are for dumping the USB RX frames
 	 * and try to reuse the allocations. see util submodule
 	 */
 	struct list eventRoom;
 	struct list aclRoom;
+	struct list scoRoom;
 
 	// Tx buffers: net_buffers for BT_ACL and snet_buffers for BT_COMMAND
 	// in the same array

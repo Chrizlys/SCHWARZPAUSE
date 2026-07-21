@@ -82,6 +82,7 @@ public:
 
 	virtual	BString				CommandString();
 	virtual	bool				HandleUntagged(Response& response);
+	virtual	status_t			HandleTagged(Response& response);
 
 			const ArgumentList&	Capabilities() const { return fCapabilities; }
 
@@ -89,6 +90,15 @@ private:
 			const char*			fUser;
 			const char*			fPassword;
 			ArgumentList		fCapabilities;
+};
+
+
+class IDCommand : public Command, public Handler {
+public:
+								IDCommand();
+
+	virtual BString				CommandString();
+	virtual	bool				HandleUntagged(Response& response);
 };
 
 

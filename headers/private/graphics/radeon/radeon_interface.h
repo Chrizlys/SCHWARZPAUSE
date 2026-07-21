@@ -538,7 +538,7 @@ typedef struct {
 
 	area_id		regs_area;		// area of memory mapped registers
 	area_id		ROM_area;		// area of ROM
-	void		*framebuffer_pci;	// physical address of frame buffer (aka local memory)
+	phys_addr_t	framebuffer_pci;	// physical address of frame buffer (aka local memory)
 							// this is a hack needed by BeOS
 
 	crtc_info	crtc[2];		// info about each crtc

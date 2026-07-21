@@ -16,15 +16,17 @@ public:
 								URLInputGroup(BMessage* goMessage);
 	virtual						~URLInputGroup();
 
-	virtual	void				AttachedToWindow();
-	virtual	void				WindowActivated(bool active);
-	virtual	void				Draw(BRect updateRect);
-	virtual	void				MakeFocus(bool focus = true);
+	virtual	void				AttachedToWindow() override;
+	virtual	void				WindowActivated(bool active) override;
+	virtual	void				DrawAfterChildren(BRect updateRect) override;
+	virtual	void				MakeFocus(bool focus = true) override;
+
 
 			BTextView*			TextView() const;
 			void				SetText(const char* text);
 			const char*			Text() const;
 
+			void				MarkAsInvalid(bool invalid);
 			BButton*			GoButton() const;
 
 			void				SetPageIcon(const BBitmap* icon);
@@ -41,6 +43,7 @@ private:
 			BButton*			fGoButton;
 			bool				fWindowActive;
 			bool				fURLLocked;
+			bool				fInvalid;
 };
 
 #endif // URL_INPUT_GROUP_H

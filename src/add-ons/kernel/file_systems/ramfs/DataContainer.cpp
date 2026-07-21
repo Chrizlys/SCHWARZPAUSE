@@ -252,14 +252,13 @@ DataContainer::WriteAt(off_t offset, const void *_buffer, size_t size,
 }
 
 
-void
-DataContainer::GetAllocationInfo(AllocationInfo &info)
+off_t
+DataContainer::GetCommittedSize() const
 {
-	if (_IsCacheMode()) {
-		info.AddAreaAllocation(fCache->committed_size);
-	} else {
-		// ...
-	}
+	if (_IsCacheMode())
+		return sizeof(VMForVnodeCache) + fCache->Commitment();
+	else
+		return fSmallBufferSize;
 }
 
 

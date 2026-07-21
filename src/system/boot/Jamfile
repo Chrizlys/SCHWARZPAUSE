@@ -12,6 +12,8 @@ rule BuildOpenFirmwareLoader {
 	switch $(TARGET_ARCH) {
 		case ppc :
 			BuildCoffLoader $(haikuLoader) : $(bootLoader) ;
+		case ppc64 :
+			BuildCoffLoader $(haikuLoader) : $(bootLoader) ;
 		case sparc :
 			BuildAoutLoader $(haikuLoader) : $(bootLoader) ;
 		case * :
@@ -49,6 +51,8 @@ rule BuildCoffLoader {
 	local bootLoader = $(2) ;
 	switch $(TARGET_ARCH) {
 		case ppc :
+			COFF_FORMAT on $(coffLoader) = xcoff-powermac ;
+		case ppc64 :
 			COFF_FORMAT on $(coffLoader) = xcoff-powermac ;
 		case * :
 			Exit "Currently unsupported coff arch:" $(TARGET_ARCH) ;
@@ -319,6 +323,7 @@ for platform in [ MultiBootSubDirSetup ] {
 			memchr.c
 			memcmp.c
 			memmove.c
+			stpcpy.c
 			strdup.cpp
 			strndup.cpp
 			strlen.c
@@ -332,6 +337,7 @@ for platform in [ MultiBootSubDirSetup ] {
 			strlcat.c
 			strlcpy.c
 			strchr.c
+			strchrnul.c
 			strrchr.c
 			strtol.c
 			strtoul.c

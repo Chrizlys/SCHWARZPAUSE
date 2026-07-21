@@ -452,7 +452,7 @@ rw_lock_destroy(rw_lock* lock)
 #if KDEBUG_RW_LOCK_DEBUG
 
 bool
-_rw_lock_is_read_locked(rw_lock* lock)
+_rw_lock_is_read_locked(const rw_lock* lock)
 {
 	if (lock->holder == thread_get_current_thread_id())
 		return true;
@@ -978,6 +978,7 @@ mutex_switch_from_read_lock(rw_lock* from, mutex* to)
 			"for locks %p, %p", from, to);
 	}
 #endif
+	ASSERT(from->holder != thread_get_current_thread_id());
 
 	InterruptsSpinLocker locker(to->lock);
 

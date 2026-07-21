@@ -1,11 +1,13 @@
 /*
- * Copyright 2024-2025, Andrew Lindesay <apl@lindesay.co.nz>.
+ * Copyright 2024-2026, Andrew Lindesay <apl@lindesay.co.nz>.
  * All rights reserved. Distributed under the terms of the MIT License.
  */
+
 
 #include "PackageUtils.h"
 
 #include "Logger.h"
+
 
 /*!	This method will obtain the title from the package if this is possible or
 	otherwise it will return the name of the package.
@@ -49,6 +51,66 @@ PackageUtils::Summary(const PackageInfoRef& package, BString& summary)
 	} else {
 		summary.SetTo("");
 	}
+}
+
+
+/*static*/ bool
+PackageUtils::HasChangelog(const PackageInfoRef& package)
+{
+	if (package.IsSet()) {
+		PackageLocalizedTextRef localizedText = package->LocalizedText();
+
+		if (localizedText.IsSet())
+			return localizedText->HasChangelog();
+	}
+
+	return false;
+}
+
+
+/*static*/ bool
+PackageUtils::IsPopulatedChangelog(const PackageInfoRef& package)
+{
+	if (package.IsSet()) {
+		PackageLocalizedTextRef localizedText = package->LocalizedText();
+
+		if (localizedText.IsSet())
+			return !localizedText->Changelog().IsEmpty();
+	}
+
+	return false;
+}
+
+
+/*static*/ bool
+PackageUtils::HasUserRatings(const PackageInfoRef& package)
+{
+	if (package.IsSet()) {
+		PackageUserRatingInfoRef userRatingInfo = package->UserRatingInfo();
+
+		if (userRatingInfo.IsSet()) {
+			UserRatingSummaryRef summary = userRatingInfo->Summary();
+
+			if (summary.IsSet())
+				return summary->RatingCount() > 0;
+		}
+	}
+
+	return false;
+}
+
+
+/*static*/ bool
+PackageUtils::IsPopulatedUserRatings(const PackageInfoRef& package)
+{
+	if (package.IsSet()) {
+		PackageUserRatingInfoRef userRatingInfo = package->UserRatingInfo();
+
+		if (userRatingInfo.IsSet())
+			return userRatingInfo->UserRatingsPopulated();
+	}
+
+	return false;
 }
 
 

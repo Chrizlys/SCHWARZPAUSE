@@ -314,7 +314,11 @@ CachedNode::SetTo(off_t offset, const bplustree_node** _node, bool check)
 		RETURN_ERROR(B_BAD_VALUE);
 	}
 
-	if (InternalSetTo(NULL, offset) != NULL && check) {
+	status_t status = InternalSetTo(NULL, offset);
+	if (status != B_OK)
+		return status;
+
+	if (check) {
 		// sanity checks (links, all_key_count)
 		if (!fTree->fHeader.CheckNode(fNode)) {
 			FATAL(("invalid node [%p] read from offset %" B_PRIdOFF " (block %"
@@ -349,7 +353,10 @@ CachedNode::SetToWritable(Transaction& transaction, off_t offset, bool check)
 		return NULL;
 	}
 
-	if (InternalSetTo(&transaction, offset) != NULL && check) {
+	if (InternalSetTo(&transaction, offset) != B_OK)
+		return NULL;
+
+	if (check) {
 		// sanity checks (links, all_key_count)
 		if (!fTree->fHeader.CheckNode(fNode)) {
 			FATAL(("invalid node [%p] read from offset %" B_PRIdOFF " (block %"
@@ -420,15 +427,20 @@ CachedNode::SetToWritableHeader(Transaction& transaction)
 #endif // !_BOOT_MODE
 
 
-bplustree_node*
+status_t
 CachedNode::InternalSetTo(Transaction* transaction, off_t offset)
 {
+	if (offset >= fTree->fStream->Size()) {
+		Unset();
+		RETURN_ERROR(B_BAD_VALUE);
+	}
+
 	off_t fileOffset;
 	block_run run;
-	if (offset >= fTree->fStream->Size()
-			|| fTree->fStream->FindBlockRun(offset, run, fileOffset) != B_OK) {
+	status_t status = fTree->fStream->FindBlockRun(offset, run, fileOffset);
+	if (status != B_OK) {
 		Unset();
-		return NULL;
+		return status;
 	}
 
 #if !_BOOT_MODE
@@ -461,7 +473,7 @@ CachedNode::InternalSetTo(Transaction* transaction, off_t offset)
 		if (fBlock == NULL) {
 			fBlock = (uint8*)malloc(volume->BlockSize());
 			if (fBlock == NULL)
-				return NULL;
+				RETURN_ERROR(B_NO_MEMORY);
 		}
 
 		if (read_pos(volume->Device(), newBlockNumber << volume->BlockShift(),
@@ -483,10 +495,10 @@ CachedNode::InternalSetTo(Transaction* transaction, off_t offset)
 			- (fileOffset + (blockOffset << volume->BlockShift())));
 	} else {
 		fNode = NULL;
-		REPORT_ERROR(B_IO_ERROR);
+		RETURN_ERROR(B_IO_ERROR);
 	}
 
-	return fNode;
+	return B_OK;
 }
 
 

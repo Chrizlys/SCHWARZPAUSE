@@ -74,7 +74,7 @@ status_t
 SingleParameterCommandRequest(uint8 ofg, uint8 ocf, PARAMETERTYPE parameter,
 	int32* result, hci_id hId, BMessenger* messenger)
 {
-	int8 bt_status = BT_ERROR;
+	uint8 bt_status = BT_ERROR;
 
 	BluetoothCommand<typed_command(PARAMETERCONTAINER)>
 		simpleCommand(ofg, ocf);
@@ -93,7 +93,7 @@ SingleParameterCommandRequest(uint8 ofg, uint8 ocf, PARAMETERTYPE parameter,
 	request.AddInt16("opcodeExpected", PACK_OPCODE(ofg, ocf));
 
 	if (messenger->SendMessage(&request, &reply) == B_OK) {
-		reply.FindInt8("status", &bt_status);
+		reply.FindUInt8("status", &bt_status);
 		if (result != NULL)
 			reply.FindInt32("result", result);
 	}
@@ -120,9 +120,14 @@ void* buildPinCodeRequestNegativeReply(bdaddr_t bdaddr, size_t* outsize);
 void* buildAcceptConnectionRequest(bdaddr_t bdaddr, uint8 role,
 	size_t* outsize);
 void* buildRejectConnectionRequest(bdaddr_t bdaddr, size_t* outsize);
+void* buildIOCapabilityRequestReply(bdaddr_t bdaddr, uint8 capability, uint8 oob_data,
+	uint8 authentication, size_t* outsize);
+void* buildUserConfirmReply(bdaddr_t bdaddr, size_t* outsize);
+void* buildAuthenticationRequested(uint16 handle, size_t* outsize);
 
 /* OGF_INFORMATIONAL_PARAM */
 void* buildReadLocalVersionInformation(size_t* outsize);
+void* buildReadLocalSupportedCommands(size_t* outsize);
 void* buildReadBufferSize(size_t* outsize);
 void* buildReadBdAddr(size_t* outsize);
 

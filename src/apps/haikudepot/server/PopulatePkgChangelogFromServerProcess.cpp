@@ -9,7 +9,6 @@
 
 #include "PopulatePkgChangelogFromServerProcess.h"
 
-#include <Autolock.h>
 #include <Catalog.h>
 
 #include "Logger.h"
@@ -103,7 +102,7 @@ PopulatePkgChangelogFromServerProcess::_UpdateChangelog(const BString& value)
 	PackageInfoRef updatedPackage
 		= PackageInfoBuilder(package).WithLocalizedText(localizedText).BuildRef();
 
-	fModel->AddPackage(updatedPackage);
+	fModel->AddPackageWithChange(updatedPackage, static_cast<uint32>(PKG_CHANGED_LOCALIZED_TEXT));
 
 	return B_OK;
 }

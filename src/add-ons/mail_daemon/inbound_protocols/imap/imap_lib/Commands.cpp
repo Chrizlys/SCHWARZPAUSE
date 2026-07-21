@@ -193,6 +193,67 @@ LoginCommand::HandleUntagged(Response& response)
 }
 
 
+status_t
+LoginCommand::HandleTagged(Response& response)
+{
+	if (!response.EqualsAt(0, "OK") || !response.IsListAt(1, '['))
+		return Command::HandleTagged(response);
+
+	// RFC 3501 (IMAP4rev1):
+	// A server MAY include a CAPABILITY response code in the tagged OK
+	// response to a successful LOGIN command in order to send
+	// capabilities automatically.
+	ArgumentList& list = response.ListAt(1);
+	if (!list.EqualsAt(0, "CAPABILITY"))
+		return false;
+
+	// merge with previous capabilities extracted from command untagged response, if any
+	while (list.CountItems() > 1) {
+		StringArgument* argument = dynamic_cast<StringArgument*>(list.RemoveItemAt(1));
+		if (argument != NULL && !fCapabilities.Contains(argument->ToString().String()))
+			fCapabilities.AddItem(argument);
+	}
+
+	TRACE("CAPABILITY: %s\n", fCapabilities.ToString().String());
+	return B_OK;
+}
+
+// #pragma mark -
+
+
+IDCommand::IDCommand()
+{
+}
+
+
+BString
+IDCommand::CommandString()
+{
+	BString command = "ID";
+	// Don't be shy, share some info about this IMAP client:
+	command << " (\"name\" \"IMAP mail_daemon add-on\" \"os\" \"Haiku\")";
+	return command;
+}
+
+
+bool
+IDCommand::HandleUntagged(Response& response)
+{
+	if (response.IsCommand("ID") && response.IsListAt(1)) {
+		puts("IMAP server info:");
+		ArgumentList& list = response.ListAt(1);
+		for (int32 i = 0; i < list.CountItems(); i += 2) {
+			printf("  %s: %s\n",
+				list.ItemAt(i)->ToString().String(),
+				list.ItemAt(i + 1)->ToString().String());
+		}
+		return true;
+	}
+
+	return false;
+}
+
+
 // #pragma mark -
 
 

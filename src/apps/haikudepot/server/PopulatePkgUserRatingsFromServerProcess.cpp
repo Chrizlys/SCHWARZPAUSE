@@ -10,7 +10,6 @@
 
 #include "PopulatePkgUserRatingsFromServerProcess.h"
 
-#include <Autolock.h>
 #include <Catalog.h>
 
 #include "Logger.h"
@@ -283,7 +282,7 @@ PopulatePkgUserRatingsFromServerProcess::RunInternal()
 											.WithUserRatingInfo(userRatingInfoBuilder.BuildRef())
 											.BuildRef();
 
-		fModel->AddPackage(updatedPackage);
+		fModel->AddPackageWithChange(updatedPackage, static_cast<uint32>(PKG_CHANGED_RATINGS));
 	}
 
 	return status;

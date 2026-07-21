@@ -7,6 +7,8 @@
  * Copyright 2017, Julian Harnath <julian.harnath@rwth-aachen.de>.
  * All rights reserved. Distributed under the terms of the MIT License.
  */
+
+
 #include "MainWindow.h"
 
 #include <algorithm>
@@ -28,14 +30,12 @@
 #include <Messenger.h>
 #include <Roster.h>
 #include <Screen.h>
-#include <ScrollView.h>
 #include <StopWatch.h>
 #include <StringList.h>
 #include <StringView.h>
 #include <TabView.h>
 
 #include "AppUtils.h"
-#include "AutoDeleter.h"
 #include "AutoLocker.h"
 #include "DecisionProvider.h"
 #include "FeaturedPackagesView.h"
@@ -67,30 +67,32 @@
 
 
 enum {
-	MSG_REFRESH_REPOS							= 'mrrp',
-	MSG_MANAGE_REPOS							= 'mmrp',
-	MSG_SOFTWARE_UPDATER						= 'mswu',
-	MSG_SETTINGS								= 'stgs',
-	MSG_LOG_IN									= 'lgin',
-	MSG_AUTHORIZATION_CHANGED					= 'athc',
-	MSG_PACKAGE_FILTER_CHANGED					= 'fpch',
-	MSG_ICONS_CHANGED							= 'icoc',
-	MSG_CATEGORIES_LIST_CHANGED					= 'clic',
-	MSG_PACKAGES_CHANGED						= 'pchd',
-	MSG_PROCESS_COORDINATOR_CHANGED				= 'pccd',
-	MSG_WORK_STATUS_CHANGE						= 'wsch',
-	MSG_WORK_STATUS_CLEAR						= 'wscl',
-	MSG_INCREMENT_VIEW_COUNTER					= 'icrv',
-	MSG_SCREENSHOT_CACHED						= 'ssca',
-
-	MSG_CHANGE_PACKAGE_LIST_VIEW_MODE			= 'cplm',
-	MSG_SHOW_DESKTOP_PACKAGES					= 'sodk',
-	MSG_SHOW_NATIVE_DESKTOP_PACKAGES			= 'sond',
-	MSG_SHOW_DESKTOP_AND_NON_DESKTOP_PACKAGES	= 'sdan',
-	MSG_SHOW_AVAILABLE_PACKAGES					= 'savl',
-	MSG_SHOW_INSTALLED_PACKAGES					= 'sins',
-	MSG_SHOW_SOURCE_PACKAGES					= 'ssrc',
-	MSG_SHOW_DEVELOP_PACKAGES					= 'sdvl'
+	MSG_REFRESH_REPOS								= 'mrrp',
+	MSG_MANAGE_REPOS								= 'mmrp',
+	MSG_SOFTWARE_UPDATER							= 'mswu',
+	MSG_SETTINGS									= 'stgs',
+	MSG_LOG_IN										= 'lgin',
+	MSG_AUTHORIZATION_CHANGED						= 'athc',
+	MSG_PACKAGE_FILTER_CHANGED						= 'fpch',
+	MSG_ICONS_CHANGED								= 'icoc',
+	MSG_CATEGORIES_LIST_CHANGED						= 'clic',
+	MSG_PACKAGES_CHANGED							= 'pchd',
+	MSG_PROCESS_COORDINATOR_CHANGED					= 'pccd',
+	MSG_WORK_STATUS_CHANGE							= 'wsch',
+	MSG_WORK_STATUS_CLEAR							= 'wscl',
+	MSG_INCREMENT_VIEW_COUNTER						= 'icrv',
+	MSG_SCREENSHOT_CACHED							= 'ssca',
+	MSG_SELECTED_PACKAGE_CHANGED					= 'spch',
+	MSG_PACKAGE_LIST_MODE_CHANGED					= 'pkmc',
+	MSG_PACKAGE_LIST_MODE_TAB_CHANGED				= 'cplm',
+	MSG_SHOW_DESKTOP_PACKAGES						= 'sodk',
+	MSG_SHOW_NATIVE_DESKTOP_PACKAGES				= 'sond',
+	MSG_SHOW_DESKTOP_AND_NON_DESKTOP_PACKAGES		= 'sdan',
+	MSG_SHOW_AVAILABLE_PACKAGES						= 'savl',
+	MSG_SHOW_INSTALLED_PACKAGES						= 'sins',
+	MSG_SHOW_SOURCE_PACKAGES						= 'ssrc',
+	MSG_SHOW_DEVELOP_PACKAGES						= 'sdvl',
+	MSG_CAN_NICKNAME_PASSWORD_AUTHENTICATE_CHANGED	= 'cnpc'
 };
 
 
@@ -175,6 +177,24 @@ public:
 			fMessenger.SendMessage(MSG_ICONS_CHANGED);
 	}
 
+	virtual void SelectedPackageChanged()
+	{
+		if (fMessenger.IsValid())
+			fMessenger.SendMessage(MSG_SELECTED_PACKAGE_CHANGED);
+	}
+
+	virtual	void PackageListViewModeChanged()
+	{
+		if (fMessenger.IsValid())
+			fMessenger.SendMessage(MSG_PACKAGE_LIST_MODE_CHANGED);
+	}
+
+	virtual void CanNicknamePasswordAuthenticateChanged()
+	{
+		if (fMessenger.IsValid())
+			fMessenger.SendMessage(MSG_CAN_NICKNAME_PASSWORD_AUTHENTICATE_CHANGED);
+	}
+
 private:
 	BMessenger fMessenger;
 };
@@ -212,6 +232,7 @@ MainWindow::MainWindow(const BMessage& settings)
 	fLogInItem(NULL),
 	fLogOutItem(NULL),
 	fUsersUserUsageConditionsMenuItem(NULL),
+	fLatestUserUsageConditionsMenuItem(NULL),
 	fModelListener(new MainWindowModelListener(BMessenger(this)), true),
 	fCoordinator(NULL),
 	fShouldCloseWhenNoProcessesToCoordinate(false),
@@ -236,7 +257,7 @@ MainWindow::MainWindow(const BMessage& settings)
 	fFilterView = new FilterView();
 	fFeaturedPackagesView = new FeaturedPackagesView(fModel);
 	fPackageListView = new PackageListView(&fModel);
-	fPackageInfoView = new PackageInfoView(&fModel, this);
+	fPackageInfoView = new PackageInfoView(&fModel);
 
 	fSplitView = new BSplitView(B_VERTICAL, 5.0f);
 
@@ -244,7 +265,7 @@ MainWindow::MainWindow(const BMessage& settings)
 	fPackageListView->AttachWorkStatusView(fWorkStatusView);
 
 	fListTabs
-		= new TabView(BMessenger(this), BMessage(MSG_CHANGE_PACKAGE_LIST_VIEW_MODE), "list tabs");
+		= new TabView(BMessenger(this), BMessage(MSG_PACKAGE_LIST_MODE_TAB_CHANGED), "list tabs");
 	fListTabs->AddTab(fFeaturedPackagesView);
 	fListTabs->AddTab(fPackageListView);
 
@@ -278,12 +299,6 @@ MainWindow::MainWindow(const BMessage& settings)
 
 	_RestoreModelSettings(settings);
 	_MaybePromptCanShareAnonymousUserData(settings);
-
-	if (fModel.PackageListViewMode() == PROMINENT)
-		fListTabs->Select(TAB_PROMINENT_PACKAGES);
-	else
-		fListTabs->Select(TAB_ALL_PACKAGES);
-
 	_RestoreNickname(settings);
 	_UpdateAuthorization();
 	_RestoreWindowFrame(settings);
@@ -292,6 +307,7 @@ MainWindow::MainWindow(const BMessage& settings)
 	BPackageRoster().StartWatching(this, B_WATCH_PACKAGE_INSTALLATION_LOCATIONS);
 
 	_AdoptModel();
+	_StartServerRuntimeInformationVerify();
 	_StartBulkLoad();
 }
 
@@ -313,6 +329,7 @@ MainWindow::MainWindow(const BMessage& settings, const PackageInfoRef package)
 	fLogInItem(NULL),
 	fLogOutItem(NULL),
 	fUsersUserUsageConditionsMenuItem(NULL),
+	fLatestUserUsageConditionsMenuItem(NULL),
 	fModelListener(new MainWindowModelListener(BMessenger(this)), true),
 	fCoordinator(NULL),
 	fShouldCloseWhenNoProcessesToCoordinate(false),
@@ -329,7 +346,7 @@ MainWindow::MainWindow(const BMessage& settings, const PackageInfoRef package)
 	fPackageInfoListener = PackageInfoListenerRef(new MainWindowPackageInfoListener(this), true);
 
 	fFilterView = new FilterView();
-	fPackageInfoView = new PackageInfoView(&fModel, this);
+	fPackageInfoView = new PackageInfoView(&fModel);
 	fWorkStatusView = new WorkStatusView("work status");
 
 	BLayoutBuilder::Group<>(this, B_VERTICAL)
@@ -478,6 +495,8 @@ MainWindow::MessageReceived(BMessage* message)
 			break;
 
 		case MSG_LOG_IN:
+			if (!fModel.CanNicknamePasswordAuthenticate())
+				HDFATAL("nickname and password authentication is disabled");
 			_OpenLoginWindow(BMessage());
 			break;
 
@@ -486,9 +505,7 @@ MainWindow::MessageReceived(BMessage* message)
 			break;
 
 		case MSG_LOG_OUT:
-			if (IdentityAndAccessUtils::ClearCredentials() != B_OK)
-				HDERROR("unable to remove stored credentials");
-			fModel.SetCredentials(UserCredentials());
+			_HandleLogout();
 			break;
 
 		case MSG_VIEW_LATEST_USER_USAGE_CONDITIONS:
@@ -503,6 +520,10 @@ MainWindow::MessageReceived(BMessage* message)
 			if (!fSinglePackageMode)
 				_StartUserVerify();
 			_UpdateAuthorization();
+			break;
+
+		case MSG_SELECTED_PACKAGE_CHANGED:
+			_HandleSelectedPackageChanged();
 			break;
 
 		case MSG_ICONS_CHANGED:
@@ -524,7 +545,17 @@ MainWindow::MessageReceived(BMessage* message)
 			_AdoptModel();
 			break;
 
-		case MSG_CHANGE_PACKAGE_LIST_VIEW_MODE:
+		case MSG_PACKAGE_LIST_MODE_CHANGED:
+			// This message will originate from a change in the model.
+			_AdoptModelControls();
+			break;
+
+		case MSG_PACKAGE_LIST_MODE_TAB_CHANGED:
+			// This message fired when the user chooses one of list view mode
+			// tabs. It is happening as a result of a UI interaction rather
+			// than a model change; the model change is handled on a different
+			// event.
+			_PackageListViewRevokeFocus();
 			_HandleChangePackageListViewMode();
 			break;
 
@@ -580,45 +611,9 @@ MainWindow::MessageReceived(BMessage* message)
 			break;
 		}
 
-			// this may be triggered by, for example, a user rating being added
-			// or having been altered.
-		case MSG_SERVER_DATA_CHANGED:
-		{
-			BString name;
-			if (message->FindString(shared_message_keys::kKeyPackageName, &name) == B_OK) {
-				if (fPackageInfoView->Package()->Name() == name) {
-					_PopulatePackageAsync(true);
-				} else {
-					HDDEBUG("pkg [%s] is updated on the server, but is not selected so will not be "
-							"updated.",
-						name.String());
-				}
-			}
-			break;
-		}
-
 		case MSG_INCREMENT_VIEW_COUNTER:
 			_HandleIncrementViewCounter(message);
 			break;
-
-		case MSG_PACKAGE_SELECTED:
-		{
-			BString name;
-			if (message->FindString(shared_message_keys::kKeyPackageName, &name) == B_OK) {
-				PackageInfoRef package;
-				package = fModel.PackageForName(name);
-
-				if (!package.IsSet() || name != package->Name()) {
-					debugger("unable to find the named package");
-				} else {
-					_AdoptPackage(package);
-					_SetupDelayedIncrementViewCounter(package);
-				}
-			} else {
-				_ClearPackage();
-			}
-			break;
-		}
 
 		case MSG_CATEGORY_SELECTED:
 		{
@@ -688,6 +683,36 @@ MainWindow::MessageReceived(BMessage* message)
 			break;
 		}
 
+		case MSG_PKG_CACHE_SCREENSHOT:
+		{
+			CacheScreenshotPackageAction action(message);
+			ProcessCoordinator* coordinator
+				= ProcessCoordinatorFactory::CreateCacheScreenshotPackageActionCoordinator(&fModel,
+					action);
+			_AddProcessCoordinator(coordinator);
+			break;
+		}
+
+		case MSG_PKG_POPULATE_CHANGELOG:
+		{
+			PopulateChangelogPackageAction action(message);
+			ProcessCoordinator* coordinator
+				= ProcessCoordinatorFactory::CreatePopulateChangelogPackageActionCoordinator(
+					&fModel, action);
+			_AddProcessCoordinator(coordinator);
+			break;
+		}
+
+		case MSG_PKG_POPULATE_USER_RATINGS:
+		{
+			PopulateUserRatingsPackageAction action(message);
+			ProcessCoordinator* coordinator
+				= ProcessCoordinatorFactory::CreatePopulateUserRatingsPackageActionCoordinator(
+					&fModel, action);
+			_AddProcessCoordinator(coordinator);
+			break;
+		}
+
 		case MSG_PKG_OPEN:
 		{
 			OpenPackageAction action(message);
@@ -730,7 +755,17 @@ MainWindow::MessageReceived(BMessage* message)
 		}
 
 		case MSG_SHOW_ALL_PACKAGES_TAB:
-			fListTabs->Select(TAB_ALL_PACKAGES);
+			// An example of where this might be sent is the hyperlink in the
+			// featured packages view where there is a link to the all packages
+			// view if the list is empty. By setting this on the model, an
+			// event will return back to this class to switch the tabs.
+			fModel.SetPackageListViewMode(ALL);
+			break;
+
+		case MSG_CAN_NICKNAME_PASSWORD_AUTHENTICATE_CHANGED:
+			// A check with the server will have verified if this is possible or
+			// not from the server side.
+			_UpdateAuthorization();
 			break;
 
 		default:
@@ -795,10 +830,20 @@ MainWindow::StoreSettings(BMessage& settings)
 }
 
 
+/*!	Informs the window that the selected package has changed. This gives the
+	window the opportunity to update the UI accordingly.
+*/
 void
-MainWindow::Consume(ProcessCoordinator* item)
+MainWindow::_HandleSelectedPackageChanged()
 {
-	_AddProcessCoordinator(item);
+	PackageInfoRef package = fModel.SelectedPackage();
+
+	if (package.IsSet()) {
+		_AdoptPackage(package);
+		_SetupDelayedIncrementViewCounter(package);
+	} else {
+		_ClearPackage();
+	}
 }
 
 
@@ -837,6 +882,9 @@ MainWindow::_HandlePackagesChanged(const BMessage* message)
 		return;
 	}
 
+	bool isFeaturedTabEnabled
+		= !fSinglePackageMode && fListTabs->TabAt(TAB_PROMINENT_PACKAGES)->IsEnabled();
+
 	HDTRACE("window processing %" B_PRIi32 " package changes", packageEvents.CountEvents());
 
 	// Transfer the package change events into package *info* change events so
@@ -850,6 +898,12 @@ MainWindow::_HandlePackagesChanged(const BMessage* message)
 		const PackageInfoRef packageInfo = fModel.PackageForName(packageEvent.PackageName());
 
 		if (packageInfo.IsSet()) {
+			if (!fSinglePackageMode && !isFeaturedTabEnabled
+				&& !PackageUtils::IsProminent(packageInfo)) {
+				fListTabs->TabAt(TAB_PROMINENT_PACKAGES)->SetEnabled(true);
+				isFeaturedTabEnabled = true;
+			}
+
 			const PackageInfoChangeEvent packageInfoEvent(packageInfo, packageEvent.Changes());
 			packageInfoEvents.push_back(packageInfoEvent);
 		} else {
@@ -985,10 +1039,10 @@ MainWindow::_BuildUserMenu(BMenuBar* menuBar)
 	fLogOutItem = new BMenuItem(B_TRANSLATE("Log out"), new BMessage(MSG_LOG_OUT));
 	fUserMenu->AddItem(fLogOutItem);
 
-	BMenuItem* latestUserUsageConditionsMenuItem
+	fLatestUserUsageConditionsMenuItem
 		= new BMenuItem(B_TRANSLATE("View latest usage conditions" B_UTF8_ELLIPSIS),
 			new BMessage(MSG_VIEW_LATEST_USER_USAGE_CONDITIONS));
-	fUserMenu->AddItem(latestUserUsageConditionsMenuItem);
+	fUserMenu->AddItem(fLatestUserUsageConditionsMenuItem);
 
 	fUsersUserUsageConditionsMenuItem
 		= new BMenuItem(B_TRANSLATE("View agreed usage conditions" B_UTF8_ELLIPSIS),
@@ -1106,10 +1160,10 @@ MainWindow::_PromptCanShareAnonymousUserData()
 		B_TRANSLATE("Would it be acceptable to send anonymous usage data to the"
 					" software depot service from this computer? You can change your"
 					" preference in the \"Settings\" window later."),
-		B_TRANSLATE("No"), B_TRANSLATE("Yes"));
+		B_TRANSLATE("Yes"), B_TRANSLATE("No"));
 
 	int32 result = alert->Go();
-	fModel.SetCanShareAnonymousUsageData(1 == result);
+	fModel.SetCanShareAnonymousUsageData(0 == result);
 }
 
 
@@ -1170,12 +1224,55 @@ MainWindow::_AdoptModelControls()
 	fShowSourcePackagesItem->SetMarked(packageFilterSpecification->ShowSourcePackages());
 	fShowDevelopPackagesItem->SetMarked(packageFilterSpecification->ShowDevelopPackages());
 
-	if (fModel.PackageListViewMode() == PROMINENT)
-		fListTabs->Select(TAB_PROMINENT_PACKAGES);
-	else
-		fListTabs->Select(TAB_ALL_PACKAGES);
+	switch (fModel.PackageListViewMode()) {
+		case PROMINENT:
+			fListTabs->Select(TAB_PROMINENT_PACKAGES);
+			break;
+		case ALL:
+			fListTabs->Select(TAB_ALL_PACKAGES);
+			break;
+		default:
+			HDFATAL("attempt to select unknown tab");
+			break;
+	}
 
 	fFilterView->AdoptModel(fModel);
+}
+
+
+void
+MainWindow::_PackageListViewRevokeFocus()
+{
+	BView* currentFocusView = CurrentFocus();
+	if (currentFocusView != NULL && _IsPackageListView(currentFocusView)) {
+		currentFocusView->MakeFocus(false);
+		HDINFO("revoked focus on package list view");
+	}
+}
+
+
+/*!	Returns true if the view supplied is a sub-view of one of the package list
+ *	views.
+ */
+bool
+MainWindow::_IsPackageListView(BView* view)
+{
+	if (view == NULL)
+		return false;
+
+	BView* packageListViews[2] = {fFeaturedPackagesView, fPackageListView};
+
+	for (int i = 0; i < 2; i++) {
+		BView* v = view;
+
+		while (v != NULL) {
+			if (v == packageListViews[i])
+				return true;
+			v = v->Parent();
+		}
+	}
+
+	return false;
 }
 
 
@@ -1303,8 +1400,6 @@ MainWindow::_AdoptPackage(const PackageInfoRef& package)
 		if (fPackageListView != NULL)
 			fPackageListView->SelectPackage(package);
 	}
-
-	_PopulatePackageAsync(false);
 }
 
 
@@ -1391,7 +1486,6 @@ MainWindow::_BulkLoadCompleteReceived(status_t errorStatus)
 		&& fListTabs->Selection() == TAB_PROMINENT_PACKAGES) {
 		HDINFO("no prominent packages; will display all packages instead");
 		fModel.SetPackageListViewMode(ALL);
-		fListTabs->Select(TAB_ALL_PACKAGES);
 	}
 }
 
@@ -1504,62 +1598,6 @@ MainWindow::_HandleWorkStatusChangeMessageReceived(const BMessage* message)
 }
 
 
-/*! Initially only superficial data is loaded from the server into the data
-	model of the packages.  When the package is viewed, additional data needs
-	to be populated including ratings.
-
-	This method will cause the package to have its data refreshed from
-	the server application.  The refresh happens in the background; this method
-	is asynchronous.
-*/
-
-void
-MainWindow::_PopulatePackageAsync(bool forcePopulate)
-{
-	const PackageInfoRef package = fPackageInfoView->Package();
-
-	if (!fModel.CanPopulatePackage(package))
-		return;
-
-	const char* packageNameStr = package->Name().String();
-
-	PackageLocalizedTextRef localized = package->LocalizedText();
-	bool networkAvailable = ServerHelper::IsNetworkAvailable();
-
-	if (localized.IsSet()) {
-		if (forcePopulate || localized->Changelog().IsEmpty()) {
-			if (localized->HasChangelog()) {
-				if (networkAvailable) {
-					_AddProcessCoordinator(
-						ProcessCoordinatorFactory::PopulatePkgChangelogCoordinator(&fModel,
-							package->Name()));
-					HDINFO("pkg [%s] will have changelog updated from server.", packageNameStr);
-				} else {
-					HDINFO(
-						"pkg [%s] will not have changelog updated from server; network unavailable",
-						packageNameStr);
-				}
-			} else {
-				HDINFO("pkg [%s] does not have a changelog -- won't try fetch it.", packageNameStr);
-			}
-		}
-	}
-
-	if (forcePopulate || RatingUtils::ShouldTryPopulateUserRatings(package->UserRatingInfo())) {
-		if (networkAvailable) {
-			_AddProcessCoordinator(ProcessCoordinatorFactory::PopulatePkgUserRatingsCoordinator(
-				&fModel, package->Name()));
-			HDINFO("pkg [%s] will have user ratings updated from server.", packageNameStr);
-		} else {
-			HDINFO("pkg [%s] won't have user ratings updated from server; network unavailable",
-				packageNameStr);
-		}
-	} else {
-		HDDEBUG("pkg [%s] not have user ratings updated from server.", packageNameStr);
-	}
-}
-
-
 void
 MainWindow::_OpenSettingsWindow()
 {
@@ -1592,21 +1630,27 @@ MainWindow::_StartUserVerify()
 
 
 void
+MainWindow::_StartServerRuntimeInformationVerify()
+{
+	ProcessCoordinator* coordinator
+		= ProcessCoordinatorFactory::CreateServerRuntimeInformationVerifierCoordinator(&fModel);
+	_AddProcessCoordinator(coordinator);
+}
+
+
+void
 MainWindow::_UpdateAuthorization()
 {
+	bool networking = ServerHelper::IsNetworkAvailable();
 	BString nickname(fModel.Nickname());
 	bool hasUser = !nickname.IsEmpty();
 
-	if (fLogOutItem != NULL)
-		fLogOutItem->SetEnabled(hasUser);
-	if (fUsersUserUsageConditionsMenuItem != NULL)
-		fUsersUserUsageConditionsMenuItem->SetEnabled(hasUser);
-	if (fLogInItem != NULL) {
-		if (hasUser)
-			fLogInItem->SetLabel(B_TRANSLATE("Switch account" B_UTF8_ELLIPSIS));
-		else
-			fLogInItem->SetLabel(B_TRANSLATE("Log in" B_UTF8_ELLIPSIS));
-	}
+	// At some point in the future, the HDS server may not allow older HaikuDepot clients to
+	// continue to authenticate with nickname and password. To be able to handle this gracefully,
+	// the server is able to inform the client if it supported and if not then this client is able
+	// to resort to a logged out only experience but most things will function.
+
+	bool canNicknamePasswordAuthenticate = fModel.CanNicknamePasswordAuthenticate();
 
 	if (fUserMenu != NULL) {
 		BString label;
@@ -1614,10 +1658,39 @@ MainWindow::_UpdateAuthorization()
 			label = B_TRANSLATE("Logged in as %User%");
 			label.ReplaceAll("%User%", nickname);
 		} else {
-			label = B_TRANSLATE("Not logged in");
+			if (!canNicknamePasswordAuthenticate)
+				label = B_TRANSLATE("Login disabled");
+			else
+				label = B_TRANSLATE("Not logged in");
 		}
 		fUserMenu->Superitem()->SetLabel(label);
 	}
+
+	if (fLogInItem != NULL) {
+		if (hasUser)
+			fLogInItem->SetLabel(B_TRANSLATE("Switch account" B_UTF8_ELLIPSIS));
+		else
+			fLogInItem->SetLabel(B_TRANSLATE("Log in" B_UTF8_ELLIPSIS));
+		fLogInItem->SetEnabled(canNicknamePasswordAuthenticate && networking);
+	}
+
+	if (fLogOutItem != NULL)
+		fLogOutItem->SetEnabled(hasUser);
+
+	if (fUsersUserUsageConditionsMenuItem != NULL)
+		fUsersUserUsageConditionsMenuItem->SetEnabled(hasUser && networking);
+
+	if (fLatestUserUsageConditionsMenuItem != NULL)
+		fLatestUserUsageConditionsMenuItem->SetEnabled(networking);
+}
+
+
+void
+MainWindow::_HandleLogout()
+{
+	if (IdentityAndAccessUtils::ClearCredentials() != B_OK)
+		HDERROR("unable to remove stored credentials");
+	fModel.SetCredentials(UserCredentials());
 }
 
 
@@ -1690,6 +1763,11 @@ MainWindow::_SelectedPackageHasWebAppRepositoryCode()
 void
 MainWindow::_RatePackage()
 {
+	if (!ServerHelper::IsNetworkAvailable()) {
+		HDERROR("no network available -> not possible to rate package");
+		return;
+	}
+
 	if (!_SelectedPackageHasWebAppRepositoryCode()) {
 		BAlert* alert = new(std::nothrow) BAlert(B_TRANSLATE("Rating not possible"),
 			B_TRANSLATE("This package doesn't seem to be on the software depot server, so it's not "
@@ -1700,6 +1778,11 @@ MainWindow::_RatePackage()
 	}
 
 	if (fModel.Nickname().IsEmpty()) {
+		if (!fModel.CanNicknamePasswordAuthenticate()) {
+			HDERROR("nickname / password auth not available -> not possible to rate package");
+			return;
+		}
+
 		BAlert* alert = new(std::nothrow) BAlert(B_TRANSLATE("Not logged in"),
 			B_TRANSLATE("You need to be logged into an account before you can rate packages."),
 			B_TRANSLATE("Cancel"), B_TRANSLATE("Login or Create account"));
@@ -1862,7 +1945,6 @@ MainWindow::_StopProcessCoordinators()
 	A change may mean that a new process has started / stopped etc... or it
 	may mean that the entire coordinator has finished.
 */
-
 void
 MainWindow::CoordinatorChanged(ProcessCoordinatorState& coordinatorState)
 {
@@ -1926,24 +2008,24 @@ MainWindow::_HandleProcessCoordinatorChanged(ProcessCoordinatorState& coordinato
 }
 
 
-static package_list_view_mode
-main_window_tab_to_package_list_view_mode(int32 tab)
-{
-	if (tab == TAB_PROMINENT_PACKAGES)
-		return PROMINENT;
-	return ALL;
-}
-
-
+/*!	This method will update the selected tab in the model but does not change
+ *	the UI display directly. Instead, the model will message back to this
+ *	class to do that.
+ */
 void
 MainWindow::_HandleChangePackageListViewMode()
 {
-	package_list_view_mode tabMode
-		= main_window_tab_to_package_list_view_mode(fListTabs->Selection());
-	package_list_view_mode modelMode = fModel.PackageListViewMode();
-
-	if (tabMode != modelMode)
-		fModel.SetPackageListViewMode(tabMode);
+	switch (fListTabs->Selection()) {
+		case TAB_PROMINENT_PACKAGES:
+			fModel.SetPackageListViewMode(PROMINENT);
+			break;
+		case TAB_ALL_PACKAGES:
+			fModel.SetPackageListViewMode(ALL);
+			break;
+		default:
+			HDFATAL("unknown package list tab");
+			break;
+	}
 }
 
 

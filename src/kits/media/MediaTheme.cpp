@@ -13,14 +13,12 @@
 
 #include <MediaTheme.h>
 #include <StringView.h>
-#include <Locker.h>
-#include <Autolock.h>
+#include <locks.h>
 
 #include <string.h>
 
 
-static BLocker sLock("media theme lock");
-
+static mutex sLock = MUTEX_INITIALIZER("media theme lock");
 BMediaTheme* BMediaTheme::sDefaultTheme;
 
 
@@ -94,7 +92,7 @@ BMediaTheme::SetPreferredTheme(BMediaTheme* defaultTheme)
 	// ToDo: this method should probably set some global settings file
 	//	to make the new preferred theme available to all applications
 
-	BAutolock locker(sLock);
+	MutexLocker locker(sLock);
 
 	if (defaultTheme == NULL) {
 		// if the current preferred theme is not the default media theme,
@@ -121,7 +119,7 @@ BMediaTheme::PreferredTheme()
 {
 	CALLED();
 
-	BAutolock locker(sLock);
+	MutexLocker locker(sLock);
 
 	// ToDo: should look in the global prefs file for the preferred
 	//	add-on and load this from disk - in the meantime, just use

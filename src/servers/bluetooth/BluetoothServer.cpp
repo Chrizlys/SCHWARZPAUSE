@@ -27,9 +27,10 @@
 #include <bluetooth/bluetooth.h>
 
 #include "BluetoothServer.h"
+#include "Debug.h"
 #include "DeskbarReplicant.h"
 #include "LocalDeviceImpl.h"
-#include "Debug.h"
+#include "SDPServer.h"
 
 
 status_t
@@ -58,15 +59,15 @@ DispatchEvent(struct hci_event_header* header, int32 code, size_t size)
 
 BluetoothServer::BluetoothServer()
 	:
-	BApplication(BLUETOOTH_SIGNATURE),
-	fSDPThreadID(-1),
-	fIsShuttingDown(false)
+	BApplication(BLUETOOTH_SIGNATURE)
 {
 	fDeviceManager = new DeviceManager();
 	fLocalDevicesList.MakeEmpty();
+	fWatchersList.MakeEmpty();
 
 	fEventListener2 = new BluetoothPortListener(BT_USERLAND_PORT_NAME,
 		(BluetoothPortListener::port_listener_func)&DispatchEvent);
+	fSDPServer = new SDPServer();
 }
 
 
@@ -79,13 +80,8 @@ bool BluetoothServer::QuitRequested(void)
 
 	_RemoveDeskbarIcon();
 
-	// stop the SDP server thread
-	fIsShuttingDown = true;
-
-	status_t threadReturnStatus;
-	wait_for_thread(fSDPThreadID, &threadReturnStatus);
-	TRACE_BT("BluetoothServer server thread exited with: %s\n",
-		strerror(threadReturnStatus));
+	fSDPServer->Stop();
+	delete fSDPServer;
 
 	delete fEventListener2;
 	TRACE_BT("Shutting down bluetooth_server.\n");
@@ -117,16 +113,9 @@ void BluetoothServer::ReadyToRun(void)
 
 	_InstallDeskbarIcon();
 
-	// Spawn the SDP server thread
-	fSDPThreadID = spawn_thread(SDPServerThread, "SDP server thread",
-		B_NORMAL_PRIORITY, this);
-
-#define _USE_FAKE_SDP_SERVER
-#ifdef _USE_FAKE_SDP_SERVER
-	if (fSDPThreadID <= 0 || resume_thread(fSDPThreadID) != B_OK) {
+	status_t status = fSDPServer->Start();
+	if (status != B_OK)
 		TRACE_BT("BluetoothServer: Failed launching the SDP server thread\n");
-	}
-#endif
 }
 
 
@@ -141,8 +130,7 @@ void BluetoothServer::MessageReceived(BMessage* message)
 	BMessage reply;
 	status_t status = B_WOULD_BLOCK; // mark somehow to do not reply anything
 
-	switch (message->what)
-	{
+	switch (message->what) {
 		case BT_MSG_ADD_DEVICE:
 		{
 			BString str;
@@ -210,18 +198,138 @@ void BluetoothServer::MessageReceived(BMessage* message)
 			return;
 		}
 
+		case BT_REQ_CREATE_CONN:
+		{
+			LocalDeviceImpl* lDeviceImpl = LocateDelegateFromMessage(message);
+			if (lDeviceImpl == NULL)
+				break;
+
+			lDeviceImpl->CreateConnection(message);
+			break;
+		}
+
+		case BT_REQ_CANCEL_CONN:
+		{
+			LocalDeviceImpl* lDeviceImpl = LocateDelegateFromMessage(message);
+			if (lDeviceImpl == NULL)
+				break;
+
+			lDeviceImpl->CancelConnection(message);
+			break;
+		}
+
+		case BT_REQ_DISCONNECT:
+		{
+			LocalDeviceImpl* lDeviceImpl = LocateDelegateFromMessage(message);
+			if (lDeviceImpl == NULL)
+				break;
+
+			lDeviceImpl->Disconnect(message);
+			break;
+		}
+
+		case BT_REQ_REMOVE_DEVICE:
+		{
+			LocalDeviceImpl* lDeviceImpl = LocateDelegateFromMessage(message);
+			if (lDeviceImpl == NULL)
+				break;
+
+			lDeviceImpl->Disconnect(message);
+
+			const bdaddr_t* bdaddr;
+			ssize_t addr_size;
+			message->FindData("bdaddr", B_ANY_TYPE, (const void**)&bdaddr, &addr_size);
+
+			ServerRemoteDevice* rd = lDeviceImpl->RemoteDeviceByAddr(*bdaddr);
+			lDeviceImpl->RemoveRemoteDevice(rd);
+			break;
+		}
+
+		case BT_START_WATCHING_CONNECTIONS:
+		{
+			BMessenger* messenger = new BMessenger();
+			if (message->FindMessenger("messenger", messenger) == B_OK)
+				fWatchersList.AddItem(messenger);
+			break;
+		}
+
+		case BT_STOP_WATCHING_CONNECTIONS:
+		{
+			BMessenger* messenger = new BMessenger();
+			if (message->FindMessenger("messenger", messenger) == B_OK)
+				fWatchersList.RemoveItem(messenger);
+			break;
+		}
+
+		case BT_MSG_GET_REMOTE_DEVICES:
+		{
+			LocalDeviceImpl* lDeviceImpl = LocateDelegateFromMessage(message);
+			if (lDeviceImpl == NULL)
+				break;
+
+			RemoteDevicesList* rdList = lDeviceImpl->GetRemoteDevicesList();
+
+			for (int32 i = 0; i < rdList->CountItems(); i++) {
+				ServerRemoteDevice* rd = rdList->ItemAt(i);
+				BMessage device;
+				bdaddr_t bdaddr = rd->bdaddr;
+				device.AddData("bdaddr", B_ANY_TYPE, &bdaddr, sizeof(bdaddr_t));
+				device.AddString("name", rd->friendly_name);
+				device.AddData("cod", B_RAW_TYPE, rd->classOfDevice, sizeof(rd->classOfDevice));
+				device.AddUInt16("clock_offset", rd->clock_offset);
+				device.AddUInt8("pscan_rep_mode", rd->pscan_rep_mode);
+
+				reply.AddMessage("remote", &device);
+			}
+
+			message->SendReply(&reply);
+			break;
+		}
+
+		case BT_REQ_CONN_STATE:
+		{
+			LocalDeviceImpl* lDeviceImpl = LocateDelegateFromMessage(message);
+			if (lDeviceImpl == NULL)
+				break;
+
+			const bdaddr_t* bdaddr;
+			ssize_t addr_size;
+			message->FindData("bdaddr", B_ANY_TYPE, (const void**)&bdaddr, &addr_size);
+
+			ServerRemoteDevice* rd = lDeviceImpl->RemoteDeviceByAddr(*bdaddr);
+			reply.AddUInt8("conn state", static_cast<uint8>(rd->conn_state));
+
+			message->SendReply(&reply);
+			break;
+		}
+
 		default:
 			BApplication::MessageReceived(message);
 			break;
 	}
 
 	// Can we reply right now?
-	// TOD: review this condition
+	// TODO: review this condition
 	if (status != B_WOULD_BLOCK) {
 		reply.AddInt32("status", status);
 		message->SendReply(&reply);
 //		printf("Sending reply message for->\n");
 //		message->PrintToStream();
+	}
+}
+
+
+void
+BluetoothServer::NotifyWatchers(BMessage* notice)
+{
+	for (int32 i = 0; i < fWatchersList.CountItems(); i++) {
+		BMessenger* messenger = fWatchersList.ItemAt(i);
+		if (!messenger->IsValid()) {
+			fWatchersList.RemoveItemAt(i);
+			i--;
+			continue;
+		}
+		messenger->SendMessage(notice);
 	}
 }
 
@@ -233,21 +341,12 @@ void BluetoothServer::MessageReceived(BMessage* message)
 LocalDeviceImpl*
 BluetoothServer::LocateDelegateFromMessage(BMessage* message)
 {
-	LocalDeviceImpl* lDeviceImpl = NULL;
 	hci_id hid;
 
-	if (message->FindInt32("hci_id", &hid) == B_OK) {
-		// Try to find out when a ID was specified
-		int index;
-		for (index = 0; index < fLocalDevicesList.CountItems(); index ++) {
-			lDeviceImpl = fLocalDevicesList.ItemAt(index);
-			if (lDeviceImpl->GetID() == hid)
-				break;
-		}
-	}
+	if (message->FindInt32("hci_id", &hid) != B_OK)
+		return NULL;
 
-	return lDeviceImpl;
-
+	return LocateLocalDeviceImpl(hid);
 }
 
 
@@ -453,87 +552,6 @@ BluetoothServer::HandleGetProperty(BMessage* message, BMessage* reply)
 #if 0
 #pragma mark -
 #endif
-
-int32
-BluetoothServer::SDPServerThread(void* data)
-{
-	const BluetoothServer* server = (BluetoothServer*)data;
-
-	// Set up the SDP socket
-	struct sockaddr_l2cap loc_addr = { 0 };
-	int socketServer;
-	int client;
-	status_t status;
-	char buffer[512] = "";
-
-	TRACE_BT("SDP: SDP server thread up...\n");
-
-	socketServer = socket(PF_BLUETOOTH, SOCK_STREAM, BLUETOOTH_PROTO_L2CAP);
-
-	if (socketServer < 0) {
-		TRACE_BT("SDP: Could not create server socket ...\n");
-		return B_ERROR;
-	}
-
-	// bind socket to port 0x1001 of the first available
-	// bluetooth adapter
-	loc_addr.l2cap_family = AF_BLUETOOTH;
-	loc_addr.l2cap_bdaddr = BDADDR_ANY;
-	loc_addr.l2cap_psm = B_HOST_TO_LENDIAN_INT16(1);
-	loc_addr.l2cap_len = sizeof(struct sockaddr_l2cap);
-
-	status = bind(socketServer, (struct sockaddr*)&loc_addr,
-		sizeof(struct sockaddr_l2cap));
-
-	if (status < 0) {
-		TRACE_BT("SDP: Could not bind server socket (%s)...\n", strerror(status));
-		return status;
-	}
-
-	// setsockopt(sock, SOL_L2CAP, SO_L2CAP_OMTU, &omtu, len );
-	// getsockopt(sock, SOL_L2CAP, SO_L2CAP_IMTU, &omtu, &len );
-
-	// Listen for up to 10 connections
-	status = listen(socketServer, 10);
-
-	if (status != B_OK) {
-		TRACE_BT("SDP: Could not listen server socket (%s)...\n", strerror(status));
-		return status;
-	}
-
-	while (!server->fIsShuttingDown) {
-
-		TRACE_BT("SDP: Waiting connection for socket (%s)...\n", strerror(status));
-
-		uint len = sizeof(struct sockaddr_l2cap);
-		client = accept(socketServer, (struct sockaddr*)&loc_addr, &len);
-
-		TRACE_BT("SDP: Incomming connection... %d\n", client);
-
-		ssize_t receivedSize;
-
-		do {
-			receivedSize = recv(client, buffer, 29 , 0);
-			if (receivedSize < 0)
-				TRACE_BT("SDP: Error reading client socket\n");
-			else {
-				TRACE_BT("SDP: Received from SDP client: %ld:\n", receivedSize);
-				for (int i = 0; i < receivedSize ; i++)
-					TRACE_BT("SDP: %x:", buffer[i]);
-
-				TRACE_BT("\n");
-			}
-		} while (receivedSize >= 0);
-
-		snooze(5000000);
-		TRACE_BT("SDP: Waiting for next connection...\n");
-	}
-
-	// Close the socket
-	close(socketServer);
-
-	return B_NO_ERROR;
-}
 
 
 void

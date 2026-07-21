@@ -18,7 +18,9 @@ local packages = [ FFilterByBuildFeatures
 	haiku_$(secondaryArchs)_devel
 	] ;
 
-if $(HAIKU_IS_BOOTSTRAP) != 1 && $(HAIKU_BUILD_TYPE) != minimum {
+if $(HAIKU_IS_BOOTSTRAP) != 1
+		&& $(HAIKU_BUILD_TYPE) != minimum
+		&& $(HAIKU_BUILD_TYPE) != test {
 	packages += [ FFilterByBuildFeatures
 		haiku_extras
 		makefile_engine

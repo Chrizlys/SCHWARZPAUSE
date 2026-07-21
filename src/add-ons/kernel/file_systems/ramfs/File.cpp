@@ -3,24 +3,25 @@
  * All rights reserved. Distributed under the terms of the MIT license.
  */
 
-#include "AllocationInfo.h"
 #include "File.h"
+
+#include "AllocationInfo.h"
 #include "SizeIndex.h"
 #include "Volume.h"
 
-// constructor
+
 File::File(Volume *volume)
 	: Node(volume, NODE_TYPE_FILE),
 	  DataContainer(volume)
 {
 }
 
-// destructor
+
 File::~File()
 {
 }
 
-// ReadAt
+
 status_t
 File::ReadAt(off_t offset, void *buffer, size_t size, size_t *bytesRead)
 {
@@ -29,14 +30,14 @@ File::ReadAt(off_t offset, void *buffer, size_t size, size_t *bytesRead)
 	return error;
 }
 
-// WriteAt
+
 status_t
 File::WriteAt(off_t offset, const void *buffer, size_t size,
-			  size_t *bytesWritten)
+	size_t *bytesWritten)
 {
 	off_t oldSize = DataContainer::GetSize();
 	status_t error = DataContainer::WriteAt(offset, buffer, size,
-											bytesWritten);
+		bytesWritten);
 	MarkModified(B_STAT_MODIFICATION_TIME);
 
 	// update the size index, if our size has changed
@@ -49,33 +50,39 @@ File::WriteAt(off_t offset, const void *buffer, size_t size,
 	return error;
 }
 
-// SetSize
+
 status_t
 File::SetSize(off_t newSize)
 {
-	status_t error = B_OK;
 	off_t oldSize = DataContainer::GetSize();
-	if (newSize != oldSize) {
-		error = DataContainer::Resize(newSize);
-		MarkModified(B_STAT_SIZE);
-		// update the size index
-		if (SizeIndex *index = GetVolume()->GetSizeIndex())
-			index->Changed(this, oldSize);
+	if (newSize == oldSize) {
+		// Update times (as per POSIX) even if the size stays the same.
+		MarkModified(B_STAT_MODIFICATION_TIME | B_STAT_CHANGE_TIME);
+		return B_OK;
 	}
-	return error;
+
+	status_t status = DataContainer::Resize(newSize);
+	if (status != B_OK)
+		return status;
+
+	MarkModified(B_STAT_SIZE);
+
+	// update the size index
+	if (SizeIndex *index = GetVolume()->GetSizeIndex())
+		index->Changed(this, oldSize);
+	return B_OK;
 }
 
-// GetSize
+
 off_t
 File::GetSize() const
 {
 	return DataContainer::GetSize();
 }
 
-// GetAllocationInfo
+
 void
 File::GetAllocationInfo(AllocationInfo &info)
 {
-	info.AddFileAllocation(GetSize());
+	info.AddFileAllocation(DataContainer::GetCommittedSize());
 }
-

@@ -8,37 +8,76 @@
 #include <boot/stage2.h>
 #include <boot/stdio.h>
 
+#include "arm_registers.h"
 #include "efi_platform.h"
 #include "generic_mmu.h"
 #include "mmu.h"
 #include "serial.h"
+#include "smp.h"
 
 #include "aarch64.h"
 
 
 extern const char* granule_type_str(int tg);
 
-extern void arch_mmu_setup_EL1(uint64 tcr);
-
 
 // From entry.S
 extern "C" void arch_enter_kernel(struct kernel_args* kernelArgs,
-	addr_t kernelEntry, addr_t kernelStackTop);
+	addr_t kernelEntry, addr_t kernelStackTop, uint32 cpu);
 
 // From arch_mmu.cpp
 extern void arch_mmu_post_efi_setup(size_t memoryMapSize,
 	efi_memory_descriptor *memoryMap, size_t descriptorSize,
 	uint32_t descriptorVersion);
 
-extern uint32_t arch_mmu_generate_post_efi_page_tables(size_t memoryMapSize,
+extern phys_addr_t arch_mmu_generate_post_efi_page_tables(size_t memoryMapSize,
 	efi_memory_descriptor *memoryMap, size_t descriptorSize,
 	uint32_t descriptorVersion);
+
+
+void arm64_mmu_setup();
 
 
 void
 arch_convert_kernel_args(void)
 {
 	fix_address(gKernelArgs.arch_args.fdt);
+}
+
+
+void
+arm64_common_cpu_startup()
+{
+	arch_cache_disable();
+
+	// Enable EL2 host bits if FEAT_VHE is available
+	uint64 el = arch_exception_level();
+	bool e2h = false;
+	if (el == 2) {
+		uint64 id_aa64mmfr1_el1 = READ_SPECIALREG(ID_AA64MMFR1_EL1);
+		if (ID_AA64MMFR1_VH(id_aa64mmfr1_el1) == ID_AA64MMFR1_VH_IMPL) {
+			e2h = true;
+			WRITE_SPECIALREG(HCR_EL2, HCR_RW | HCR_TGE | HCR_E2H | HCR_AMO | HCR_IMO | HCR_FMO);
+			WRITE_SPECIALREG(CPACR_EL1, CPACR_FPEN_TRAP_NONE);
+		}
+	}
+
+	// EL2 with E2H enabled behaves as a superset of EL1
+	//
+	// EL2 without E2H enabled does not, so we need to drop to EL1
+	if (el == 1 || e2h) {
+		arm64_mmu_setup();
+		WRITE_SPECIALREG(CNTKCTL_EL1, 0b11);
+	} else {
+		arm64_mmu_setup();
+		_arch_transition_EL2_EL1();
+	}
+
+	WRITE_SPECIALREG(SCTLR_EL1, SCTLR_LSMAOE | SCTLR_nTLSMD
+		| SCTLR_UCI | SCTLR_SPAN | SCTLR_IESB | SCTLR_nTWE | SCTLR_nTWI
+		| SCTLR_UCT | SCTLR_DZE | SCTLR_SED | SCTLR_SA0 | SCTLR_SA);
+
+	arch_cache_enable();
 }
 
 
@@ -127,7 +166,7 @@ arch_start_kernel(addr_t kernelEntry)
 	}
 
 	// Generate page tables for use after ExitBootServices.
-	arch_mmu_generate_post_efi_page_tables(
+	uint64 ttbr1 = arch_mmu_generate_post_efi_page_tables(
 		memoryMapSize, memoryMap, descriptorSize, descriptorVersion);
 
 	// Attempt to fetch the memory map and exit boot services.
@@ -167,29 +206,15 @@ arch_start_kernel(addr_t kernelEntry)
 	serial_init();
 	serial_enable();
 
-	switch (el) {
-		case 1:
-			arch_mmu_setup_EL1(READ_SPECIALREG(TCR_EL1));
-			break;
-		case 2:
-			arch_mmu_setup_EL1(READ_SPECIALREG(TCR_EL2));
-			arch_cache_disable();
-			_arch_transition_EL2_EL1();
-			break;
-		default:
-			panic("Unexpected Exception Level\n");
-			break;
-	}
+	arm64_common_cpu_startup();
 
-	arch_cache_enable();
-
-	// smp_boot_other_cpus(final_pml4, kernelEntry, (addr_t)&gKernelArgs);
+	smp_boot_other_cpus(ttbr1, kernelEntry, (addr_t)&gKernelArgs);
 
 	if (arch_mmu_read_access(kernelEntry)
 		&& arch_mmu_read_access(gKernelArgs.cpu_kstack[0].start)) {
 		// Enter the kernel!
 		arch_enter_kernel(&gKernelArgs, kernelEntry,
-			gKernelArgs.cpu_kstack[0].start + gKernelArgs.cpu_kstack[0].size);
+			gKernelArgs.cpu_kstack[0].start + gKernelArgs.cpu_kstack[0].size, 0);
 	} else {
 		// _arch_exception_panic("Kernel or Stack memory not accessible\n", __LINE__);
 		panic("Kernel or Stack memory not accessible\n");

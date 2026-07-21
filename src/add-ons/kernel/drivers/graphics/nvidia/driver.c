@@ -710,7 +710,7 @@ map_device(device_info *di)
 
 	//fixme: retest for card coldstart and PCI/virt_mem mapping!!
 	/* remember the DMA address of the frame buffer for BDirectWindow?? purposes */
-	si->framebuffer_pci = (void *) physicalAddress;
+	si->framebuffer_pci = (void*)(uintptr_t)physicalAddress;
 
 	/* note the amount of memory mapped by the kerneldriver so we can make sure we
 	 * don't attempt to adress more later on */
@@ -955,8 +955,8 @@ open_hook(const char* name, uint32 flags, void** cookie)
 	 * fed into the GPU's engine later on. Get an aligned adress so we can use MTRR-WC
 	 * even on older CPU's. */
 	get_memory_map(unaligned_dma_buffer, B_PAGE_SIZE, map, 1);
-	si->dma_buffer_pci = (void*)
-		((map[0].address + net_buf_size - 1) & ~(net_buf_size - 1));
+	si->dma_buffer_pci
+		= (void*)(uintptr_t)((map[0].address + net_buf_size - 1) & ~(net_buf_size - 1));
 
 	/* map the net DMA command buffer into vmem, using Write Combining */
 	si->dma_area = map_physical_memory(

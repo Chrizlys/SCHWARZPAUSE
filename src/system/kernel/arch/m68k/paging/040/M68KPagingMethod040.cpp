@@ -252,7 +252,7 @@ M68KPagingMethod040::PhysicalPageSlotPool::Map(phys_addr_t physicalAddress,
 	pte = TA_TO_PTEA(physicalAddress) | DT_PAGE
 		| M68K_PTE_SUPERVISOR | M68K_PTE_GLOBAL;
 
-	arch_cpu_invalidate_TLB_range(virtualAddress, virtualAddress);
+	arch_cpu_invalidate_tlb_range(0, virtualAddress, virtualAddress);
 }
 
 
@@ -541,7 +541,7 @@ M68KPagingMethod040::MapEarly(kernel_args* args, addr_t virtualAddress,
 	PutPageTableEntryInTable(&pt[index],
 		physicalAddress, attributes, 0, IS_KERNEL_ADDRESS(virtualAddress));
 
-	arch_cpu_invalidate_TLB_range(va, va);
+	arch_cpu_invalidate_tlb_range(0, va, va);
 
 	return B_OK;
 

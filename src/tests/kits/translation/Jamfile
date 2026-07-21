@@ -17,3 +17,8 @@ UnitTestLib libtranslationtest.so
 		TranslatorTest.cpp
 	: $(libtranslation) be [ TargetLibstdc++ ]
 ;
+
+local destDir = [ FDirName kits translation ] ;
+local dataDir = [ FDirName data ] ;
+local data = image.gif image.jpg image.png sentence.stxt garbled_data ;
+UnitTestResources $(data:D=$(dataDir)) : $(destDir) ;

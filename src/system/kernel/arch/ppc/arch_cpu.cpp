@@ -110,7 +110,7 @@ arch_cpu_memory_write_barrier(void)
 
 
 void
-arch_cpu_invalidate_TLB_range(addr_t start, addr_t end)
+arch_cpu_invalidate_tlb_range(intptr_t, addr_t start, addr_t end)
 {
 	asm volatile("sync");
 	while (start < end) {
@@ -125,7 +125,7 @@ arch_cpu_invalidate_TLB_range(addr_t start, addr_t end)
 
 
 void
-arch_cpu_invalidate_TLB_list(addr_t pages[], int num_pages)
+arch_cpu_invalidate_tlb_list(intptr_t, addr_t pages[], int num_pages)
 {
 	int i;
 
@@ -141,7 +141,7 @@ arch_cpu_invalidate_TLB_list(addr_t pages[], int num_pages)
 
 
 void
-arch_cpu_global_TLB_invalidate(void)
+arch_cpu_global_tlb_invalidate()
 {
 	if (sHasTlbia) {
 		ppc_sync();
@@ -166,9 +166,9 @@ arch_cpu_global_TLB_invalidate(void)
 
 
 void
-arch_cpu_user_TLB_invalidate(void)
+arch_cpu_user_tlb_invalidate(intptr_t)
 {
-	arch_cpu_global_TLB_invalidate();
+	arch_cpu_global_tlb_invalidate();
 }
 
 

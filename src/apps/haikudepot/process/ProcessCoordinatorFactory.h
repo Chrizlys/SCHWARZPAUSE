@@ -1,9 +1,10 @@
 /*
- * Copyright 2018-2025, Andrew Lindesay <apl@lindesay.co.nz>.
+ * Copyright 2018-2026, Andrew Lindesay <apl@lindesay.co.nz>.
  * All rights reserved. Distributed under the terms of the MIT License.
  */
 #ifndef PROCESS_COORDINATOR_FACTORY_H
 #define PROCESS_COORDINATOR_FACTORY_H
+
 
 #include <SupportDefs.h>
 
@@ -11,6 +12,7 @@
 #include "PackageAction.h"
 #include "PackageInfo.h"
 #include "PackageScreenshotRepository.h"
+
 
 class Model;
 class PackageInfoListener;
@@ -33,11 +35,7 @@ public:
 									UserDetailVerifierListener* userDetailVerifierListener,
 									Model* model);
 
-	static	ProcessCoordinator*	CacheScreenshotCoordinator(
-									Model* model, ScreenshotCoordinate& screenshotCoordinate);
-
-	static	ProcessCoordinator*	PopulatePkgChangelogCoordinator(Model* model,
-									const BString& packageName);
+	static ProcessCoordinator*	CreateServerRuntimeInformationVerifierCoordinator(Model* model);
 
 	static	ProcessCoordinator*	PopulatePkgUserRatingsCoordinator(Model* model,
 									const BString& packageName);
@@ -51,12 +49,20 @@ public:
 	static	ProcessCoordinator*	CreateOpenPackageActionCoordinator(Model* model,
 									const OpenPackageAction& action);
 
+	static	ProcessCoordinator*	CreateCacheScreenshotPackageActionCoordinator(Model* model,
+									const CacheScreenshotPackageAction& action);
+
+	static	ProcessCoordinator*	CreatePopulateChangelogPackageActionCoordinator(Model* model,
+									const PopulateChangelogPackageAction& action);
+
+	static	ProcessCoordinator*	CreatePopulateUserRatingsPackageActionCoordinator(Model* model,
+									const PopulateUserRatingsPackageAction& action);
+
 private:
 	static	uint32				_CalculateServerProcessOptions();
 
-	static	ProcessCoordinator*	_CreateSingleProcessCoordinator(const char* name,
+	static	ProcessCoordinator*	_CreateSingleProcessCoordinator(const char* name, BMessage* message,
 									AbstractProcess *process);
-
 };
 
 #endif // PROCESS_COORDINATOR_FACTORY_H

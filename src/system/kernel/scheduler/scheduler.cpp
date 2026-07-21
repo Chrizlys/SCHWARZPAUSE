@@ -134,7 +134,7 @@ enqueue(Thread* thread, bool newOne)
 
 		if (targetCPU->ID() == smp_get_current_cpu()) {
 			gCPU[targetCPU->ID()].invoke_scheduler = true;
-		} else {
+		} else if (atomic_get_and_set(&gCPU[targetCPU->ID()].invoke_scheduler, true) != true) {
 			smp_send_ici(targetCPU->ID(), SMP_MSG_RESCHEDULE, 0, 0, 0,
 				NULL, SMP_MSG_FLAG_ASYNC);
 		}
@@ -223,8 +223,8 @@ void
 scheduler_reschedule_ici()
 {
 	// This function is called as a result of an incoming ICI.
-	// Make sure the reschedule() is invoked.
-	get_cpu_struct()->invoke_scheduler = true;
+	// Since invoke_scheduler will have been set by whatever sent the ICI, we
+	// shouldn't set it here (as the scheduler may have already cleared it.)
 }
 
 
@@ -321,7 +321,7 @@ reschedule(int32 nextState)
 	SCHEDULER_ENTER_FUNCTION();
 
 	int32 thisCPU = smp_get_current_cpu();
-	gCPU[thisCPU].invoke_scheduler = false;
+	atomic_set(&gCPU[thisCPU].invoke_scheduler, false);
 
 	CPUEntry* cpu = CPUEntry::GetCPU(thisCPU);
 	CoreEntry* core = CoreEntry::GetCore(thisCPU);
@@ -489,6 +489,11 @@ scheduler_reschedule(int32 nextState)
 		Thread* thread = thread_get_current_thread();
 		if (thread != NULL && nextState != B_THREAD_READY)
 			panic("scheduler_reschedule_no_op() called in non-ready thread");
+		return;
+	}
+
+	if (thread_get_current_thread()->cpu->reschedule_disabled) {
+		ASSERT(nextState == B_THREAD_READY);
 		return;
 	}
 

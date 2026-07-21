@@ -1,4 +1,4 @@
-/*	$OpenBSD: ieee80211_ioctl.c,v 1.81 2022/03/07 08:13:13 stsp Exp $	*/
+/*	$OpenBSD: ieee80211_ioctl.c,v 1.84 2025/12/03 10:21:12 stsp Exp $	*/
 /*	$NetBSD: ieee80211_ioctl.c,v 1.15 2004/05/06 02:58:16 dyoung Exp $	*/
 
 /*-
@@ -129,6 +129,9 @@ ieee80211_node2req(struct ieee80211com *ic, const struct ieee80211_node *ni,
 		nr->nr_rsnakms |= IEEE80211_WPA_AKM_SHA256_8021X;
 	if (ni->ni_supported_rsnakms & IEEE80211_AKM_SHA256_PSK)
 		nr->nr_rsnakms |= IEEE80211_WPA_AKM_SHA256_PSK;
+	if (ni->ni_supported_rsnakms & IEEE80211_AKM_SAE)
+		nr->nr_rsnakms |= IEEE80211_WPA_AKM_SAE;
+
 #ifdef __FreeBSD_version
 	if (ni->ni_rsnie != NULL)
 		memcpy(nr->nr_rsnie, ni->ni_rsnie, 2 + ni->ni_rsnie[1]);
@@ -207,6 +210,7 @@ void
 ieee80211_disable_rsn(struct ieee80211com *ic)
 {
 	ic->ic_flags &= ~(IEEE80211_F_PSK | IEEE80211_F_RSNON);
+	ic->ic_flags &= ~IEEE80211_F_MFPR;
 	explicit_bzero(ic->ic_psk, sizeof(ic->ic_psk));
 	ic->ic_rsnprotos = 0;
 	ic->ic_rsnakms = 0;
@@ -331,8 +335,11 @@ ieee80211_ioctl_setwpaparms(struct ieee80211com *ic,
 		ic->ic_rsnakms |= IEEE80211_AKM_8021X;
 	if (wpa->i_akms & IEEE80211_WPA_AKM_SHA256_8021X)
 		ic->ic_rsnakms |= IEEE80211_AKM_SHA256_8021X;
-	if (ic->ic_rsnakms == 0)	/* set to default (PSK) */
+	if (ic->ic_rsnakms == 0) {	/* set to default (PSK) */
 		ic->ic_rsnakms = IEEE80211_AKM_PSK;
+		if (ic->ic_caps & IEEE80211_C_MFP)
+			ic->ic_rsnakms |= IEEE80211_AKM_SHA256_PSK;
+	}
 
 	if (wpa->i_groupcipher == IEEE80211_WPA_CIPHER_WEP40)
 		ic->ic_rsngroupcipher = IEEE80211_CIPHER_WEP40;

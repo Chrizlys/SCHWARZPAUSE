@@ -16,9 +16,10 @@
 #include <bluetooth/HCI/btHCI_transport.h>
 #include <bluetooth/HCI/btHCI_command.h>
 
-#include "HCIDelegate.h"
 #include "DeviceManager.h"
+#include "HCIDelegate.h"
 #include "LocalDeviceImpl.h"
+#include "SDPServer.h"
 
 #include <PortListener.h>
 
@@ -36,6 +37,7 @@ typedef enum {
 #define BLACKBOARD_LD(X) (BLACKBOARD_END+X-HCI_DEVICE_INDEX_OFFSET)
 
 typedef BObjectList<LocalDeviceImpl> LocalDevicesList;
+typedef BObjectList<BMessenger> WatchersList;
 typedef PortListener<struct hci_event_header, 
 	HCI_MAX_EVENT_SIZE, // Event Body can hold max 255 + 2 header
 	24					// Some devices have sent chunks of 24 events(inquiry result)
@@ -64,6 +66,7 @@ public:
 	status_t    HandleGetProperty(BMessage* message, BMessage* reply);
 	status_t    HandleSimpleRequest(BMessage* message, BMessage* reply);
 
+	void		NotifyWatchers(BMessage* notice);
 
     LocalDeviceImpl*    LocateLocalDeviceImpl(hci_id hid);
 	
@@ -77,6 +80,7 @@ private:
 	void				_RemoveDeskbarIcon();
 
 	LocalDevicesList   	fLocalDevicesList;
+	WatchersList		fWatchersList;
 
 
 	// Notification system
@@ -86,9 +90,7 @@ private:
 	
 	BPoint 					fCenter;
 	
-	thread_id				fSDPThreadID;
-	
-	bool					fIsShuttingDown;
+	SDPServer*               fSDPServer;
 };
 
 #endif

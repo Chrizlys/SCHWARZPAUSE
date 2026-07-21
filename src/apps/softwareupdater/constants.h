@@ -12,6 +12,9 @@
 #define kAppSignature "application/x-vnd.haiku-softwareupdater"
 #define kSettingsFilename "SoftwareUpdater_settings"
 
+static const size_t kCleanUpKeepDays = 30;
+static const size_t kCleanUpKeepStates = 10;
+
 enum {
 	ACTION_STEP_INIT = 0,
 	ACTION_STEP_START,
@@ -58,6 +61,11 @@ static const uint32 kMsgSetZoomLimits = 'iSZL';
 static const uint32 kMsgReboot = 'iREB';
 static const uint32 kMsgShowReboot = 'iSRB';
 
+enum {
+	kMsgSettings = 'iSET',
+	kSettingMsgAutoCleanUp = 'iS00',
+};
+
 // Message data keys
 #define kKeyHeader "key_header"
 #define kKeyDetail "key_detail"
@@ -70,5 +78,6 @@ static const uint32 kMsgShowReboot = 'iSRB';
 // Settings keys
 #define kKeyShowDetails "ShowDetails"
 #define kKeyWindowFrame "WindowFrame"
+#define kKeyAutoCleanUpAdminDirectory "AutoCleanUpAdminDirectory"
 
 #endif // CONSTANTS_H

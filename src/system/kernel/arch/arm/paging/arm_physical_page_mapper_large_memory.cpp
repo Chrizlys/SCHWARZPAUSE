@@ -340,7 +340,7 @@ LargeMemoryTranslationMapPhysicalPageMapper
 	fSlotCount(sizeof(fSlots) / sizeof(page_slot)),
 	fNextSlot(0)
 {
-	memset(fSlots, 0, sizeof(fSlots));
+	memset((void*)fSlots, 0, sizeof(fSlots));
 }
 
 
@@ -395,7 +395,7 @@ LargeMemoryTranslationMapPhysicalPageMapper::GetPageTableAt(
 			fNextSlot = (i + 1) & (fSlotCount - 1);
 			if (!slot.valid.GetBit(currentCPU)) {
 				// not valid on this CPU -- invalidate the TLB entry
-				arch_cpu_invalidate_TLB_range(slot.slot->address,
+				arch_cpu_invalidate_tlb_range(0, slot.slot->address,
 					slot.slot->address + B_PAGE_SIZE);
 				slot.valid.SetBit(currentCPU);
 			}
@@ -508,8 +508,8 @@ LargeMemoryPhysicalPageMapper::GetPage(phys_addr_t physicalAddress,
 	*handle = slot;
 	*virtualAddress = slot->address + physicalAddress % B_PAGE_SIZE;
 
-	smp_send_broadcast_ici(SMP_MSG_INVALIDATE_PAGE_RANGE, *virtualAddress,
-		*virtualAddress, 0, NULL, SMP_MSG_FLAG_SYNC);
+	smp_broadcast_ici(SMP_MSG_INVALIDATE_PAGE_RANGE, 0,
+		*virtualAddress, *virtualAddress, NULL, SMP_MSG_FLAG_SYNC);
 
 	return B_OK;
 }

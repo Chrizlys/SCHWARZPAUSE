@@ -49,7 +49,7 @@ NonParameterCommandRequest(uint8 ofg, uint8 ocf, int32* result, hci_id hId,
 	BMessenger* messenger)
 {
 	CALLED();
-	int8 bt_status = BT_ERROR;
+	uint8 bt_status = BT_ERROR;
 
 	BluetoothCommand<> simpleCommand(ofg, ocf);
 
@@ -63,7 +63,7 @@ NonParameterCommandRequest(uint8 ofg, uint8 ocf, int32* result, hci_id hId,
 	request.AddInt16("opcodeExpected", PACK_OPCODE(ofg, ocf));
 
 	if (messenger->SendMessage(&request, &reply) == B_OK) {
-		reply.FindInt8("status", &bt_status);
+		reply.FindUInt8("status", &bt_status);
 		if (result != NULL)
 			reply.FindInt32("result", result);
 	}
@@ -261,6 +261,60 @@ buildRejectConnectionRequest(bdaddr_t bdaddr, size_t* outsize)
 }
 
 
+void*
+buildIOCapabilityRequestReply(bdaddr_t bdaddr, uint8 capability, uint8 oob_data,
+	uint8 authentication, size_t* outsize)
+{
+	CALLED();
+	struct hci_cp_io_capability_request_reply* param;
+
+	void* command = buildCommand(OGF_LINK_CONTROL, OCF_IO_CAPABILITY_REQUEST_REPLY, (void**)&param,
+		sizeof(struct hci_cp_io_capability_request_reply), outsize);
+
+	if (command != NULL) {
+		param->bdaddr = bdaddr;
+
+		param->capability = capability;
+		param->oob_data = oob_data;
+		param->authentication = authentication;
+	}
+
+	return command;
+}
+
+
+void*
+buildUserConfirmReply(bdaddr_t bdaddr, size_t* outsize)
+{
+	CALLED();
+	struct hci_cp_user_confirm_reply* param;
+
+	void* command = buildCommand(OGF_LINK_CONTROL, OCF_USER_CONFIRM_REPLY, (void**)&param,
+		sizeof(struct hci_cp_user_confirm_reply), outsize);
+
+	if (command != NULL)
+		param->bdaddr = bdaddr;
+
+	return command;
+}
+
+
+void*
+buildAuthenticationRequested(uint16 handle, size_t* outsize)
+{
+	CALLED();
+	struct hci_cp_auth_requested* param;
+
+	void* command = buildCommand(OGF_LINK_CONTROL, OCF_AUTH_REQUESTED, (void**)&param,
+		sizeof(struct hci_cp_auth_requested), outsize);
+
+	if (command != NULL)
+		param->handle = handle;
+
+	return command;
+}
+
+
 #if 0
 #pragma mark - INFORMATIONAL_PARAM -
 #endif
@@ -271,6 +325,15 @@ buildReadLocalVersionInformation(size_t* outsize)
 {
 	CALLED();
 	return buildCommand(OGF_INFORMATIONAL_PARAM, OCF_READ_LOCAL_VERSION,
+		NULL, 0, outsize);
+}
+
+
+void*
+buildReadLocalSupportedCommands(size_t* outsize)
+{
+	CALLED();
+	return buildCommand(OGF_INFORMATIONAL_PARAM, OCF_READ_LOCAL_SUPPORTED_COMMANDS,
 		NULL, 0, outsize);
 }
 

@@ -324,7 +324,7 @@ static status_t initRingBuffer( device_info *di, int aring_size )
 	shared_info *si = di->si;
 	CP_info *cp = &si->cp;
 	vuint8 *regs = di->regs;
-	int32 offset;
+	uint32 offset;
 	memory_type_e memory_type;
 
 	memset( &cp->ring, 0, sizeof( cp->ring ));
@@ -391,7 +391,7 @@ static status_t initCPFeedback( device_info *di )
 {
 	CP_info *cp = &di->si->cp;
 	vuint8 *regs = di->regs;
-	int32 offset;
+	uint32 offset;
 	memory_type_e memory_type;
 	status_t res;
 
@@ -442,7 +442,7 @@ static void uninitCPFeedback( device_info *di )
 static status_t initIndirectBuffers( device_info *di )
 {
 	CP_info *cp = &di->si->cp;
-	int32 offset;
+	uint32 offset;
 	memory_type_e memory_type;
 	int i;
 	status_t res;

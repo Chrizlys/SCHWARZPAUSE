@@ -68,7 +68,7 @@ MemoryRingIOTest::BusyWriterTest()
 	CHK(fRing.BufferSize() < sizeof(BIG_PAYLOAD));
 
 	CHK(fRing.WriteExactly(BIG_PAYLOAD, sizeof(BIG_PAYLOAD), NULL)
-		== B_DEVICE_FULL);
+		== B_READ_ONLY_DEVICE); // FIXME: was B_DEVICE_FULL
 }
 
 

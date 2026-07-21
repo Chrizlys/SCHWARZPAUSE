@@ -11,6 +11,7 @@
 
 #include <kernel.h>
 #include <lock.h>
+#include <smp.h>
 
 #include <vm/VMArea.h>
 
@@ -88,6 +89,10 @@ protected:
 									VMAreaMappings* mappingsQueue = NULL);
 			void				UnaccessedPageUnmapped(VMArea* area,
 									page_num_t pageNumber);
+
+	static	void				InvalidateUserTLB(CPUSet cpus, intptr_t context);
+	static	void				InvalidateTLBList(CPUSet cpus, intptr_t context,
+									addr_t* invalidPages, int32 count);
 
 protected:
 			recursive_lock		fLock;

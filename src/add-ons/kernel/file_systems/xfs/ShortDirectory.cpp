@@ -6,6 +6,8 @@
 
 #include "ShortDirectory.h"
 
+#include "Utility.h"
+
 
 ShortDirectory::ShortDirectory(Inode* inode)
 	:
@@ -107,10 +109,8 @@ ShortDirectory::Lookup(const char* name, size_t length, xfs_ino_t* ino)
 	TRACE("Length of first entry: (%" B_PRIu8 "),offset of first entry:"
 		"(%" B_PRIu16 ")\n", entry->namelen, B_BENDIAN_TO_HOST_INT16(entry->offset.i));
 
-	int status;
 	for (int i = 0; i < fHeader->count; i++) {
-		status = strncmp(name, (char*)entry->name, entry->namelen);
-		if (status == 0) {
+		if (xfs_name_comp(name, length, entry->name, entry->namelen)) {
 			*ino = GetEntryIno(entry);
 			return B_OK;
 		}

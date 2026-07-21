@@ -81,19 +81,18 @@ DiscoveryAgent::StartInquiry(uint32 accessCode, DiscoveryListener* listener,
 		PACK_OPCODE(OGF_LINK_CONTROL, OCF_INQUIRY));
 
 	// For getting each discovered message
-    request.AddInt16("eventExpected",  HCI_EVENT_INQUIRY_RESULT);
+	request.AddInt16("eventExpected",  HCI_EVENT_INQUIRY_RESULT);
+	request.AddInt16("eventExpected", HCI_EVENT_INQUIRY_RESULT_WITH_RSSI);
+	request.AddInt16("eventExpected", HCI_EVENT_EXTENDED_INQUIRY_RESULT);
 
 	// For finishing each discovered message
-    request.AddInt16("eventExpected",  HCI_EVENT_INQUIRY_COMPLETE);
+	request.AddInt16("eventExpected",  HCI_EVENT_INQUIRY_COMPLETE);
 
 
-    if (fMessenger->SendMessage(&request, listener) == B_OK)
-    {
-    	return B_OK;
-    }
-	
+	if (fMessenger->SendMessage(&request, listener) == B_OK)
+		return B_OK;
+
 	return B_ERROR;
-
 }
 
 
@@ -107,7 +106,7 @@ DiscoveryAgent::CancelInquiry(DiscoveryListener* listener)
     	return B_ERROR;
 
     void* cancelInquiryCommand = NULL;
-    int8  bt_status = BT_ERROR;
+    uint8 bt_status = BT_ERROR;
 
     /* Issue inquiry command */
     BMessage request(BT_MSG_HANDLE_SIMPLE_REQUEST);
@@ -117,12 +116,12 @@ DiscoveryAgent::CancelInquiry(DiscoveryListener* listener)
 
     cancelInquiryCommand = buildInquiryCancel(&size);
     request.AddData("raw command", B_ANY_TYPE, cancelInquiryCommand, size);
-    request.AddInt16("eventExpected",  HCI_EVENT_CMD_STATUS);
+    request.AddInt16("eventExpected",  HCI_EVENT_CMD_COMPLETE);
     request.AddInt16("opcodeExpected",
 		PACK_OPCODE(OGF_LINK_CONTROL, OCF_INQUIRY_CANCEL));
 
     if (fMessenger->SendMessage(&request, &reply) == B_OK) {
-        if (reply.FindInt8("status", &bt_status ) == B_OK ) {
+        if (reply.FindUInt8("status", &bt_status ) == B_OK ) {
 			return bt_status;
 		}
     }

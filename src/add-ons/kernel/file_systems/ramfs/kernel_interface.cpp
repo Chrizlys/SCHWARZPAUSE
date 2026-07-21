@@ -68,17 +68,6 @@ static const size_t kOptimalIOSize = 65536;
 static const bigtime_t kNotificationInterval = 1000000LL;
 
 
-// notify_if_stat_changed
-void
-notify_if_stat_changed(Volume *volume, Node *node)
-{
-	if (volume && node && node->IsModified()) {
-		uint32 statFields = node->MarkUnmodified();
-		notify_stat_changed(volume->GetID(), -1, node->GetID(), statFields);
-	}
-}
-
-
 // #pragma mark - FS
 
 
@@ -300,22 +289,22 @@ ramfs_ioctl(fs_volume* _volume, fs_vnode* /*node*/, void* /*cookie*/,
 	switch (cmd) {
 		case RAMFS_IOCTL_GET_ALLOCATION_INFO:
 		{
-			if (buffer) {
-				VolumeReadLocker locker(volume);
-				if (!locker.IsLocked()) {
-					AllocationInfo *info = (AllocationInfo*)buffer;
-					volume->GetAllocationInfo(*info);
-				} else
-					SET_ERROR(error, B_ERROR);
-			} else
-				SET_ERROR(error, B_BAD_VALUE);
+			if (buffer == NULL)
+				RETURN_ERROR(B_BAD_VALUE);
+
+			VolumeReadLocker locker(volume);
+			if (!locker.IsLocked())
+				RETURN_ERROR(B_ERROR);
+
+			AllocationInfo *info = (AllocationInfo*)buffer;
+			volume->GetAllocationInfo(*info);
 			break;
 		}
 		case RAMFS_IOCTL_DUMP_INDEX:
 		{
 			if (buffer) {
 				VolumeReadLocker locker(volume);
-				if (!locker.IsLocked()) {
+				if (locker.IsLocked()) {
 					const char *name = (const char*)buffer;
 PRINT("  RAMFS_IOCTL_DUMP_INDEX, `%s'\n", name);
 					IndexDirectory *indexDir = volume->GetIndexDirectory();
@@ -412,7 +401,7 @@ ramfs_create_symlink(fs_volume* _volume, fs_vnode* _dir, const char *name,
 		RETURN_ERROR(B_ERROR);
 
 	status_t error = B_OK;
-	NodeMTimeUpdater mTimeUpdater(dir);
+	NodeStatChangeNotifier statNotifier(dir);
 	// directory deleted?
 	bool removed;
 	if (get_vnode_removed(volume->FSVolume(), dir->GetID(), &removed)
@@ -442,7 +431,7 @@ ramfs_create_symlink(fs_volume* _volume, fs_vnode* _dir, const char *name,
 			}
 		}
 	}
-	NodeMTimeUpdater mTimeUpdater2(node);
+	NodeStatChangeNotifier statNotifier2(node);
 	// notify listeners
 	if (error == B_OK) {
 		notify_entry_created(volume->GetID(), dir->GetID(), name,
@@ -470,7 +459,7 @@ ramfs_link(fs_volume* _volume, fs_vnode* _dir, const char *name,
 		RETURN_ERROR(B_ERROR);
 
 	status_t error = B_OK;
-	NodeMTimeUpdater mTimeUpdater(dir);
+	NodeStatChangeNotifier statNotifier(dir);
 	// directory deleted?
 	bool removed;
 	if (get_vnode_removed(volume->FSVolume(), dir->GetID(), &removed)
@@ -516,7 +505,7 @@ ramfs_unlink(fs_volume* _volume, fs_vnode* _dir, const char *name)
 	if (!locker.IsLocked())
 		RETURN_ERROR(B_ERROR);
 
-	NodeMTimeUpdater mTimeUpdater(dir);
+	NodeStatChangeNotifier statNotifier(dir);
 	// check directory write permissions
 	error = dir->CheckPermissions(W_OK);
 	ino_t nodeID = -1;
@@ -562,8 +551,8 @@ ramfs_rename(fs_volume* _volume, fs_vnode* _oldDir, const char *oldName,
 
 	status_t error = B_OK;
 
-	NodeMTimeUpdater mTimeUpdater1(oldDir);
-	NodeMTimeUpdater mTimeUpdater2(newDir);
+	NodeStatChangeNotifier statNotifier1(oldDir);
+	NodeStatChangeNotifier statNotifier2(newDir);
 
 	// target directory deleted?
 	bool removed;
@@ -727,7 +716,7 @@ ramfs_write_stat(fs_volume* _volume, fs_vnode* _node, const struct stat *st,
 			mask, st) != B_OK)
 		RETURN_ERROR(B_NOT_ALLOWED);
 
-	NodeMTimeUpdater mTimeUpdater(node);
+	NodeStatChangeNotifier statNotifier(node);
 	status_t error = B_OK;
 
 	if ((mask & B_STAT_SIZE) != 0)
@@ -752,10 +741,6 @@ ramfs_write_stat(fs_volume* _volume, fs_vnode* _node, const struct stat *st,
 		if (mask & B_STAT_CREATION_TIME)
 			node->SetCrTime(st->st_crtime);
 	}
-
-	// notify listeners
-	if (error == B_OK)
-		notify_if_stat_changed(volume, node);
 
 	RETURN_ERROR(error);
 }
@@ -808,7 +793,7 @@ ramfs_create(fs_volume* _volume, fs_vnode* _dir, const char *name, int openMode,
 	if (!locker.IsLocked())
 		RETURN_ERROR(B_ERROR);
 
-	NodeMTimeUpdater mTimeUpdater(dir);
+	NodeStatChangeNotifier statNotifier(dir);
 	status_t error = B_OK;
 
 	// directory deleted?
@@ -873,7 +858,7 @@ ramfs_create(fs_volume* _volume, fs_vnode* _dir, const char *name, int openMode,
 		else if (cookie)
 			delete cookie;
 	}
-	NodeMTimeUpdater mTimeUpdater2(node);
+	NodeStatChangeNotifier statNotifier2(node);
 	// notify listeners
 	if (error == B_OK)
 		notify_entry_created(volume->GetID(), dir->GetID(), name, *vnid);
@@ -900,7 +885,7 @@ ramfs_create_special_node(fs_volume *_volume, fs_vnode *_dir, const char *name,
 	if (!locker.IsLocked())
 		RETURN_ERROR(B_ERROR);
 
-	NodeMTimeUpdater mTimeUpdater(dir);
+	NodeStatChangeNotifier statNotifier(dir);
 	status_t error = B_OK;
 
 	// directory deleted?
@@ -938,7 +923,7 @@ ramfs_create_special_node(fs_volume *_volume, fs_vnode *_dir, const char *name,
 		RETURN_ERROR(error);
 	}
 
-	NodeMTimeUpdater mTimeUpdater2(node);
+	NodeStatChangeNotifier statNotifier2(node);
 
 	// notify listeners
 	notify_entry_created(volume->GetID(), dir->GetID(), name, *vnid);
@@ -983,7 +968,7 @@ ramfs_open(fs_volume* _volume, fs_vnode* _node, int openMode, void** _cookie)
 		VolumeWriteLocker writeLocker(volume);
 
 		error = node->SetSize(0);
-		NodeMTimeUpdater mTimeUpdater(node);
+		NodeStatChangeNotifier statNotifier(node);
 	}
 
 	// set result / cleanup on failure
@@ -1005,15 +990,12 @@ ramfs_close(fs_volume* _volume, fs_vnode* _node, void* /*cookie*/)
 
 	FUNCTION(("node: %lld\n", node->GetID()));
 
-	VolumeReadLocker locker(volume);
+	VolumeWriteLocker locker(volume);
 	if (!locker.IsLocked())
 		RETURN_ERROR(B_ERROR);
 
-	status_t error = B_OK;
-	// notify listeners
-	notify_if_stat_changed(volume, node);
-
-	return error;
+	NodeStatChangeNotifier _(node);
+	return B_OK;
 }
 
 
@@ -1097,9 +1079,9 @@ ramfs_write(fs_volume* _volume, fs_vnode* _node, void* _cookie, off_t pos,
 		}
 	}
 	// notify listeners
-	if (error == B_OK && cookie->NotificationIntervalElapsed(true))
-		notify_if_stat_changed(volume, node);
-	NodeMTimeUpdater mTimeUpdater(node);
+	if (error == B_OK && cookie->NotificationIntervalElapsed(true)) {
+		NodeStatChangeNotifier _(node);
+	}
 	RETURN_ERROR(error);
 }
 
@@ -1204,7 +1186,7 @@ ramfs_create_dir(fs_volume* _volume, fs_vnode* _dir, const char *name, int mode)
 	if (!locker.IsLocked())
 		RETURN_ERROR(B_ERROR);
 
-	NodeMTimeUpdater mTimeUpdater(dir);
+	NodeStatChangeNotifier statNotifier(dir);
 	// directory deleted?
 	bool removed;
 	status_t error = B_OK;
@@ -1235,7 +1217,7 @@ ramfs_create_dir(fs_volume* _volume, fs_vnode* _dir, const char *name, int mode)
 			}
 		}
 	}
-	NodeMTimeUpdater mTimeUpdater2(node);
+	NodeStatChangeNotifier statNotifier2(node);
 	// notify listeners
 	if (error == B_OK) {
 		notify_entry_created(volume->GetID(), dir->GetID(), name,
@@ -1262,7 +1244,7 @@ ramfs_remove_dir(fs_volume* _volume, fs_vnode* _dir, const char *name)
 	if (!locker.IsLocked())
 		RETURN_ERROR(B_ERROR);
 
-	NodeMTimeUpdater mTimeUpdater(dir);
+	NodeStatChangeNotifier statNotifier(dir);
 	// check directory write permissions
 	status_t error = dir->CheckPermissions(W_OK);
 	ino_t nodeID = -1;
@@ -1626,19 +1608,13 @@ ramfs_create_attr(fs_volume* _volume, fs_vnode* _node, const char *name,
 
 		attribute->SetType(type);
 
-		notify_attribute_changed(volume->GetID(), -1, node->GetID(), name,
-			B_ATTR_CREATED);
-
 	// else truncate if requested
 	} else if (openMode & O_TRUNC) {
 		error = attribute->SetSize(0);
 		if (error != B_OK)
 			return error;
-
-		notify_attribute_changed(volume->GetID(), -1, node->GetID(), name,
-			B_ATTR_CHANGED);
 	}
-	NodeMTimeUpdater mTimeUpdater(node);
+	NodeStatChangeNotifier statNotifier(node);
 
 	// success
 	cookieDeleter.Detach();
@@ -1687,15 +1663,9 @@ ramfs_open_attr(fs_volume* _volume, fs_vnode* _node, const char *name,
 	}
 
 	// truncate if requested
-	if (error == B_OK && (openMode & O_TRUNC)) {
+	if (error == B_OK && (openMode & O_TRUNC))
 		error = attribute->SetSize(0);
-
-		if (error == B_OK) {
-			notify_attribute_changed(volume->GetID(), -1, node->GetID(),
-				name, B_ATTR_CHANGED);
-		}
-	}
-	NodeMTimeUpdater mTimeUpdater(node);
+	NodeStatChangeNotifier statNotifier(node);
 
 	// set result / cleanup on failure
 	if (error == B_OK)
@@ -1719,8 +1689,7 @@ ramfs_close_attr(fs_volume* _volume, fs_vnode* _node, void* _cookie)
 	if (!locker.IsLocked())
 		RETURN_ERROR(B_ERROR);
 
-	// notify listeners
-	notify_if_stat_changed(volume, node);
+	NodeStatChangeNotifier _(node);
 	return B_OK;
 }
 
@@ -1794,7 +1763,7 @@ ramfs_write_attr(fs_volume* _volume, fs_vnode* _node, void* _cookie,
 	if (!locker.IsLocked())
 		RETURN_ERROR(B_ERROR);
 
-	NodeMTimeUpdater mTimeUpdater(node);
+	NodeStatChangeNotifier statNotifier(node);
 
 	// find the attribute
 	Attribute *attribute = NULL;
@@ -1809,12 +1778,6 @@ ramfs_write_attr(fs_volume* _volume, fs_vnode* _node, void* _cookie,
 	// write the data
 	if (error == B_OK)
 		error = attribute->WriteAt(pos, buffer, *bufferSize, bufferSize);
-
-	// notify listeners
-	if (error == B_OK) {
-		notify_attribute_changed(volume->GetID(), -1, node->GetID(), name,
-			B_ATTR_CHANGED);
-	}
 
 	RETURN_ERROR(error);
 }
@@ -1876,7 +1839,7 @@ ramfs_remove_attr(fs_volume* _volume, fs_vnode* _node, const char *name)
 	if (!locker.IsLocked())
 		RETURN_ERROR(B_ERROR);
 
-	NodeMTimeUpdater mTimeUpdater(node);
+	NodeStatChangeNotifier statNotifier(node);
 
 	// check permissions
 	error = node->CheckPermissions(W_OK);
@@ -1889,12 +1852,6 @@ ramfs_remove_attr(fs_volume* _volume, fs_vnode* _node, const char *name)
 	// delete it
 	if (error == B_OK)
 		error = node->DeleteAttribute(attribute);
-
-	// notify listeners
-	if (error == B_OK) {
-		notify_attribute_changed(volume->GetID(), -1, node->GetID(), name,
-			B_ATTR_REMOVED);
-	}
 
 	RETURN_ERROR(error);
 }

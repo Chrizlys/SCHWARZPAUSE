@@ -7,12 +7,11 @@
  * All rights reserved. Distributed under the terms of the MIT License.
  */
 
+
 #include "PackageListView.h"
 
 #include <algorithm>
-#include <stdio.h>
 
-#include <Autolock.h>
 #include <Catalog.h>
 #include <ControlLook.h>
 #include <NumberFormat.h>
@@ -20,14 +19,12 @@
 #include <StringForSize.h>
 #include <StringFormat.h>
 #include <Window.h>
-#include <package/hpkg/Strings.h>
 
 #include "LocaleUtils.h"
 #include "Logger.h"
 #include "PackageUtils.h"
 #include "RatingUtils.h"
 #include "SharedIcons.h"
-#include "WorkStatusView.h"
 
 
 #undef B_TRANSLATION_CONTEXT
@@ -50,13 +47,13 @@ package_state_to_string(PackageInfoRef package)
 
 	switch (PackageUtils::State(package)) {
 		case NONE:
-			return B_TRANSLATE(skPackageStateAvailable);
+			return B_TRANSLATE_NOCOLLECT(skPackageStateAvailable);
 		case INSTALLED:
-			return B_TRANSLATE(skPackageStateInactive);
+			return B_TRANSLATE_NOCOLLECT(skPackageStateInactive);
 		case ACTIVATED:
-			return B_TRANSLATE(skPackageStateActive);
+			return B_TRANSLATE_NOCOLLECT(skPackageStateActive);
 		case UNINSTALLED:
-			return B_TRANSLATE(skPackageStateUninstalled);
+			return B_TRANSLATE_NOCOLLECT(skPackageStateUninstalled);
 		case DOWNLOADING:
 		{
 			BString data;
@@ -68,7 +65,7 @@ package_state_to_string(PackageInfoRef package)
 			return data;
 		}
 		case PENDING:
-			return B_TRANSLATE(skPackageStatePending);
+			return B_TRANSLATE_NOCOLLECT(skPackageStatePending);
 	}
 
 	return B_TRANSLATE("Unknown");
@@ -1219,13 +1216,10 @@ PackageListView::SelectionChanged()
 	if (fIgnoreSelectionChanged)
 		return;
 
-	BMessage message(MSG_PACKAGE_SELECTED);
-
 	PackageRow* selected = dynamic_cast<PackageRow*>(CurrentSelection());
-	if (selected != NULL)
-		message.AddString(shared_message_keys::kKeyPackageName, selected->Package()->Name());
 
-	Window()->PostMessage(&message);
+	if (selected != NULL)
+		fModel->SetSelectedPackage(selected->Package());
 }
 
 

@@ -27,6 +27,7 @@ const static size_t kAlignment = 8;
 
 const static size_t kInitialHeapSize = 64 * 1024;
 const static size_t kHeapGrowthAlignment = 32 * 1024;
+const static size_t kHeapReservationSize = 1 * 1024 * 1024;
 
 static const char* const kLockName = "runtime_loader heap";
 static recursive_lock sLock = RECURSIVE_LOCK_INITIALIZER(kLockName);
@@ -54,11 +55,19 @@ add_area(size_t size)
 		}
 	}
 
-	void* base;
+	void* reservedBase;
+	status_t status = _kern_reserve_address_range((addr_t*)&reservedBase, 
+		B_RANDOMIZED_ANY_ADDRESS, kHeapReservationSize);
+	if (status != B_OK)
+		return status;
+
+	void* base = reservedBase;
 	area_id area = _kern_create_area("rld heap", &base,
-		B_RANDOMIZED_ANY_ADDRESS, size, B_NO_LOCK, B_READ_AREA | B_WRITE_AREA);
-	if (area < 0)
+		B_EXACT_ADDRESS, size, B_NO_LOCK, B_READ_AREA | B_WRITE_AREA);
+	if (area < 0) {
+		_kern_unreserve_address_range((addr_t)reservedBase, kHeapReservationSize);
 		return area;
+	}
 
 	sLastHeapBase = base;
 	sLastHeapArea = area;

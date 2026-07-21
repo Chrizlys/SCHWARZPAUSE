@@ -6,6 +6,7 @@
  * All rights reserved. Distributed under the terms of the MIT License.
  */
 
+
 #include "FeaturedPackagesView.h"
 
 #include <algorithm>
@@ -290,19 +291,10 @@ public:
 	}
 
 
-	/*!	This method will send a message to the Window so that it can signal
-		back to this and other views that a package has been selected.  This
-		method won't actually change the state of this view directly.
-	*/
-
 	void _MessageSelectIndex(int32 index) const
 	{
-		if (index != -1) {
-			BMessage message(MSG_PACKAGE_SELECTED);
-			BString packageName = fPackages[index]->Name();
-			message.AddString(shared_message_keys::kKeyPackageName, packageName);
-			Window()->PostMessage(&message);
-		}
+		if (index != -1)
+			fModel.SetSelectedPackage(fPackages[index]);
 	}
 
 

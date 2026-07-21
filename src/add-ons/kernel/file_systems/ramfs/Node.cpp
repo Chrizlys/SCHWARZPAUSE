@@ -135,6 +135,19 @@ Node::SetMTime(time_t mTime)
 }
 
 
+uint32
+Node::MarkUnmodified()
+{
+	uint32 modified = fModified;
+	if (modified) {
+		fCTime = time(NULL);
+		SetMTime(fCTime);
+		fModified = 0;
+	}
+	return modified;
+}
+
+
 status_t
 Node::CheckPermissions(int mode) const
 {
@@ -181,12 +194,9 @@ Node::AddAttribute(Attribute *attribute)
 {
 	status_t error = (attribute && !attribute->GetNode() ? B_OK : B_BAD_VALUE);
 	if (error == B_OK) {
-		error = GetVolume()->NodeAttributeAdded(GetID(), attribute);
-		if (error == B_OK) {
-			fAttributes.Insert(attribute);
-			attribute->SetNode(this);
-			MarkModified(B_STAT_MODIFICATION_TIME);
-		}
+		fAttributes.Insert(attribute);
+		attribute->SetNode(this);
+		MarkModified(B_STAT_MODIFICATION_TIME);
 	}
 	return error;
 }
@@ -223,13 +233,11 @@ Node::RemoveAttribute(Attribute *attribute)
 	locker.Unlock();
 
 	// remove the attribute
-	status_t error = GetVolume()->NodeAttributeRemoved(GetID(), attribute);
-	if (error == B_OK) {
-		fAttributes.Remove(attribute);
-		attribute->SetNode(NULL);
-		MarkModified(B_STAT_MODIFICATION_TIME);
-	}
-	return error;
+	fAttributes.Remove(attribute);
+	attribute->SetNode(NULL);
+	MarkModified(B_STAT_MODIFICATION_TIME);
+
+	return B_OK;
 }
 
 
@@ -321,4 +329,21 @@ Node::GetAllocationInfo(AllocationInfo &info)
 	Attribute *attribute = NULL;
 	while (GetNextAttribute(&attribute) == B_OK)
 		attribute->GetAllocationInfo(info);
+}
+
+
+NodeStatChangeNotifier::~NodeStatChangeNotifier()
+{
+	if (fNode == NULL || !fNode->IsModified())
+		return;
+
+	uint32 statFields = fNode->MarkUnmodified();
+	for (Entry* entry = fNode->GetFirstReferrer(); entry != NULL;
+			entry = fNode->GetNextReferrer(entry)) {
+		ino_t parentID = -1;
+		if (entry->GetParent() != NULL)
+			parentID = ((Node*)entry->GetParent())->GetID();
+		notify_stat_changed(fNode->GetVolume()->GetID(), parentID,
+			fNode->GetID(), statFields);
+	}
 }

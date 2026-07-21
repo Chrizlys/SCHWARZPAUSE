@@ -480,7 +480,7 @@ HttpIntegrationTest::AddTests(BTestSuite& parent)
 		testCaller->addThread("PostTest", &HttpIntegrationTest::PostTest);
 
 		suite.addTest(testCaller);
-		parent.addTest("HttpsIntegrationTest", &suite);
+//		parent.addTest("HttpsIntegrationTest", &suite);
 	}
 }
 

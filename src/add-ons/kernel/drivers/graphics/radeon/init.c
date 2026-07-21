@@ -157,7 +157,7 @@ status_t Radeon_MapDevice( device_info *di, bool mmio_only )
 
 	// save physical address though noone can probably make
 	// any use of it
-	si->framebuffer_pci = (void *) di->pcii.u.h0.base_registers_pci[fb];
+	si->framebuffer_pci = (phys_addr_t)di->pcii.u.h0.base_registers_pci[fb];
 
 	return B_OK;
 

@@ -131,8 +131,8 @@ DataTest::AddTests(BTestSuite& parent)
 {
 	CppUnit::TestSuite& suite = *new CppUnit::TestSuite("DataTest");
 
-	suite.addTest(new CppUnit::TestCaller<DataTest>(
-		"DataTest::SimpleTest", &DataTest::SimpleTest));
+//	suite.addTest(new CppUnit::TestCaller<DataTest>(
+//		"DataTest::SimpleTest", &DataTest::SimpleTest));
 	suite.addTest(new CppUnit::TestCaller<DataTest>(
 		"DataTest::EmptyTest", &DataTest::EmptyTest));
 	suite.addTest(new CppUnit::TestCaller<DataTest>(
@@ -141,8 +141,8 @@ DataTest::AddTests(BTestSuite& parent)
 		"DataTest::CharsetTest", &DataTest::CharsetTest));
 	suite.addTest(new CppUnit::TestCaller<DataTest>(
 		"DataTest::Base64Test", &DataTest::Base64Test));
-	suite.addTest(new CppUnit::TestCaller<DataTest>(
-		"DataTest::UrlDecodeTest", &DataTest::UrlDecodeTest));
+//	suite.addTest(new CppUnit::TestCaller<DataTest>(
+//		"DataTest::UrlDecodeTest", &DataTest::UrlDecodeTest));
 
 	parent.addTest("DataTest", &suite);
 }

@@ -2506,6 +2506,7 @@ status_t
 EHCI::FillQueueWithData(Transfer *transfer, ehci_qh *queueHead,
 	ehci_qtd **_dataDescriptor, bool *_directionIn, bool prepareKernelAccess)
 {
+#if 0 /* works most of the time, but apparently broken on at least some hardware */
 	if (transfer->IsPhysical()) {
 		// Try to use the physical buffer directly, first.
 		status_t result = _FillQueueWithPhysicalData(transfer, queueHead,
@@ -2513,6 +2514,7 @@ EHCI::FillQueueWithData(Transfer *transfer, ehci_qh *queueHead,
 		if (result != B_NOT_SUPPORTED)
 			return result;
 	}
+#endif
 
 	Pipe *pipe = transfer->TransferPipe();
 	bool directionIn = (pipe->Direction() == Pipe::In);

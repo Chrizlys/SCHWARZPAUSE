@@ -2060,13 +2060,10 @@ get_dir_path_and_leaf(char* path, char* filename)
 			while (*--last == '/' && last != path);
 			last[1] = '\0';
 
-			if (last == path && last[0] == '/') {
-				// This path points to the root of the file system
-				strcpy(filename, ".");
-				return B_OK;
-			}
-			for (; last != path && *(last - 1) != '/'; last--);
-				// rewind to the start of the leaf before the '/'
+			// pathnames that end with one or more trailing slash characters
+			// must refer to directory paths
+			strcpy(filename, ".");
+			return B_OK;
 		}
 
 		// normal leaf: replace the leaf portion of the path with a '.'
@@ -4772,10 +4769,14 @@ vfs_get_vnode_cache(struct vnode* vnode, VMCache** _cache, bool allocate)
 			bool wasBusy = vnode->IsBusy();
 			vnode->SetBusy(true);
 
+			ModifiedPageQueue* queue = NULL;
+			if (vnode->mount->partition != NULL)
+				queue = vnode->mount->partition->Device()->ModifiedQueue();
+
 			vnode->Unlock();
 			rw_lock_read_unlock(&sVnodeLock);
 
-			status = vm_create_vnode_cache(vnode, &vnode->cache);
+			status = vm_create_vnode_cache(vnode, queue, &vnode->cache);
 
 			rw_lock_read_lock(&sVnodeLock);
 			vnode->Lock();
@@ -5453,7 +5454,7 @@ open_vnode(struct vnode* vnode, int openMode, bool kernel)
 	then that entry will be opened and returned instead.
 */
 static int
-create_vnode(struct vnode* directory, const char* name, int openMode,
+file_create_vnode(struct vnode* directory, const char* name, int openMode,
 	int perms, bool kernel)
 {
 	bool traverse = ((openMode & (O_NOTRAVERSE | O_NOFOLLOW)) == 0);
@@ -5462,6 +5463,9 @@ create_vnode(struct vnode* directory, const char* name, int openMode,
 	void* cookie;
 	ino_t newID;
 	char clonedName[B_FILE_NAME_LENGTH + 1];
+
+	if (strcmp(name, ".") == 0)
+		return B_IS_A_DIRECTORY;
 
 	// This is somewhat tricky: If the entry already exists, the FS responsible
 	// for the directory might not necessarily also be the one responsible for
@@ -5638,7 +5642,7 @@ file_create_entry_ref(dev_t mountID, ino_t directoryID, const char* name,
 	if (status != B_OK)
 		return status;
 
-	status = create_vnode(directory, name, openMode, perms, kernel);
+	status = file_create_vnode(directory, name, openMode, perms, kernel);
 	put_vnode(directory);
 
 	return status;
@@ -5659,7 +5663,7 @@ file_create(int fd, char* path, int openMode, int perms, bool kernel)
 	if (status < 0)
 		return status;
 
-	return create_vnode(directory.Get(), name, openMode, perms, kernel);
+	return file_create_vnode(directory.Get(), name, openMode, perms, kernel);
 }
 
 
@@ -6051,6 +6055,17 @@ dir_create(int fd, char* path, int perms, bool kernel)
 
 	FUNCTION(("dir_create: path '%s', perms %d, kernel %d\n", path, perms,
 		kernel));
+
+	char* p = strrchr(path, '/');
+	if (p != NULL) {
+		p++;
+		if (p[0] == '\0') {
+			// special case: the path ends in one or more '/' - remove them
+			while (*--p == '/' && p != path)
+				;
+			p[1] = '\0';
+		}
+	}
 
 	VnodePutter vnode;
 	status = fd_and_path_to_dir_vnode(fd, path, vnode, filename, kernel);
@@ -7565,6 +7580,7 @@ fs_mount(char* path, const char* device, const char* fsName, uint32 flags,
 			return B_ERROR;
 		}
 	}
+	PartitionRegistrar diskDeviceRegistrar(diskDevice, true);
 	DeviceWriteLocker writeLocker(diskDevice, true);
 
 	if (partition != NULL) {
@@ -7778,7 +7794,7 @@ fs_mount(char* path, const char* device, const char* fsName, uint32 flags,
 	}
 
 	// supply the partition (if any) with the mount ID and mark it mounted
-	if (partition) {
+	if (partition != NULL) {
 		partition->SetVolumeID(mount->id);
 
 		// keep a partition reference as long as the partition is mounted
@@ -7857,11 +7873,12 @@ fs_unmount(char* path, dev_t mountID, uint32 flags, bool kernel)
 			return B_ERROR;
 		}
 		diskDevice = ddm->WriteLockDevice(partition->Device()->ID());
-		if (!diskDevice) {
+		if (diskDevice == NULL) {
 			TRACE(("fs_unmount(): Failed to lock disk device!\n"));
 			return B_ERROR;
 		}
 	}
+	PartitionRegistrar diskDeviceRegistrar(diskDevice, true);
 	DeviceWriteLocker writeLocker(diskDevice, true);
 
 	// make sure, that the partition is not busy
@@ -8173,9 +8190,12 @@ fs_write_info(dev_t device, const struct fs_info* info, int mask)
 	if (status != B_OK)
 		return status;
 
-	if (HAS_FS_MOUNT_CALL(mount, write_fs_info))
+	if (HAS_FS_MOUNT_CALL(mount, write_fs_info)) {
 		status = FS_MOUNT_CALL(mount, write_fs_info, info, mask);
-	else
+
+		if ((mask & FS_WRITE_FSINFO_NAME) && status == B_OK)
+			mount->partition->SetContentName(info->volume_name);
+	} else
 		status = B_READ_ONLY_DEVICE;
 
 	put_mount(mount);

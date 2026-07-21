@@ -43,10 +43,8 @@ char __dont_remove_copyright_from_binary[] = "Copyright (c) 2002-2006 Marcus "
 #include <MediaRoster.h>
 
 #include <Application.h>
-#include <Autolock.h>
 #include <BufferConsumer.h>
 #include <BufferProducer.h>
-#include <Locker.h>
 #include <Message.h>
 #include <Messenger.h>
 #include <MimeType.h>
@@ -56,6 +54,7 @@ char __dont_remove_copyright_from_binary[] = "Copyright (c) 2002-2006 Marcus "
 #include <StopWatch.h>
 #include <String.h>
 #include <TimeSource.h>
+#include <locks.h>
 
 #include <new>
 
@@ -111,7 +110,7 @@ struct LocalNode {
 
 static bool sServerIsUp = false;
 static List<RosterNotification> sNotificationList;
-static BLocker sInitLocker("BMediaRoster::Roster locker");
+static mutex sInitLocker = MUTEX_INITIALIZER("BMediaRoster::Roster locker");
 static List<LocalNode> sRegisteredNodes;
 
 
@@ -128,7 +127,7 @@ public:
 
 	~MediaRosterUndertaker()
 	{
-		BAutolock _(sInitLocker);
+		MutexLocker _(sInitLocker);
 		if (BMediaRoster::CurrentRoster() != NULL) {
 
 			// Detect any forgotten node
@@ -2314,7 +2313,7 @@ BMediaRoster::UnregisterNode(BMediaNode* node)
 /*static*/ BMediaRoster*
 BMediaRoster::Roster(status_t* out_error)
 {
-	BAutolock lock(sInitLocker);
+	MutexLocker lock(sInitLocker);
 
 	if (be_app == NULL)
 		TRACE("Warning! You should have a valid BApplication.");

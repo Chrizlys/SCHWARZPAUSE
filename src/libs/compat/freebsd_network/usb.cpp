@@ -390,10 +390,17 @@ usbd_transfer_setup(struct freebsd_usb_device* udev,
 		uint8_t iface_index = ifaces[setup->if_index];
 		if (endpoint == UE_ADDR_ANY) {
 			for (int i = 0; i < udev->endpoints_max; i++) {
-				if (UE_GET_XFERTYPE(udev->endpoints[i].edesc->bmAttributes) != xfer->type)
+				const uint8 type = UE_GET_XFERTYPE(udev->endpoints[i].edesc->bmAttributes);
+				const uint8 dir = UE_GET_DIR(udev->endpoints[i].edesc->bEndpointAddress);
+				if (type != xfer->type
+						&& !(xfer->type == UE_BULK_INTR
+							&& (type == UE_BULK || type == UE_INTERRUPT)))
+					continue;
+				if (dir != setup->direction)
 					continue;
 
 				endpoint = udev->endpoints[i].edesc->bEndpointAddress;
+				xfer->type = type;
 				break;
 			}
 		}
@@ -535,6 +542,13 @@ usbd_xfer_get_frame(struct usb_xfer* xfer, usb_frcount_t frindex)
 
 	xfer->frames[frindex].iov_base = cache->buffer;
 	return cache;
+}
+
+
+extern "C" void *
+usbd_xfer_get_frame_buffer(struct usb_xfer *xfer, usb_frcount_t frindex)
+{
+	return usbd_xfer_get_frame(xfer, frindex)->buffer;
 }
 
 

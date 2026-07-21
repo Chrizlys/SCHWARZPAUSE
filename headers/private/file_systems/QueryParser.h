@@ -796,7 +796,10 @@ Equation<QueryPolicy>::CalculateScore(Index &index)
 				|| Term<QueryPolicy>::fOp == OP_GREATER_THAN
 				|| Term<QueryPolicy>::fOp == OP_GREATER_THAN_OR_EQUAL) {
 			// higher than most patterns
-			fScore /= (fSize > 8) ? 8 : fSize;
+			if (fSize > 8)
+				fScore /= 8;
+			else if (fSize != 0)
+				fScore /= fSize;
 		} else {
 			// better than nothing, anyway
 			fScore /= 2;

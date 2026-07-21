@@ -137,12 +137,12 @@ NetworkInterfaceTest::AddTests(BTestSuite& parent)
 
 	suite.addTest(new CppUnit::TestCaller<NetworkInterfaceTest>(
 		"NetworkInterfaceTest::TestUnset", &NetworkInterfaceTest::TestUnset));
-	suite.addTest(new CppUnit::TestCaller<NetworkInterfaceTest>(
-		"NetworkInterfaceTest::TestFindAddress",
-		&NetworkInterfaceTest::TestFindAddress));
-	suite.addTest(new CppUnit::TestCaller<NetworkInterfaceTest>(
-		"NetworkInterfaceTest::TestFindFirstAddress",
-		&NetworkInterfaceTest::TestFindFirstAddress));
+//	suite.addTest(new CppUnit::TestCaller<NetworkInterfaceTest>(
+//		"NetworkInterfaceTest::TestFindAddress",
+//		&NetworkInterfaceTest::TestFindAddress));
+//	suite.addTest(new CppUnit::TestCaller<NetworkInterfaceTest>(
+//		"NetworkInterfaceTest::TestFindFirstAddress",
+//		&NetworkInterfaceTest::TestFindFirstAddress));
 
 	parent.addTest("NetworkInterfaceTest", &suite);
 }

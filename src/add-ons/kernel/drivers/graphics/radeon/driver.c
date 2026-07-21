@@ -135,7 +135,7 @@ status_t
 init_hardware(void)
 {
 	SHOW_INFO0(0, RADEON_DRIVER_VERSION);
-	if (Radeon_CardDetect() == B_OK)
+	if (Radeon_CardDetect())
 		return B_OK;
 
 	return B_ERROR;

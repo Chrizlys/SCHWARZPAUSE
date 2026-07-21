@@ -300,10 +300,6 @@ supports_device_pci(device_node* parent)
 			}
 		}
 
-		pci_device_module_info* pci;
-		pci_device* device;
-		gDeviceManager->get_driver(parent, (driver_module_info**)&pci,
-			(void**)&device);
 		TRACE("SDHCI Device found! Subtype: 0x%04x, type: 0x%04x\n",
 			subType, type);
 
@@ -331,4 +327,6 @@ mmc_bus_interface gSDHCIPCIDeviceModule = {
 	.do_io = do_io,
 	.set_scan_semaphore = set_scan_semaphore,
 	.set_bus_width = set_bus_width,
+	.terminate_bus = terminate_bus,
+	.set_card_type = set_card_type,
 };

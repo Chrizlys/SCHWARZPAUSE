@@ -7,33 +7,38 @@
 
 #include <ListItem.h>
 #include <String.h>
+#include <bluetoothserver_p.h>
 
-#include <bluetooth/bluetooth.h>
-#include <bluetooth/DeviceClass.h>
+#include "bluetooth/RemoteDevice.h"
 
 namespace Bluetooth {
+
 
 class DeviceListItem : public BListItem
 {
 	public:
-		DeviceListItem(BluetoothDevice*	bDevice);
+		DeviceListItem(RemoteDevice*	bDevice);
 
 		~DeviceListItem();
 
-		void DrawItem(BView*, BRect, bool = false);
-		void Update(BView* owner, const BFont* font);
+		void 			DrawItem(BView*, BRect, bool = false);
+		void 			Update(BView* owner, const BFont* font);
 
-		static int Compare(const void* firstArg, const void* secondArg);
-		void SetDevice(BluetoothDevice* bDevice);
-		BluetoothDevice* Device() const;
+		static int 		Compare(const void* firstArg, const void* secondArg);
+		void 			SetDevice(RemoteDevice* bDevice);
+		RemoteDevice* 	Device() const;
+
+		void 			SetConnectionState(RemoteDevice::ConnectionState connectionState);
+		RemoteDevice::ConnectionState 	GetConnectionState();
 
 	private:
-		BluetoothDevice*	fDevice;
-		bdaddr_t			fAddress;
-		DeviceClass			fClass;
-		BString				fName;
-		int32				fRSSI;
+		RemoteDevice*	fDevice;
+		bdaddr_t		fAddress;
+		DeviceClass		fClass;
+		BString			fName;
+		int32			fRSSI;
 
+		RemoteDevice::ConnectionState		fConnectionState;
 };
 
 }
