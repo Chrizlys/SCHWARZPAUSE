@@ -67,6 +67,13 @@ public:
 
 	void SaveDesktopPoseLocations();
 
+	// SCHWARZPAUSE: public wrapper around the (protected) background refresh.
+	// TrackerInitialState needs it after baking in the default wallpaper on
+	// first boot, because the desktop window is created before that runs and
+	// would otherwise stay blank until the user opens the Backgrounds
+	// preferences and clicks Apply.
+	void UpdateDesktopBackgroundImages();
+
 	virtual bool ShouldHaveDraggableFolderIcon() { return false; };
 
 protected:

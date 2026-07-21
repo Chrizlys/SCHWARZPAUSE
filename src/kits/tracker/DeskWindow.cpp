@@ -494,6 +494,18 @@ BDeskWindow::SaveDesktopPoseLocations()
 }
 
 
+// SCHWARZPAUSE: BContainerWindow::UpdateBackgroundImage() is protected, so
+// TrackerInitialState cannot call it directly. This public wrapper exists so the
+// desktop can be refreshed right after the default wallpaper is baked in on
+// first boot -- otherwise it stays blank until the user opens the Backgrounds
+// preferences and clicks Apply.
+void
+BDeskWindow::UpdateDesktopBackgroundImages()
+{
+	UpdateBackgroundImage();
+}
+
+
 void
 BDeskWindow::ScreenChanged(BRect frame, color_space space)
 {
