@@ -48,8 +48,6 @@ SYSTEM_APPS += [ FFilterByBuildFeatures
 	PoorMan
 	PowerStatus
 	RemoteDesktop
-	SCHWARZBrOT
-	SCHWARZSEHER
 	Screenshot
 	SerialConnect
 	SoftwareUpdater
@@ -68,8 +66,6 @@ DESKBAR_APPLICATIONS +=
 	MidiPlayer
 	People
 	PoorMan
-	SCHWARZBrOT
-	SCHWARZSEHER
 	SerialConnect
 	SoftwareUpdater
 	SoundRecorder

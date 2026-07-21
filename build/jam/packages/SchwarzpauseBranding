@@ -148,4 +148,28 @@ if $(SCHWARZBROT_BAKE_MODEL) = 1 {
 }
 
 
+## SCHWARZPAUSE applications -- shipped from THIS package on purpose.
+##
+## They used to sit in SYSTEM_APPS + DESKBAR_APPLICATIONS, which puts them inside
+## the stock haiku.hpkg. Any `pkgman update` then replaces that package with the
+## official Haiku one and BOTH APPS DISAPPEAR from the system and the Deskbar,
+## together with the branding. Shipping them here instead means a Haiku update
+## can no longer remove them: this package is ours and pkgman leaves it alone.
+##
+## The Deskbar "Applications" directory itself still comes from the haiku package
+## (AddDirectoryToPackage in packages/Haiku); packagefs unions our symlinks into
+## it, so we must NOT declare that directory again here.
+
+local schwarzpauseApps =
+	SCHWARZBrOT
+	SCHWARZSEHER
+	;
+AddFilesToPackage apps : $(schwarzpauseApps) ;
+
+for linkTarget in $(schwarzpauseApps) {
+	AddSymlinkToPackage data deskbar menu Applications
+		: ../../../../apps/$(linkTarget) : $(linkTarget) ;
+}
+
+
 BuildHaikuPackage $(brandingPackage) : schwarzpause_branding ;
