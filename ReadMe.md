@@ -131,8 +131,10 @@ License and attribution
 -----------------------
 
 SCHWARZPAUSE is a derivative of **Haiku**, which is distributed under the **MIT license**.
-The license text is in `License.md`, and Haiku's original project README is preserved as
-`ReadMe.Haiku.md`. Copyright notices in the source belong to their respective authors.
+The license text is in `License.md`, and the copyright notices in the source belong to
+their respective authors. The Haiku project itself lives at
+[haiku-os.org](https://www.haiku-os.org) — please direct contributions, bug reports and
+support questions about Haiku there, not here.
 
 > Haiku® and the HAIKU logo® are registered trademarks of Haiku, Inc.
 > SCHWARZPAUSE is **not affiliated with, endorsed by, or sponsored by Haiku, Inc.**
