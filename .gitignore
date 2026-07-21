@@ -25,3 +25,6 @@ build/user_config_headers
 
 # clangd related tooling for IDE code completion
 compile_commands.json
+
+# SCHWARZPAUSE: local preinstall packages (~1 GB) - never commit these
+schwarzpause-packages/

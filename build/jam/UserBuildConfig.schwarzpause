@@ -1,4 +1,4 @@
-# Schwarzpause OS build overlay.
+﻿# Schwarzpause OS build overlay.
 # Copy this file to build/jam/UserBuildConfig before running configure/jam.
 
 HAIKU_DISTRO_COMPATIBILITY = "default" ;
@@ -29,10 +29,9 @@ HAIKU_ANYBOOT_LABEL = "Schwarzpause OS" ;
 # (which used to wipe the branding and both apps). HaikuPorts IS still shipped,
 # so applications keep updating from Haiku's servers exactly as normal.
 #
-# Audited 2026-07-20: all 149 HaikuPorts packages in the image require at most
-# haiku>=r1~beta5_hrev57937_111; we ship hrev59395, ~1458 revisions ahead, so
-# nothing is unsatisfiable. HaikuPorts targets Haiku RELEASES, so the next time
-# this matters is beta6.
+# Kept current instead: merged to hrev59869 on 2026-07-21 because HaikuPorts had
+# moved to requiring beta6 cores, which made OpenSCAD uninstallable. Freeze the
+# core, but keep the core current -- see SCHWARZPAUSE_MAINTENANCE.md section 4.
 #
 # Set to 0 once SCHWARZPAUSE serves its own OS packages from its own repository.
 SCHWARZPAUSE_FREEZE_OS_CORE ?= 1 ;
@@ -42,8 +41,8 @@ SCHWARZBROT_BAKE_MODEL ?= 0 ;
 if $(SCHWARZBROT_BAKE_MODEL) = 1 {
 	HAIKU_IMAGE_SIZE = 4096 ;
 } else {
-	# ~0.66 GB base system + ~50 MB of engine/libraries/UI, plus headroom.
-	HAIKU_IMAGE_SIZE = 800 ;
+	# ~0.66 GB base + engine/UI + ~1.4 GB of preinstalled apps, plus headroom.
+	HAIKU_IMAGE_SIZE = 2100 ;
 }
 
 HAIKU_IMAGE_HOST_NAME = schwarzpause ;
@@ -54,5 +53,292 @@ rule UserBuildConfigRulePreImage
 		schwarzpause_branding.hpkg
 		:
 		nameFromMetaInfo
+		;
+
+	# ------------------------------------------------------------------------
+	#  Preinstalled applications
+	# ------------------------------------------------------------------------
+	#  The full, dependency-resolved package set captured from a SCHWARZPAUSE
+	#  installation where every one of these apps was installed with HaikuDepot
+	#  and verified to launch: LibreOffice, Waterfox, Icedove, VLC, GIMP,
+	#  Inkscape, QCAD, OpenSCAD, KolourPaint, BePDF, PDFWriter and DeskNotes.
+	#
+	#  Shipped as LOCAL package files on purpose:
+	#    * AddHaikuImagePackages does NOT resolve dependencies -- it adds only
+	#      what you name -- so the complete closure has to be listed anyway, and
+	#      an installed system is the only reliable source of that closure;
+	#    * HaikuPorts master rebuilds packages continuously (that is what made
+	#      OpenSCAD uninstallable overnight in July 2026), so pinning to files we
+	#      already hold keeps the build reproducible.
+	#
+	#  The files live in schwarzpause-packages/ and are .gitignored: ~1 GB of
+	#  binaries has no business in git. Regenerate them by installing the apps in
+	#  a VM and copying /boot/system/packages/*.hpkg back out.
+	# ------------------------------------------------------------------------
+	local schwarzpausePreinstall =
+	a52dec-0.8.0-1-x86_64.hpkg
+	adwaita_icon_theme_legacy-46.2-1-any.hpkg
+	adwaita_icon_theme-49.0-1-any.hpkg
+	appstream_glib-0.8.3-1-x86_64.hpkg
+	appstream-1.1.3-1-x86_64.hpkg
+	argon2-20200709-2-x86_64.hpkg
+	aspell_en-2020.12.07~0-1-any.hpkg
+	aspell-0.60.8.1-1-x86_64.hpkg
+	assimp-6.0.5-1-x86_64.hpkg
+	atk-2.38.0-5-x86_64.hpkg
+	atkmm-2.28.2-1-x86_64.hpkg
+	babl-0.1.120-3-x86_64.hpkg
+	bepdf-2.1.4-6-x86_64.hpkg
+	boehm_gc-8.2.12-1-x86_64.hpkg
+	boost1.83-1.83.0-5-x86_64.hpkg
+	boost1.88-1.88.0-4-x86_64.hpkg
+	boost1.90-1.90.0-2-x86_64.hpkg
+	box2d-2.4.1-2-x86_64.hpkg
+	breeze_icons-6.28.0-1-x86_64.hpkg
+	cairo-1.18.4-2-x86_64.hpkg
+	cairomm-1.13.1-2-x86_64.hpkg
+	clucene-2.3.3.4-4-x86_64.hpkg
+	dbus-1.16.2-8-x86_64.hpkg
+	desknotes-1.2.1-1-x86_64.hpkg
+	double_conversion-3.3.1-1-x86_64.hpkg
+	enca-1.19-3-x86_64.hpkg
+	exiv2-0.28.8-1-x86_64.hpkg
+	faac-1.30-3-x86_64.hpkg
+	faad2-2.11.2-1-x86_64.hpkg
+	file_data-5.43-2-any.hpkg
+	file-5.43-2-x86_64.hpkg
+	flac1.4-1.4.3-1-x86_64.hpkg
+	flac-1.5.0-1-x86_64.hpkg
+	flite-2.2-2-x86_64.hpkg
+	fluidsynth2-2.1.8-3-x86_64.hpkg
+	fluidsynth3-2.5.4-2-x86_64.hpkg
+	gdk_pixbuf-2.44.7-2-x86_64.hpkg
+	gegl-0.4.68-1-x86_64.hpkg
+	gexiv2-0.14.6-3-x86_64.hpkg
+	gimp-3.2.4-1-x86_64.hpkg
+	glew1.13-1.13.0-4-x86_64.hpkg
+	glib_networking-2.80.1-1-x86_64.hpkg
+	glib2-2.88.1-3-x86_64.hpkg
+	glibmm-2.66.2-2-x86_64.hpkg
+	gnutls-3.8.9-1-x86_64.hpkg
+	gobject_introspection-1.86.0-3-x86_64.hpkg
+	gpgme2-2.1.1-1-x86_64.hpkg
+	gpgmepp-2.1.0-1-x86_64.hpkg
+	graphicsmagick-1.3.40-2-x86_64.hpkg
+	gsettings_desktop_schemas-50.1-1-x86_64.hpkg
+	gsl-2.6-2-x86_64.hpkg
+	gst_plugins_bad-1.28.5-1-x86_64.hpkg
+	gst_plugins_base-1.28.5-1-x86_64.hpkg
+	gst_plugins_ugly-1.28.5-1-x86_64.hpkg
+	gstreamer-1.28.5-1-x86_64.hpkg
+	gtk3-3.24.52-1-x86_64.hpkg
+	gtkmm3-3.24.11-1-x86_64.hpkg
+	haiku_svg_icon_theme-5.15.2.38-1-any.hpkg
+	harfbuzz_glib-14.2.0-1-x86_64.hpkg
+	highway-1.4.0-1-x86_64.hpkg
+	hunspell-1.7.2-2-x86_64.hpkg
+	hwloc2-2.10.0-1-x86_64.hpkg
+	hyphen-2.8.8-4-x86_64.hpkg
+	icedove_bin-146.0.1-1-x86_64.hpkg
+	inih-r56-1-x86_64.hpkg
+	inkscape-1.4.3-1-x86_64.hpkg
+	iso_codes-4.20.1-1-any.hpkg
+	ixion0.18-0.19.0-2-x86_64.hpkg
+	json_c-0.15-4-x86_64.hpkg
+	json_glib-1.10.8-1-x86_64.hpkg
+	karchive6-6.28.0-1-x86_64.hpkg
+	kauth6-6.28.0-1-x86_64.hpkg
+	kbookmarks6-6.28.0-1-x86_64.hpkg
+	kcodecs6-6.28.0-1-x86_64.hpkg
+	kcolorscheme6-6.28.0-1-x86_64.hpkg
+	kcompletion6-6.28.0-1-x86_64.hpkg
+	kconfig6-6.28.0-1-x86_64.hpkg
+	kconfigwidgets6-6.28.0-1-x86_64.hpkg
+	kcoreaddons6-6.28.0-1-x86_64.hpkg
+	kcrash6-6.28.0-1-x86_64.hpkg
+	kdbusaddons6-6.28.0-1-x86_64.hpkg
+	kguiaddons6-6.28.0-1-x86_64.hpkg
+	ki18n6-6.28.0-1-x86_64.hpkg
+	kiconthemes6-6.28.0-1-x86_64.hpkg
+	kio6-6.28.0-1-x86_64.hpkg
+	kitemmodels6-6.28.0-1-x86_64.hpkg
+	kitemviews6-6.28.0-1-x86_64.hpkg
+	kjobwidgets6-6.28.0-1-x86_64.hpkg
+	knotifications6-6.28.0-1-x86_64.hpkg
+	kolourpaint_kf6-26.04.0-1-x86_64.hpkg
+	kparts6-6.28.0-1-x86_64.hpkg
+	ksanecore_kf6-26.04.0-1-x86_64.hpkg
+	kservice6-6.28.0-1-x86_64.hpkg
+	ktextwidgets6-6.28.0-1-x86_64.hpkg
+	kunitconversion6-6.28.0-1-x86_64.hpkg
+	kwallet6-6.28.0-1-x86_64.hpkg
+	kwidgetsaddons6-6.28.0-1-x86_64.hpkg
+	kwindowsystem6-6.28.0-1-x86_64.hpkg
+	kxmlgui6-6.28.0-1-x86_64.hpkg
+	lensfun-0.3.2-3-x86_64.hpkg
+	lib2geom-1.4-2-x86_64.hpkg
+	libabw-0.1.3-1-x86_64.hpkg
+	libarchive-3.7.9-1-x86_64.hpkg
+	libassuan3-3.0.2-2-x86_64.hpkg
+	libbluray-1.3.1-2-x86_64.hpkg
+	libcddb-1.3.2-3-x86_64.hpkg
+	libcdr-0.1.8-1-x86_64.hpkg
+	libcmis0.6-0.6.2-2-x86_64.hpkg
+	libcroco-0.6.13-2-x86_64.hpkg
+	libcuefile-475-4-x86_64.hpkg
+	libdca-0.0.7-2-x86_64.hpkg
+	libde265-1.0.8-2-x86_64.hpkg
+	libdeflate-1.18-1-x86_64.hpkg
+	libdvbpsi-1.3.3-1-x86_64.hpkg
+	libdvdcss-1.5.0-2-x86_64.hpkg
+	libdvdnav-6.1.1-2-x86_64.hpkg
+	libdvdread-7.0.1-1-x86_64.hpkg
+	libebook-0.1.3-4-x86_64.hpkg
+	libepoxy-1.5.8-4-x86_64.hpkg
+	libepubgen-0.1.1-3-x86_64.hpkg
+	libetonyek-0.1.12-2-x86_64.hpkg
+	libevent-2.1.12-6-x86_64.hpkg
+	libexttextcat-3.4.6-1-x86_64.hpkg
+	libffi-3.4.6-1-x86_64.hpkg
+	libfreehand-0.1.2-5-x86_64.hpkg
+	libfyaml-0.9.6-3-x86_64.hpkg
+	libgcrypt-1.12.2-1-x86_64.hpkg
+	libheif-1.21.2-1-x86_64.hpkg
+	libinstpatch-1.1.7-1-x86_64.hpkg
+	libjxl0.11-0.11.2-3-x86_64.hpkg
+	libksane_kf6-26.04.0-1-x86_64.hpkg
+	liblangtag-0.6.3-1-x86_64.hpkg
+	libmad-0.16.4-1-x86_64.hpkg
+	libmms-0.6.4-5-x86_64.hpkg
+	libmng-2.0.3-5-x86_64.hpkg
+	libmpeg2-0.5.1-7-x86_64.hpkg
+	libmspub-0.1.4-6-x86_64.hpkg
+	libmwaw-0.3.22-2-x86_64.hpkg
+	libmypaint-1.6.1-3-x86_64.hpkg
+	libmysqlclient-6.1.6-5-x86_64.hpkg
+	libnice-0.1.23-1-x86_64.hpkg
+	libnotify-0.8.1-2-x86_64.hpkg
+	libnsgif-1.0.0-1-x86_64.hpkg
+	libnumbertext-1.0.6-1-x86_64.hpkg
+	libodfgen-0.1.7-1-x86_64.hpkg
+	libpagemaker-0.0.4-3-x86_64.hpkg
+	libproxy-0.5.12-2-x86_64.hpkg
+	libqt5pas-1.2.16-1-x86_64.hpkg
+	libqxp-0.0.2-5-x86_64.hpkg
+	libraw24-0.22.0-1-x86_64.hpkg
+	libreoffice-24.8.1.1-1-x86_64.hpkg
+	libreplaygain-475-4-x86_64.hpkg
+	librevenge-0.0.6-1-x86_64.hpkg
+	librsvg-2.62.3-1-x86_64.hpkg
+	libsamplerate-0.2.2-2-x86_64.hpkg
+	libsdl-1.2.15-19-x86_64.hpkg
+	libsdl3-3.2.28-2-x86_64.hpkg
+	libsecret-0.21.7-2-x86_64.hpkg
+	libsigc++-2.9.3-1-x86_64.hpkg
+	libsndfile-1.2.2-2-x86_64.hpkg
+	libsoup-2.60.2-5-x86_64.hpkg
+	libsrtp2-2.5.0-2-x86_64.hpkg
+	libstaroffice-0.0.8-1-x86_64.hpkg
+	libtasn1-4.19.0-1-x86_64.hpkg
+	libtool_libltdl-2.5.4-1-x86_64.hpkg
+	libupnp-1.14.17-1-x86_64.hpkg
+	libusb-1.0.26-2-x86_64.hpkg
+	libuuid-1.3.1-5-x86_64.hpkg
+	libvisio-0.1.7-6-x86_64.hpkg
+	libvpx1.15-1.15.2-1-x86_64.hpkg
+	libwmf-0.2.12-2-x86_64.hpkg
+	libwpd-0.10.3-3-x86_64.hpkg
+	libwpg-0.3.4-1-x86_64.hpkg
+	libwps-0.4.14-1-x86_64.hpkg
+	libxkbcommon-1.7.0-1-x86_64.hpkg
+	libxmlb-0.3.28-1-x86_64.hpkg
+	libyaml-0.2.5-2-x86_64.hpkg
+	libzip-1.11.4-1-x86_64.hpkg
+	libzmf-0.0.2-7-x86_64.hpkg
+	lpsolve-5.5.2.5-3-x86_64.hpkg
+	lua5.2-5.2.4-5-x86_64.hpkg
+	media_helpers-0.1-1-x86_64.hpkg
+	minizip-1.3-1-x86_64.hpkg
+	mpg123-1.32.9-1-x86_64.hpkg
+	musepack_tools-475-5-x86_64.hpkg
+	mypaint_brushes-2.0.2-1-any.hpkg
+	mythes-1.2.4-5-x86_64.hpkg
+	neon-0.36.0-1-x86_64.hpkg
+	nettle-3.7.3-1-x86_64.hpkg
+	nspr-4.36-1-x86_64.hpkg
+	nss-3.126-1-x86_64.hpkg
+	openal-1.21.1-5-x86_64.hpkg
+	openblas-0.3.30-1-x86_64.hpkg
+	opencsg-1.8.1-1-x86_64.hpkg
+	openexr3.2-3.2.4-3-x86_64.hpkg
+	openh264-2.4.1-1-x86_64.hpkg
+	openldap2.4-2.4.48-5-x86_64.hpkg
+	openscad-2021.01-3-x86_64.hpkg
+	orc-0.4.41-2-x86_64.hpkg
+	orcus0.18-0.19.2-2-x86_64.hpkg
+	p11_kit-0.25.5-2-x86_64.hpkg
+	pango-1.58.0-1-x86_64.hpkg
+	pangomm-2.46.2-1-x86_64.hpkg
+	pdflib-5.0.3-4-x86_64.hpkg
+	pdfwriter-1.0-4-x86_64.hpkg
+	pixman-0.46.4-1-x86_64.hpkg
+	poppler_data-0.4.12-1-any.hpkg
+	poppler24_qt6-24.12.0-2-x86_64.hpkg
+	poppler24-24.12.0-2-x86_64.hpkg
+	poppler25.12_glib-25.12.0-2-x86_64.hpkg
+	poppler25.12-25.12.0-2-x86_64.hpkg
+	portaudio-19.07.00-3-x86_64.hpkg
+	potrace-1.16-2-x86_64.hpkg
+	python3.10-3.10.20-3-x86_64.hpkg
+	python3.14-3.14.6-2-x86_64.hpkg
+	qca_qt6-2.3.10-1-x86_64.hpkg
+	qcad-3.26.4.12-1-x86_64.hpkg
+	qscintilla-2.11.6-7-x86_64.hpkg
+	qsystray-5.15.2.14-1-x86_64.hpkg
+	qt5_script-5.15.19-2-x86_64.hpkg
+	qt5-5.15.19-1-x86_64.hpkg
+	qt6_5compat-6.10.3-2-x86_64.hpkg
+	qt6_base-6.10.3-2-x86_64.hpkg
+	qt6_declarative-6.10.3-2-x86_64.hpkg
+	qt6_imageformats-6.10.3-2-x86_64.hpkg
+	qt6_multimedia-6.10.3-2-x86_64.hpkg
+	qt6_shadertools-6.10.3-2-x86_64.hpkg
+	qt6_speech-6.10.3-2-x86_64.hpkg
+	qt6_svg-6.10.3-2-x86_64.hpkg
+	qt6_translations-6.10.3-1-x86_64.hpkg
+	qthaikuplugins-5.15.16.0-1-x86_64.hpkg
+	raptor-2.0.15-10-x86_64.hpkg
+	rasqal-0.9.33-6-x86_64.hpkg
+	redland-1.0.17-9-x86_64.hpkg
+	rtmpdump-2.4_20161210-8-x86_64.hpkg
+	sane_backends-1.3.1-3-x86_64.hpkg
+	schroedinger-1.0.11-7-x86_64.hpkg
+	shared_mime_info-1.15-2-x86_64.hpkg
+	snowball_stemmer3-3.0.1-1-x86_64.hpkg
+	solid6-6.28.0-1-x86_64.hpkg
+	sonnet6-6.28.0-1-x86_64.hpkg
+	suitesparse-7.12.1-2-x86_64.hpkg
+	taglib-1.13.1-1-x86_64.hpkg
+	tbb-2022.3.0-1-x86_64.hpkg
+	tremor-1.0.0~git-2-x86_64.hpkg
+	twolame-0.4.0-3-x86_64.hpkg
+	unixodbc-2.3.11-1-x86_64.hpkg
+	vlc-3.0.23-1-x86_64.hpkg
+	vulkan-1.4.311-1-x86_64.hpkg
+	waterfox_bin-6.6.16.1-1-x86_64.hpkg
+	wayland_server-0.1.20251004-1-x86_64.hpkg
+	wayland-1.21.0~git-3-x86_64.hpkg
+	x264-20220222-1-x86_64.hpkg
+	x265-3.5-6-x86_64.hpkg
+	xkeyboard_config-2.41-1-x86_64.hpkg
+	xlibe-0.3.3-1-x86_64.hpkg
+	xmlsec_nss-1.2.37-3-x86_64.hpkg
+	xmlsec-1.2.37-3-x86_64.hpkg
+		;
+	SEARCH on $(schwarzpausePreinstall)
+		= [ FDirName $(HAIKU_TOP) schwarzpause-packages ] ;
+	AddPackageFilesToHaikuImage system packages
+		: $(schwarzpausePreinstall)
+		: nameFromMetaInfo
 		;
 }
