@@ -1558,17 +1558,60 @@ AboutView::_CreateCreditsView()
 	int32 year = tm->tm_year + 1900;
 	if (year < 2008)
 		year = 2008;
+	fCreditsView->SetFontAndColor(be_plain_font, B_FONT_ALL, &fTextColor);
+
+	// ---- SCHWARZPAUSE section ----
+	// Schwarzpause's own copyright.
+	BString schwarzpauseCopyright;
+	schwarzpauseCopyright.SetToFormat(
+		B_TRANSLATE(COPYRIGHT_STRING "%" B_PRId32 " Chrizlys.\n\n"), year);
+	fCreditsView->Insert(schwarzpauseCopyright.String());
+
+	// Mandatory disclaimer for a Haiku-derived distribution; the wording is
+	// prescribed and must not be paraphrased. See:
+	// https://www.haiku-os.org/community/guidelines_creating_haiku_distribution
+	fCreditsView->Insert(B_TRANSLATE(
+		"SCHWARZPAUSE is based on Haiku, but it is not the official "
+		"distribution from the Haiku Project. For information about the "
+		"official Haiku project, please visit https://haiku-os.org.\n\n"
+		"This software is work in progress and has missing functionality as "
+		"well as many (known and unknown) bugs. Use SCHWARZPAUSE at your own "
+		"risk.\n\n"
+		"Chrizlys is not associated with the Haiku project. To obtain support "
+		"for SCHWARZPAUSE, please contact:\n"));
+
+	// The support URL closes the SCHWARZPAUSE section: SCHWARZPAUSE green, and
+	// clickable. Showing the URL as the link text keeps the support info
+	// visible, as the disclaimer requires.
+	fCreditsView->SetFontAndColor(be_plain_font, B_FONT_ALL, &fHaikuGreenColor);
+	fCreditsView->InsertHyperText(
+		"https://github.com/Chrizlys/SCHWARZPAUSE/issues",
+		new URLAction("https://github.com/Chrizlys/SCHWARZPAUSE/issues"));
+	fCreditsView->Insert("\n\n");
+
+	// ---- discreet separator between the SCHWARZPAUSE and Haiku sections ----
+	// Halfway between text and background, so it stays subtle in both themes.
+	rgb_color separatorColor = mix_color(fTextColor,
+		ui_color(B_DOCUMENT_BACKGROUND_COLOR), 128);
+	fCreditsView->SetFontAndColor(be_plain_font, B_FONT_ALL, &separatorColor);
+	fCreditsView->Insert(
+		"\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80"
+		"\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80"
+		"\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80"
+		"\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80"
+		"\n\n");
+
+	// ---- Haiku section ----
+	// Haiku's copyright and trademark notice. Keeping these intact is required
+	// by the MIT licence of the original code.
+	fCreditsView->SetFontAndColor(be_plain_font, B_FONT_ALL, &fTextColor);
 	BString text;
 	text.SetToFormat(
 		B_TRANSLATE(COPYRIGHT_STRING "2001-%" B_PRId32 " The Haiku project. "),
 		year);
-
-	fCreditsView->SetFontAndColor(be_plain_font, B_FONT_ALL, &fTextColor);
 	fCreditsView->Insert(text.String());
 
-	fCreditsView->SetFontAndColor(be_plain_font, B_FONT_ALL, &fTextColor);
-	fCreditsView->Insert(B_TRANSLATE("Schwarzpause OS is derived from Haiku. "
-		"The copyright to the Haiku code is "
+	fCreditsView->Insert(B_TRANSLATE("The copyright to the Haiku code is "
 		"property of Haiku, Inc. or of the respective authors where expressly "
 		"noted in the source. Haiku" B_UTF8_REGISTERED
 		" and the HAIKU logo" B_UTF8_REGISTERED

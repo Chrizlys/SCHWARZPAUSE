@@ -1559,11 +1559,11 @@ PCI::ReadConfig(uint8 domain, uint8 bus, uint8 device, uint8 function,
 	uint16 offset, uint8 size, uint32 *value)
 {
 	domain_data *info = _GetDomainData(domain);
-	if (info == NULL) {
-		KDEBUG_ONLY(panic("PCI: can't read config: domain %d does not exist!",
-			 domain));
+	// Return an error rather than aborting when the PCI domain does not exist.
+	// Some firmware reads config space before the domain is registered, which is
+	// harmless and must not stop boot.
+	if (info == NULL)
 		return B_ERROR;
-	}
 
 	if (device > (info->max_bus_devices - 1)
 		|| function > 7
@@ -1615,11 +1615,10 @@ PCI::WriteConfig(uint8 domain, uint8 bus, uint8 device, uint8 function,
 	uint16 offset, uint8 size, uint32 value)
 {
 	domain_data *info = _GetDomainData(domain);
-	if (info == NULL) {
-		KDEBUG_ONLY(panic("PCI: can't write config: domain %d does not exist!",
-			 domain));
+	// See the matching note in ReadConfig: return an error rather than aborting
+	// when the PCI domain does not exist.
+	if (info == NULL)
 		return B_ERROR;
-	}
 
 	if (device > (info->max_bus_devices - 1)
 		|| function > 7

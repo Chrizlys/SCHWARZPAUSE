@@ -1,0 +1,10 @@
+# Disable the Mesa (llvmpipe) OpenGL shader disk cache.
+#
+# On a live-USB boot the shader cache is written to the boot medium's write
+# overlay, where it does not round-trip reliably: Mesa reads it back with a
+# mismatched key and aborts, which crashes OpenGL applications (such as
+# OpenSCAD) on a subsequent launch. Disabling the on-disk cache avoids this;
+# shaders are recompiled each launch, which is negligible for software
+# rendering. Both variable names are set to cover different Mesa versions.
+export MESA_SHADER_CACHE_DISABLE=true
+export MESA_GLSL_CACHE_DISABLE=true

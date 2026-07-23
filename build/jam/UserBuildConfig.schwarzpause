@@ -1,4 +1,4 @@
-﻿# Schwarzpause OS build overlay.
+# Schwarzpause OS build overlay.
 # Copy this file to build/jam/UserBuildConfig before running configure/jam.
 
 HAIKU_DISTRO_COMPATIBILITY = "default" ;
@@ -15,23 +15,17 @@ HAIKU_ANYBOOT_LABEL = "Schwarzpause OS" ;
 # ============================================================================
 #  SCHWARZBrOT model switch
 # ----------------------------------------------------------------------------
-#  0 = DEFAULT, and what we ship. The SCHWARZBrOT app, engine and UI are baked
-#      in, but the 2.87 GB Qwen model is not, so the image stays ~0.8 GB and
-#      boots everywhere (proven both as a VM CD and from USB on real hardware).
-#      The user adds the model themselves -- on a second USB stick, or copied to
-#      disk -- and SCHWARZBrOT finds it at launch.
-#  1 = bake the model in as well. This produces a ~4 GB image that does NOT
-#      boot: too big for a VM CD, and from disk/USB the loader reports "no boot
-#      volume" (consistent with the 4 GiB / 32-bit boundary). Experiments only.
+#  0 = default. The SCHWARZBrOT app, engine and UI are baked in; the ~2.9 GB
+#      Qwen model is not, keeping the image small enough to boot from a VM CD
+#      and from USB. The model is added separately and found at launch.
+#  1 = bake the model in as well. The resulting ~4 GB image does not boot (too
+#      large for a VM CD; exceeds the 32-bit boot loader's limit). Experiments
+#      only.
 # ============================================================================
 # Freeze the OS core: do not ship the "Haiku" package repository config, so a
-# pkgman update cannot replace our branded haiku package with the stock one
-# (which used to wipe the branding and both apps). HaikuPorts IS still shipped,
-# so applications keep updating from Haiku's servers exactly as normal.
-#
-# Kept current instead: merged to hrev59869 on 2026-07-21 because HaikuPorts had
-# moved to requiring beta6 cores, which made OpenSCAD uninstallable. Freeze the
-# core, but keep the core current -- see SCHWARZPAUSE_MAINTENANCE.md section 4.
+# pkgman operation cannot replace the branded haiku package with the stock one
+# (which would revert the branding and remove both applications). HaikuPorts is
+# still shipped, so applications keep updating from Haiku's servers normally.
 #
 # Set to 0 once SCHWARZPAUSE serves its own OS packages from its own repository.
 SCHWARZPAUSE_FREEZE_OS_CORE ?= 1 ;
@@ -47,6 +41,44 @@ if $(SCHWARZBROT_BAKE_MODEL) = 1 {
 
 HAIKU_IMAGE_HOST_NAME = schwarzpause ;
 
+# ============================================================================
+#  Suppress base library packages that a newer version is preinstalled for
+# ----------------------------------------------------------------------------
+#  The preinstalled applications need newer libraries than upstream's pinned
+#  base ships (e.g. zlib 1.3.2 vs 1.3.1, freetype 6.20.6 vs 6.20.4, xz_utils
+#  5.8.3 vs 5.6.2). Without this, both versions land in system/packages and the
+#  image dependency solve refuses to continue.
+#
+#  AddHaikuImagePackages skips any package already flagged HAIKU_PACKAGE_ADDED,
+#  so pre-flagging the base versions here leaves the preinstalled ones as the
+#  sole provider. This runs at file scope on purpose: the repositories are
+#  included (so IsPackageAvailable resolves) before this file, and the packages
+#  are added afterwards by DefineDefaultBuildProfiles.
+#
+#  The *_devel entries are the same problem: they pin their runtime partner to
+#  an exact version (e.g. zlib_devel requires zlib==1.3.1), which the newer
+#  runtime package can no longer satisfy. They are unactivated developer
+#  headers, so suppressing them is safe.
+#
+#  mpfr is a further case: the base ships it only as an unactivated package, but
+#  OpenSCAD, rasqal and suitesparse need it activated, so it is preinstalled and
+#  the base copy suppressed to avoid a duplicate.
+# ============================================================================
+local schwarzpauseReplacedPackages = zlib freetype xz_utils
+	zlib_devel libjpeg_turbo_devel mpfr ;
+local schwarzpauseReplacedPackage ;
+for schwarzpauseReplacedPackage in $(schwarzpauseReplacedPackages) {
+	local resolved = [ IsPackageAvailable $(schwarzpauseReplacedPackage) ] ;
+	if $(resolved) {
+		HAIKU_PACKAGE_ADDED on $(resolved) = 1 ;
+		Echo "SCHWARZPAUSE: base $(schwarzpauseReplacedPackage) suppressed"
+			"(newer version is preinstalled)" ;
+	} else {
+		Echo "SCHWARZPAUSE: WARNING could not resolve package"
+			"$(schwarzpauseReplacedPackage) -- base version may still be added" ;
+	}
+}
+
 rule UserBuildConfigRulePreImage
 {
 	AddPackageFilesToHaikuImage system packages :
@@ -58,22 +90,15 @@ rule UserBuildConfigRulePreImage
 	# ------------------------------------------------------------------------
 	#  Preinstalled applications
 	# ------------------------------------------------------------------------
-	#  The full, dependency-resolved package set captured from a SCHWARZPAUSE
-	#  installation where every one of these apps was installed with HaikuDepot
-	#  and verified to launch: LibreOffice, Waterfox, Icedove, VLC, GIMP,
-	#  Inkscape, QCAD, OpenSCAD, KolourPaint, BePDF, PDFWriter and DeskNotes.
+	#  The complete, dependency-resolved package set for the bundled applications
+	#  (LibreOffice, Waterfox, Icedove, VLC, GIMP, Inkscape, QCAD, OpenSCAD,
+	#  KolourPaint, BePDF, PDFWriter, DeskNotes).
 	#
-	#  Shipped as LOCAL package files on purpose:
-	#    * AddHaikuImagePackages does NOT resolve dependencies -- it adds only
-	#      what you name -- so the complete closure has to be listed anyway, and
-	#      an installed system is the only reliable source of that closure;
-	#    * HaikuPorts master rebuilds packages continuously (that is what made
-	#      OpenSCAD uninstallable overnight in July 2026), so pinning to files we
-	#      already hold keeps the build reproducible.
-	#
-	#  The files live in schwarzpause-packages/ and are .gitignored: ~1 GB of
-	#  binaries has no business in git. Regenerate them by installing the apps in
-	#  a VM and copying /boot/system/packages/*.hpkg back out.
+	#  Shipped as local package files: AddHaikuImagePackages does not resolve
+	#  dependencies, so the full closure must be listed explicitly, and pinning
+	#  to fixed files keeps the build reproducible against the rolling HaikuPorts
+	#  repository. See the note at the AddPackageFilesToHaikuImage call below for
+	#  where the files come from.
 	# ------------------------------------------------------------------------
 	local schwarzpausePreinstall =
 	a52dec-0.8.0-1-x86_64.hpkg
@@ -334,11 +359,66 @@ rule UserBuildConfigRulePreImage
 	xlibe-0.3.3-1-x86_64.hpkg
 	xmlsec_nss-1.2.37-3-x86_64.hpkg
 	xmlsec-1.2.37-3-x86_64.hpkg
+	brotli-1.2.0-1-x86_64.hpkg
+	ca_root_certificates-2026_07_16-1-any.hpkg
+	expat-2.8.2-1-x86_64.hpkg
+	freetype-2.14.3-1-x86_64.hpkg
+	gettext_libintl-1.0-1-x86_64.hpkg
+	harfbuzz-14.2.0-1-x86_64.hpkg
+	libgpg_error-1.61-2-x86_64.hpkg
+	libjpeg_turbo-3.1.4.1-1-x86_64.hpkg
+	xz_utils-5.8.3-1-x86_64.hpkg
+	zlib-1.3.2-1-x86_64.hpkg
+	lcms-2.19.1-1-x86_64.hpkg
+	mpfr-4.2.0-3-x86_64.hpkg
 		;
-	SEARCH on $(schwarzpausePreinstall)
+	# The application packages are not part of the repository (about 1 GB of
+	# binaries). When schwarzpause-packages/ is empty the base system is built
+	# without them; drop the .hpkg files in to build the full image.
+	local schwarzpausePackagesDir
 		= [ FDirName $(HAIKU_TOP) schwarzpause-packages ] ;
-	AddPackageFilesToHaikuImage system packages
-		: $(schwarzpausePreinstall)
-		: nameFromMetaInfo
-		;
+	if [ Glob $(schwarzpausePackagesDir) : *.hpkg ] {
+		SEARCH on $(schwarzpausePreinstall) = $(schwarzpausePackagesDir) ;
+		AddPackageFilesToHaikuImage system packages
+			: $(schwarzpausePreinstall)
+			: nameFromMetaInfo
+			;
+	} else {
+		Echo "SCHWARZPAUSE: schwarzpause-packages/ is empty -- building the base"
+			"system without the preinstalled application set." ;
+	}
+
+	# ------------------------------------------------------------------------
+	#  Preconfigured desktop design
+	# ------------------------------------------------------------------------
+	#  First-boot defaults for the Deskbar (size, layout), Tracker (icon size,
+	#  Disks-vs-Volumes, click behaviour) and workspaces. Machine-specific
+	#  settings (keymap, network, screen, touchpad, mouse) are deliberately not
+	#  baked. The source files are under data/schwarzpause/settings.
+	# ------------------------------------------------------------------------
+	# Each target's non-grist base name must equal the real filename on disk;
+	# jam resolves it through SEARCH. The grist only makes the targets unique.
+	local spSettingsDir = [ FDirName $(HAIKU_TOP) data schwarzpause settings ] ;
+
+	local spDeskbar = <sp-deskbar>settings <sp-deskbar>clock_settings
+		<sp-deskbar>replicants ;
+	SEARCH on $(spDeskbar) = [ FDirName $(spSettingsDir) deskbar ] ;
+	AddFilesToHaikuImage home config settings deskbar : $(spDeskbar) ;
+
+	local spTracker = <sp-tracker>TrackerSettings <sp-tracker>tracker_shelf ;
+	SEARCH on $(spTracker) = [ FDirName $(spSettingsDir) Tracker ] ;
+	AddFilesToHaikuImage home config settings Tracker : $(spTracker) ;
+
+	local spWorkspaces = <sp-settings>Workspaces_settings ;
+	SEARCH on $(spWorkspaces) = $(spSettingsDir) ;
+	AddFilesToHaikuImage home config settings : $(spWorkspaces) ;
+
+	# Global boot environment. Disables the Mesa shader disk cache, which
+	# corrupts on the live-USB write-overlay and crashes OpenGL apps (OpenSCAD /
+	# SCHWARZSEHER) on their second launch. Sourced by data/system/boot/
+	# SetupEnvironment, so every GUI app inherits it. (This is a real, active
+	# UserSetupEnvironment; the base image also ships a .sample next to it.)
+	local spBootEnv = <sp-boot>UserSetupEnvironment ;
+	SEARCH on $(spBootEnv) = [ FDirName $(spSettingsDir) boot ] ;
+	AddFilesToHaikuImage home config settings boot : $(spBootEnv) ;
 }

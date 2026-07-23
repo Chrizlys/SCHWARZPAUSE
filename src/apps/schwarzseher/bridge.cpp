@@ -1,6 +1,6 @@
 // SCHWARZSEHER live bridge — cross-platform C++ (Haiku + Windows).
-// The OpenSCAD codegen is compiled IN (from scadgen.cpp, verified byte-identical to the
-// Python/JS). The browser only ever sends the shape model as JSON and gets .scad back.
+// The OpenSCAD codegen is compiled in from scadgen.cpp. The browser only ever
+// sends the shape model as JSON and gets .scad back.
 //
 // Build (Haiku):    g++ -std=c++17 -O2 bridge.cpp -o schwarzseher -lnetwork
 // Build (Windows):  g++ -std=c++17 -O2 -static bridge.cpp -o schwarzseher.exe -lws2_32
@@ -9,7 +9,7 @@
 //      SCHWARZSEHER_BIND=0.0.0.0  listen on all interfaces (e.g. reachable from a VM)
 //      OPENSCAD_EXE=<path>  explicit OpenSCAD binary
 #define SCADGEN_LIB
-#include "scadgen.cpp"        // JV, Parser, buildScad, mem() ...  (the verified codegen)
+#include "scadgen.cpp"        // JV, Parser, buildScad, mem() ...
 #include "ui_assets.h"        // embedded UI (index.html/styles.css/app.js) -> single self-contained binary
 
 #include <thread>

@@ -8,6 +8,17 @@ anyone who wants a computer that stays fast and private.
 
 It runs straight from a USB stick, without touching the system already on your machine.
 
+> **SCHWARZPAUSE is based on Haiku, but it is not the official distribution from the
+> Haiku Project.** For information about the official Haiku project, please visit
+> <https://haiku-os.org>.
+>
+> **Chrizlys is not associated with the Haiku project.** To obtain support for
+> SCHWARZPAUSE, please contact
+> <https://github.com/Chrizlys/SCHWARZPAUSE/issues>.
+>
+> This software is work in progress and has missing functionality as well as many
+> (known and unknown) bugs. Use SCHWARZPAUSE at your own risk.
+
 Applications
 ------------
 
@@ -30,25 +41,26 @@ Interfaces and defaults are still changing.
 Updates
 -------
 
-**Applications update normally.** SCHWARZPAUSE ships Haiku's HaikuPorts repository, so
-anything you install from HaikuDepot — web browsers, LibreOffice, OpenSCAD and the rest —
-keeps receiving updates straight from the Haiku project. Nothing is held back.
+**Applications update from HaikuPorts.** SCHWARZPAUSE ships Haiku's HaikuPorts repository,
+so applications you install from HaikuDepot — browsers, LibreOffice, OpenSCAD and the rest —
+receive updates straight from the Haiku project.
 
-**The operating system core does not update itself.** SCHWARZPAUSE deliberately does not
-ship the Haiku package repository. The reason is straightforward: part of the SCHWARZPAUSE
-identity is compiled into the core system, so installing Haiku's own `haiku` package would
-replace it with stock Haiku — the desktop, the boot screen and the About window would all
-revert to Haiku's.
+**The operating system core is frozen.** SCHWARZPAUSE deliberately does not ship the Haiku
+core repository. Part of the SCHWARZPAUSE identity is compiled into the core system, so
+letting a package update replace the `haiku` package would swap it for stock Haiku — the
+desktop, boot screen and About window would all revert. Freezing the core keeps the identity
+intact, but means you do not receive core updates automatically; to move to a newer core,
+install a newer SCHWARZPAUSE release.
 
-What this means in practice:
-
-* You keep receiving security updates for your applications, which is where most everyday
-  risk actually lives — above all the web browser.
-* You do **not** automatically receive fixes to the OS core itself. To move to a newer
-  core, install a newer SCHWARZPAUSE release.
+**A caveat worth knowing.** HaikuPorts tracks the latest Haiku, which moves quickly, so in
+time some newer application versions will require a newer core than a given release provides.
+When that happens `pkgman` simply declines that one install or update — it does not break,
+downgrade or change your system in any way — and the application becomes available again with
+the next SCHWARZPAUSE release, which rebases onto a newer Haiku core. Because Haiku is under
+active development, the newest packages may reach this point fairly soon.
 
 If you would rather follow Haiku's own updates and accept losing the SCHWARZPAUSE
-appearance, you can add the repository back yourself at any time:
+appearance, you can add the core repository back yourself at any time:
 
     pkgman add-repo https://eu.hpkg.haiku-os.org/haiku/master/x86_64/current
     pkgman update
@@ -102,14 +114,21 @@ Windows path is many times slower, and Windows line endings (CRLF) will break th
 
     cd ~/SCHWARZPAUSE
     cp build/jam/UserBuildConfig.schwarzpause build/jam/UserBuildConfig
-    ./configure --build-cross-tools x86_64 ../buildtools
     mkdir -p generated.x86_64 && cd generated.x86_64
+    ../configure --cross-tools-source ../../buildtools --build-cross-tools x86_64
     jam -q -j$(nproc) @nightly-anyboot
 
 The first build also compiles a complete cross-compiler, so it takes a while; later builds
 are much faster. The finished image is:
 
     ~/SCHWARZPAUSE/generated.x86_64/haiku-nightly-anyboot.iso
+
+This builds the **base** system: the OS, the SCHWARZPAUSE identity, and both of its own
+applications (SCHWARZBrOT and SCHWARZSEHER). The bundled third-party applications
+(LibreOffice, GIMP, and the rest) are **not** part of this repository — they are ordinary
+HaikuDepot packages, roughly a gigabyte of binaries, that are assembled separately into the
+released image. If you just want the complete system, download the ready-made `.iso` from
+the releases page rather than building it.
 
 Copy it to Windows with, for example:
 
@@ -124,8 +143,6 @@ shows the real error.
 Write the `.iso` to a USB stick in **raw / DD mode** (on Windows, [Rufus](https://rufus.ie)
 in "DD Image" mode). Then boot from the stick — in the boot menu choose the entry that
 lists the USB stick as a **disk**, not the CD/DVD entry.
-
-For general Haiku build requirements see `ReadMe.Compiling.md`.
 
 License and attribution
 -----------------------
