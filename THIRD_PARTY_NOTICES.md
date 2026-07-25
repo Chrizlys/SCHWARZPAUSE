@@ -6,6 +6,14 @@ system and ships together with a set of third-party applications and libraries.
 This document lists those components, their licenses, and where to obtain their
 source code.
 
+> **Scope:** the bundled applications and the package list in this document are the
+> third-party software shipped **inside the downloadable release image** (the `.iso` on
+> the releases page and the landing page) — they are **not** part of the SCHWARZPAUSE
+> source repository. They are unmodified HaikuPorts binaries assembled into the image
+> when the release is built; a build from source alone produces only the base system.
+> (The base OS is Haiku, and SCHWARZPAUSE's own code lives in the repository — both are
+> covered in the first table below.)
+
 **Nothing in this list is modified by SCHWARZPAUSE.** Every bundled package is an
 unmodified binary build taken from [HaikuPorts](https://github.com/haikuports/haikuports),
 the Haiku project's own package repository. Combining these unmodified programs
@@ -13,8 +21,8 @@ into one image is *mere aggregation*: each component keeps its own license, and
 those licenses do not extend to SCHWARZPAUSE's own code.
 
 > The full, verbatim license text of **every** package below is installed inside
-> the running system at `/boot/system/data/licenses`. The tables here are a
-> human-readable index and a source-availability statement; the authoritative
+> the running system at `/boot/system/data/licenses`. The tables here are an
+> index and a source-availability statement; the authoritative
 > texts travel with the image itself.
 
 ---
