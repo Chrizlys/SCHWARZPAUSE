@@ -8,6 +8,10 @@ anyone who wants a computer that stays fast and private.
 
 It runs straight from a USB stick, without touching the system already on your machine.
 
+The name **SCHWARZPAUSE** is the German term for a *blackline print* — a technical drawing reproduced
+with black or very dark lines on a light background. It may also be classified more broadly as a
+*whiteprint*.
+
 > **SCHWARZPAUSE is based on Haiku, but it is not the official distribution from the
 > Haiku Project.** For information about the official Haiku project, please visit
 > <https://haiku-os.org>.
